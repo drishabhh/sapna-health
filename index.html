@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261007health4"></script>
+  <script src="./js/admin-auth.js?v=20261007health4b"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261007health4" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261007health4b" />
 </head>
 <body data-section="workout">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -172,7 +172,29 @@
           <summary>Add a custom food</summary>
           <div class="field-row">
             <label class="field">Name
-              <input typ  <!-- PERIODS -->
+              <input type="text" id="diet-custom-name" placeholder="e.g. Homemade sandwich" />
+            </label>
+            <label class="field">Servings
+              <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
+            </label>
+          </div>
+          <div class="field-row">
+            <label class="field">kcal / serving
+              <input type="number" id="diet-custom-kcal" min="0" step="1" />
+            </label>
+            <label class="field">Protein g / serving
+              <input type="number" id="diet-custom-protein" min="0" step="0.1" />
+            </label>
+          </div>
+          <button type="button" class="btn-diet" id="diet-add-custom">Add to plate</button>
+        </details>
+      </div>
+
+      <div class="diet-meals-wrap" id="diet-meals"></div>
+    </div>
+  </section>
+
+  <!-- PERIODS -->
   <section class="panel panel-periods" id="panel-periods" data-panel="periods">
     <div class="periods-hero">
       <p class="periods-kicker">Private calendar</p>
@@ -182,7 +204,7 @@
     <div class="panel-inner periods-inner">
       <p class="periods-banner">
         Dates sync across Sapna’s phones when you <strong>Sync dates</strong>
-        (<span>(saved as <code>data/periods.json</code>)</span>
+        <span>(saved as <code>data/periods.json</code>)</span>
       </p>
 
       <div class="periods-cal-card">
@@ -217,23 +239,6 @@
           <button type="button" class="btn-period" id="period-sync">Sync dates</button>
           <button type="button" class="btn-period-ghost" id="period-export">Export</button>
           <label class="btn-period-ghost" style="cursor:pointer">
-            Import
-            <input type="file" id="period-import" accept="application/json,.json" hidden />
-          </label>
-        </div>
-        <p class="status" id="period-status" hidden></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- LOGS --> <p class="hint">Publishes period dates to GitHub Pages (same PAT as Admin). Other phones load them automatically.</p>
-        <label class="field">GitHub PAT (repo scope)
-          <input type="password" id="period-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
-        </label>
-        <div class="actions">
-          <button type="button" class="btn-primary" id="period-sync">Sync dates</button>
-          <button type="button" class="btn-ghost" id="period-export">Export backup</button>
-          <label class="btn-ghost" style="cursor:pointer">
             Import
             <input type="file" id="period-import" accept="application/json,.json" hidden />
           </label>
@@ -353,6 +358,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261007health4"></script>
+  <script src="./js/app.js?v=20261007health4b"></script>
 </body>
 </html>
