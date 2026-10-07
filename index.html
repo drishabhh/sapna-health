@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261007health3"></script>
+  <script src="./js/admin-auth.js?v=20261007health4"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261007health3" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261007health4" />
 </head>
 <body data-section="workout">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -118,17 +118,20 @@
   </section>
 
   <!-- DIET -->
-  <section class="panel" id="panel-diet" data-panel="diet">
-    <div class="panel-inner">
-      <header class="section-head">
-        <h1>Diet</h1>
-        <p>Build meals toward your calorie &amp; protein targets. Saved on this phone.</p>
-      </header>
+  <section class="panel panel-diet" id="panel-diet" data-panel="diet">
+    <div class="diet-hero">
+      <p class="diet-kicker">Today’s plate</p>
+      <h1 class="diet-title">Diet</h1>
+      <p class="diet-lede">Fresh fuel — hit calories &amp; protein without the spreadsheet vibe.</p>
+    </div>
+    <div class="panel-inner diet-inner">
+      <div class="diet-fuel" id="diet-totals"></div>
 
-      <div class="totals" id="diet-totals"></div>
-
-      <div class="block">
-        <h2>Targets</h2>
+      <div class="diet-card diet-targets-card">
+        <div class="diet-card-head">
+          <h2>Your targets</h2>
+          <span class="diet-chip">editable</span>
+        </div>
         <div class="field-row">
           <label class="field">Calories (kcal)
             <input type="number" id="diet-target-kcal" min="800" max="5000" step="50" />
@@ -138,86 +141,92 @@
           </label>
         </div>
         <div class="actions">
-          <button type="button" class="btn-ghost" id="diet-save-targets">Save targets</button>
-          <button type="button" class="btn-ghost" id="diet-clear-day">Clear today</button>
+          <button type="button" class="btn-diet" id="diet-save-targets">Save my targets</button>
+          <button type="button" class="btn-diet-ghost" id="diet-clear-day">Clear today</button>
         </div>
         <p class="status" id="diet-status" hidden></p>
       </div>
 
-      <div class="block">
-        <h2>Add food</h2>
-        <label class="field">Meal
-          <select id="diet-meal">
-            <option value="breakfast">Breakfast</option>
-            <option value="lunch">Lunch</option>
-            <option value="dinner">Dinner</option>
-            <option value="snacks">Snacks</option>
-          </select>
-        </label>
+      <div class="diet-card diet-add-card">
+        <div class="diet-card-head">
+          <h2>Add to plate</h2>
+        </div>
+        <p class="diet-label">Meal</p>
+        <div class="meal-chips" id="diet-meal-chips" role="group" aria-label="Meal">
+          <button type="button" class="meal-chip is-active" data-meal="breakfast">Breakfast</button>
+          <button type="button" class="meal-chip" data-meal="lunch">Lunch</button>
+          <button type="button" class="meal-chip" data-meal="dinner">Dinner</button>
+          <button type="button" class="meal-chip" data-meal="snacks">Snacks</button>
+        </div>
+        <select id="diet-meal" hidden>
+          <option value="breakfast" selected>Breakfast</option>
+          <option value="lunch">Lunch</option>
+          <option value="dinner">Dinner</option>
+          <option value="snacks">Snacks</option>
+        </select>
         <label class="field">Search foods
           <input type="search" id="diet-search" placeholder="roti, dal, paneer…" enterkeyhint="search" />
         </label>
         <div class="food-pick" id="diet-food-pick"></div>
-        <p class="hint">Or add a custom food:</p>
-        <div class="field-row">
-          <label class="field">Name
-            <input type="text" id="diet-custom-name" placeholder="e.g. Homemade sandwich" />
-          </label>
-          <label class="field">Servings
-            <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
-          </label>
+        <details class="diet-custom">
+          <summary>Add a custom food</summary>
+          <div class="field-row">
+            <label class="field">Name
+              <input typ  <!-- PERIODS -->
+  <section class="panel panel-periods" id="panel-periods" data-panel="periods">
+    <div class="periods-hero">
+      <p class="periods-kicker">Private calendar</p>
+      <h1 class="periods-title">Periods</h1>
+      <p class="periods-lede">A calm space for cycle dates — soft, simple, yours.</p>
+    </div>
+    <div class="panel-inner periods-inner">
+      <p class="periods-banner">
+        Dates sync across Sapna’s phones when you <strong>Sync dates</strong>
+        (<span>(saved as <code>data/periods.json</code>)</span>
+      </p>
+
+      <div class="periods-cal-card">
+        <div class="cal-head">
+          <button type="button" class="btn-period-nav" id="period-prev" aria-label="Previous month">‹</button>
+          <h2 id="period-month-label">Month</h2>
+          <button type="button" class="btn-period-nav" id="period-next" aria-label="Next month">›</button>
         </div>
-        <div class="field-row">
-          <label class="field">kcal / serving
-            <input type="number" id="diet-custom-kcal" min="0" step="1" />
-          </label>
-          <label class="field">Protein g / serving
-            <input type="number" id="diet-custom-protein" min="0" step="0.1" />
-          </label>
-        </div>
-        <button type="button" class="btn-primary jade" id="diet-add-custom">Add custom food</button>
+        <div class="cal-grid" id="period-cal"></div>
+        <div class="stat-row" id="period-stats"></div>
       </div>
 
-      <div class="block" id="diet-meals"></div>
+      <div class="periods-note-card">
+        <h2>This day</h2>
+        <p class="hint" id="period-selected-label">Tap a day to mark period or add a short note.</p>
+        <label class="field">Gentle notes
+          <textarea id="period-note" rows="3" placeholder="Optional — how you’re feeling…"></textarea>
+        </label>
+        <div class="actions">
+          <button type="button" class="btn-period" id="period-toggle">Mark period day</button>
+          <button type="button" class="btn-period-ghost" id="period-save-note">Save note</button>
+        </div>
+      </div>
+
+      <div class="periods-sync-card">
+        <h2>Sync dates</h2>
+        <p class="hint">Publish the calendar to GitHub Pages so every device stays in sync.</p>
+        <label class="field">GitHub PAT (repo scope)
+          <input type="password" id="period-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
+        </label>
+        <div class="actions">
+          <button type="button" class="btn-period" id="period-sync">Sync dates</button>
+          <button type="button" class="btn-period-ghost" id="period-export">Export</button>
+          <label class="btn-period-ghost" style="cursor:pointer">
+            Import
+            <input type="file" id="period-import" accept="application/json,.json" hidden />
+          </label>
+        </div>
+        <p class="status" id="period-status" hidden></p>
+      </div>
     </div>
   </section>
 
-  <!-- PERIODS -->
-  <section class="panel" id="panel-periods" data-panel="periods">
-    <div class="panel-inner">
-      <header class="section-head">
-        <h1>Periods</h1>
-        <p>Mark cycle days and optional notes. Estimates improve with more logs.</p>
-      </header>
-      <p class="privacy-banner">
-        Period <strong>dates</strong> (and optional short notes) can sync across Sapna’s devices via
-        <code>data/periods.json</code> when you tap <strong>Sync dates</strong>. Dates-only wellness calendar — keep notes brief.
-      </p>
-
-      <div class="cal-head">
-        <button type="button" class="btn-ghost" id="period-prev" aria-label="Previous month">‹</button>
-        <h2 id="period-month-label">Month</h2>
-        <button type="button" class="btn-ghost" id="period-next" aria-label="Next month">›</button>
-      </div>
-      <div class="cal-grid" id="period-cal"></div>
-
-      <div class="stat-row" id="period-stats"></div>
-
-      <div class="block">
-        <h2>Day note</h2>
-        <p class="hint" id="period-selected-label">Tap a day to mark period or add a short note.</p>
-        <label class="field">Symptoms / notes
-          <textarea id="period-note" rows="3" placeholder="Optional — cramps, flow, mood…"></textarea>
-        </label>
-        <div class="actions">
-          <button type="button" class="btn-primary" id="period-toggle">Mark as period day</button>
-          <button type="button" class="btn-ghost" id="period-save-note">Save note</button>
-        </div>
-      </div>
-
-      <div class="block">
-        <h2>Sync across devices</h2>
-        <p class="hint">Publishes period dates to GitHub Pages (same PAT as Admin). Other phones load them automatically.</p>
+  <!-- LOGS --> <p class="hint">Publishes period dates to GitHub Pages (same PAT as Admin). Other phones load them automatically.</p>
         <label class="field">GitHub PAT (repo scope)
           <input type="password" id="period-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
         </label>
@@ -344,6 +353,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261007health3"></script>
+  <script src="./js/app.js?v=20261007health4"></script>
 </body>
 </html>

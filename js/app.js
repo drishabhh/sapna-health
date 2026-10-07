@@ -339,7 +339,7 @@
         const kcalCls = tot.kcal > t.kcal ? "is-over" : "is-ok";
         const proCls = tot.protein >= t.protein * 0.9 ? "is-ok" : "";
         totalsRoot.innerHTML = `
-          <div class="total-card ${kcalCls}"><strong>${tot.kcal}</strong><span>of ${t.kcal} kcal</span></div>
+          <div class="total-card ${kcalCls}"><strong>${tot.kcal}</strong><span>of ${t.kcal} kcal today</span></div>
           <div class="total-card ${proCls}"><strong>${tot.protein}g</strong><span>of ${t.protein}g protein</span></div>`;
       }
 
@@ -362,7 +362,7 @@
                   </li>`;
                   })
                   .join("")
-              : `<li><span class="meta">Nothing logged yet</span></li>`;
+              : `<li><span class="meta">Plate is empty — add something above</span></li>`;
             return `<div class="meal-slot"><h3>${labels[slot]}</h3><ul class="food-list">${lis}</ul></div>`;
           })
           .join("");
@@ -371,6 +371,16 @@
     }
 
     function wire() {
+      $("diet-meal-chips")?.addEventListener("click", (e) => {
+        const chip = e.target.closest("[data-meal]");
+        if (!chip) return;
+        const meal = chip.getAttribute("data-meal");
+        const sel = $("diet-meal");
+        if (sel) sel.value = meal;
+        $("diet-meal-chips").querySelectorAll(".meal-chip").forEach((c) => {
+          c.classList.toggle("is-active", c === chip);
+        });
+      });
       $("diet-search")?.addEventListener("input", (e) => renderFoodPick(e.target.value));
       $("diet-food-pick")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-food-id]");

@@ -834,3 +834,472 @@ body.modal-open { overflow: hidden; }
   margin-left: 0.35rem;
   vertical-align: middle;
 }
+
+/* ============================================================
+   DIET — fresh plate world (sage / soft butter / herb)
+   ============================================================ */
+body[data-section="diet"] {
+  --accent: #2f8f55;
+  --accent-soft: #1f6f40;
+  --accent-muted: rgba(47, 143, 85, 0.14);
+  --accent-line: rgba(47, 143, 85, 0.35);
+}
+
+body[data-section="diet"] .atmosphere {
+  background:
+    radial-gradient(ellipse 80% 55% at 0% 0%, rgba(120, 190, 110, 0.35), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 15%, rgba(255, 236, 170, 0.45), transparent 50%),
+    linear-gradient(165deg, #f4fbe8 0%, #e8f5d8 40%, #dff0cf 100%);
+}
+
+.panel-diet .topbar-brand { /* inherited */ }
+
+.diet-hero {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 1.35rem 1.15rem 0.35rem;
+  position: relative;
+}
+
+.diet-hero::before {
+  content: "";
+  position: absolute;
+  right: -10%;
+  top: -20%;
+  width: 55%;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 220, 120, 0.35), transparent 70%);
+  pointer-events: none;
+}
+
+.diet-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #3a8f4a;
+}
+
+.diet-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 10vw, 3.2rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #1a4d28;
+  line-height: 0.95;
+}
+
+.diet-lede {
+  margin: 0;
+  max-width: 28ch;
+  color: rgba(26, 77, 40, 0.72);
+  font-size: 1.02rem;
+}
+
+.diet-inner { padding-top: 1rem; }
+
+.diet-fuel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+
+.diet-fuel .total-card {
+  border: none;
+  border-radius: 22px;
+  padding: 1.05rem 1rem 1rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(232, 245, 216, 0.9));
+  box-shadow: 0 12px 28px rgba(40, 90, 40, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.diet-fuel .total-card::after {
+  content: "";
+  position: absolute;
+  right: -12px;
+  bottom: -16px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(80, 170, 90, 0.12);
+}
+
+.diet-fuel .total-card strong {
+  font-size: 1.85rem;
+  color: #1f6f40;
+}
+
+.diet-fuel .total-card span {
+  color: rgba(26, 77, 40, 0.55);
+  font-weight: 600;
+}
+
+.diet-fuel .total-card.is-over strong { color: #c45a4a; }
+
+.diet-card {
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.05rem 1.15rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(80, 150, 70, 0.18);
+  box-shadow: 0 10px 30px rgba(40, 90, 40, 0.07);
+}
+
+.diet-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.diet-card h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: #1f6f40;
+}
+
+.diet-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 220, 120, 0.45);
+  color: #6a5210;
+}
+
+.diet-label {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(26, 77, 40, 0.5);
+}
+
+.meal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.meal-chip {
+  appearance: none;
+  border: 1px solid rgba(80, 150, 70, 0.25);
+  border-radius: 999px;
+  min-height: 38px;
+  padding: 0.35rem 0.85rem;
+  background: rgba(244, 251, 232, 0.9);
+  color: #1f6f40;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meal-chip.is-active {
+  background: #2f8f55;
+  border-color: #2f8f55;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(47, 143, 85, 0.28);
+}
+
+.btn-diet,
+.btn-diet-ghost {
+  appearance: none;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0.65rem 1.15rem;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-diet {
+  border: none;
+  background: linear-gradient(135deg, #3aa65f, #2f8f55);
+  color: #fff;
+  box-shadow: 0 10px 22px rgba(47, 143, 85, 0.28);
+}
+
+.btn-diet-ghost {
+  border: 1px solid rgba(80, 150, 70, 0.3);
+  background: transparent;
+  color: #1f6f40;
+}
+
+.panel-diet .field { color: rgba(26, 77, 40, 0.55); }
+.panel-diet .field input,
+.panel-diet .field select,
+.panel-diet .field textarea {
+  background: #f7fbf2;
+  border-color: rgba(80, 150, 70, 0.22);
+  color: #142421;
+}
+
+.panel-diet .food-pick button {
+  border-radius: 16px;
+  border-color: rgba(80, 150, 70, 0.18);
+  background: linear-gradient(180deg, #fff, #f3fae8);
+  color: #142421;
+}
+
+.panel-diet .food-pick button em { color: rgba(26, 77, 40, 0.55); }
+
+.diet-custom {
+  margin-top: 0.75rem;
+  border-top: 1px dashed rgba(80, 150, 70, 0.25);
+  padding-top: 0.65rem;
+}
+
+.diet-custom summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #1f6f40;
+  margin-bottom: 0.65rem;
+}
+
+.diet-meals-wrap .meal-slot {
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(80, 150, 70, 0.14);
+}
+
+.diet-meals-wrap .meal-slot h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  color: #1f6f40;
+  font-size: 1.05rem;
+}
+
+.panel-diet .food-list li { border-bottom-color: rgba(80, 150, 70, 0.12); }
+.panel-diet .food-list .meta { color: rgba(26, 77, 40, 0.5); }
+
+/* ============================================================
+   PERIODS — soft blush / calm private world
+   ============================================================ */
+body[data-section="periods"] {
+  --accent: #c46b88;
+  --accent-soft: #a3526f;
+  --accent-muted: rgba(196, 107, 136, 0.14);
+  --accent-line: rgba(196, 107, 136, 0.35);
+}
+
+body[data-section="periods"] .atmosphere {
+  background:
+    radial-gradient(ellipse 85% 50% at 90% -5%, rgba(255, 190, 205, 0.55), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 0% 30%, rgba(255, 220, 230, 0.55), transparent 50%),
+    linear-gradient(175deg, #fff5f7 0%, #fce8ef 42%, #f3dde8 100%);
+}
+
+.periods-hero {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 1.35rem 1.15rem 0.25rem;
+  position: relative;
+}
+
+.periods-hero::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  bottom: -30px;
+  width: 90px;
+  height: 90px;
+  border-radius: 40% 60% 55% 45%;
+  background: rgba(255, 180, 200, 0.28);
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+.periods-kicker {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #b05a78;
+}
+
+.periods-title {
+  margin: 0 0 0.4rem;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 11vw, 3.4rem);
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: -0.03em;
+  color: #7a3a52;
+  line-height: 0.95;
+}
+
+.periods-lede {
+  margin: 0;
+  max-width: 28ch;
+  color: rgba(122, 58, 82, 0.72);
+  font-size: 1.02rem;
+}
+
+.periods-inner { padding-top: 1rem; }
+
+.periods-banner {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(196, 107, 136, 0.22);
+  color: #7a3a52;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  backdrop-filter: blur(6px);
+}
+
+.periods-banner span {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: rgba(122, 58, 82, 0.55);
+}
+
+.periods-cal-card,
+.periods-note-card,
+.periods-sync-card {
+  margin-bottom: 1rem;
+  padding: 1.1rem 1rem 1.15rem;
+  border-radius: 28px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.88), rgba(255, 232, 240, 0.75));
+  border: 1px solid rgba(196, 107, 136, 0.18);
+  box-shadow: 0 14px 36px rgba(140, 70, 95, 0.1);
+}
+
+.periods-cal-card h2,
+.periods-note-card h2,
+.periods-sync-card h2,
+.panel-periods .cal-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-style: italic;
+  color: #8a4060;
+}
+
+.panel-periods .cal-head {
+  margin-bottom: 0.85rem;
+}
+
+.btn-period-nav {
+  appearance: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid rgba(196, 107, 136, 0.28);
+  background: rgba(255, 255, 255, 0.75);
+  color: #8a4060;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+.panel-periods .cal-dow {
+  color: rgba(122, 58, 82, 0.4);
+}
+
+.panel-periods .cal-day {
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  color: #5c3044;
+  box-shadow: none;
+  border: 1px solid transparent;
+}
+
+.panel-periods .cal-day.is-today {
+  border-color: #c46b88;
+  box-shadow: 0 0 0 2px rgba(196, 107, 136, 0.15);
+}
+
+.panel-periods .cal-day.is-period {
+  background: linear-gradient(145deg, #e8a0b4, #d47a96);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 700;
+}
+
+.panel-periods .cal-day.is-predicted {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed rgba(196, 107, 136, 0.45);
+  color: #8a4060;
+}
+
+.panel-periods .stat {
+  border: none;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.panel-periods .stat label {
+  color: rgba(122, 58, 82, 0.5);
+}
+
+.panel-periods .stat strong {
+  color: #7a3a52;
+}
+
+.btn-period,
+.btn-period-ghost {
+  appearance: none;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 0.65rem 1.15rem;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-period {
+  border: none;
+  background: linear-gradient(135deg, #d4849e, #c46b88);
+  color: #fff;
+  box-shadow: 0 10px 24px rgba(196, 107, 136, 0.3);
+}
+
+.btn-period-ghost {
+  border: 1px solid rgba(196, 107, 136, 0.3);
+  background: rgba(255, 255, 255, 0.55);
+  color: #8a4060;
+}
+
+.panel-periods .field { color: rgba(122, 58, 82, 0.55); }
+.panel-periods .field input,
+.panel-periods .field textarea {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(196, 107, 136, 0.22);
+  color: #3a2030;
+  border-radius: 16px;
+}
+
+.panel-periods .hint { color: rgba(122, 58, 82, 0.58); }
+
+.periods-sync-card {
+  background:
+    linear-gradient(145deg, rgba(255, 245, 248, 0.95), rgba(255, 220, 230, 0.65));
+}
