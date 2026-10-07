@@ -77,7 +77,9 @@
     if (location.hash.replace(/^#/, "") !== id) {
       history.replaceState(null, "", "#" + id);
     }
+    document.body.dataset.section = id;
     window.scrollTo(0, 0);
+    if (id === "workout") Workout.render();
     if (id === "diet") Diet.render();
     if (id === "periods") Periods.render();
     if (id === "logs") Weights.render();
@@ -95,27 +97,130 @@
     });
   }
 
-  /* ───────── Workout preview ───────── */
-  async function loadWorkoutPreview() {
-    const box = $("workout-preview");
-    const list = $("workout-preview-list");
-    if (!box || !list) return;
-    try {
-      const res = await fetch(WORKOUT_PLAN_URL + "?t=" + Date.now(), { cache: "no-store" });
-      if (!res.ok) throw new Error("no plan");
-      const plan = await res.json();
-      const moves = (plan.sections || []).flatMap((s) => s.moves || []);
-      if (!moves.length) return;
-      list.innerHTML = moves
-        .slice(0, 6)
-        .map((m) => `<li>${escapeHtml(m.name)}${m.rx ? ` — ${escapeHtml(m.rx)}` : ""}</li>`)
-        .join("");
-      box.hidden = false;
-      Weights.suggestFromMoves(moves.map((m) => m.name).filter(Boolean));
-    } catch {
-      /* optional */
+  /* ───────── Workout + inline logs ───────── */
+  const Workout = (() => {
+    let plan = null;
+    let loaded = false;
+
+    function sectionKind(section) {
+      if (section?.kind === "stretch" || section?.id === "stretching") return "stretch";
+      return "main";
     }
-  }
+
+    function movesByKind() {
+      const stretch = [];
+      const main = [];
+      (plan?.sections || []).forEach((sec) => {
+        const kind = sectionKind(sec);
+        (sec.moves || []).forEach((m) => {
+          const row = { ...m, kind: m.kind === "stretch" ? "stretch" : kind };
+          if (row.kind === "stretch") stretch.push(row);
+          else main.push(row);
+        });
+      });
+      return { stretch, main };
+    }
+
+    function lastLogLine(name) {
+      const last = Weights.lastFor(name);
+      if (!last) return "No weight logged yet";
+      return `Last: ${last.weight} kg · ${last.date}${last.rx ? " · " + last.rx : ""}`;
+    }
+
+    function cardHtml(move) {
+      const name = move.name || "Move";
+      return `<article class="move-log-card" data-move="${escapeHtml(name)}" data-kind="${escapeHtml(move.kind)}">
+        <p class="move-title">${escapeHtml(name)}</p>
+        <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
+        <p class="last-log">${escapeHtml(lastLogLine(name))}</p>
+        <div class="move-log-row">
+          <label>kg
+            <input type="number" inputmode="decimal" min="0" step="0.5" data-w-kg placeholder="0" />
+          </label>
+          <label>Sets × reps
+            <input type="text" data-w-rx placeholder="${escapeHtml(move.rx || "3 × 10")}" />
+          </label>
+          <button type="button" class="btn-primary" data-w-log>Log</button>
+        </div>
+      </article>`;
+    }
+
+    function render() {
+      const root = $("workout-groups");
+      const status = $("workout-plan-status");
+      if (!root) return;
+      if (!loaded) {
+        if (status) status.textContent = "Loading today’s plan…";
+        return;
+      }
+      if (!plan) {
+        if (status) status.textContent = "Couldn’t load today’s plan — open the full workout site, or log from Logs.";
+        root.innerHTML = "";
+        return;
+      }
+      const { stretch, main } = movesByKind();
+      if (status) {
+        status.textContent = plan.headline
+          ? `${plan.headline} — log weights under each move (saved on this phone).`
+          : "Log weights under each move (saved on this phone).";
+      }
+      let html = "";
+      if (stretch.length) {
+        html += `<div class="move-group"><h2>Stretching</h2>${stretch.map(cardHtml).join("")}</div>`;
+      }
+      if (main.length) {
+        html += `<div class="move-group"><h2>Exercise</h2>${main.map(cardHtml).join("")}</div>`;
+      }
+      if (!html) html = `<p class="hint">No moves in today’s plan.</p>`;
+      root.innerHTML = html;
+    }
+
+    function wire() {
+      $("workout-groups")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-w-log]");
+        if (!btn) return;
+        const card = btn.closest(".move-log-card");
+        if (!card) return;
+        const name = card.getAttribute("data-move");
+        const kind = card.getAttribute("data-kind") || "main";
+        const kg = Number(card.querySelector("[data-w-kg]")?.value);
+        const rx = card.querySelector("[data-w-rx]")?.value.trim() || "";
+        if (!Number.isFinite(kg)) {
+          const st = $("workout-plan-status");
+          if (st) st.textContent = "Enter a weight in kg.";
+          return;
+        }
+        Weights.addEntry({ exercise: name, weight: kg, rx, kind, date: todayISO() });
+        card.querySelector("[data-w-kg]").value = "";
+        render();
+        const st = $("workout-plan-status");
+        if (st) {
+          st.textContent = `Logged ${kg} kg for ${name}.`;
+          st.className = "hint";
+        }
+      });
+    }
+
+    // fix unused - remove statusHint
+    async function init() {
+      wire();
+      try {
+        const res = await fetch(WORKOUT_PLAN_URL + "?t=" + Date.now(), { cache: "no-store" });
+        if (!res.ok) throw new Error("no plan");
+        plan = await res.json();
+        const { stretch, main } = movesByKind();
+        Weights.suggestFromMoves(
+          [...stretch, ...main].map((m) => ({ name: m.name, kind: m.kind })),
+        );
+      } catch {
+        plan = null;
+      }
+      loaded = true;
+      render();
+    }
+
+    return { init, render };
+  })();
 
   function escapeHtml(s) {
     return String(s)
@@ -531,38 +636,86 @@
   /* ───────── Weight logs ───────── */
   const Weights = (() => {
     let state = loadJSON(LS.weights, { entries: [] });
-    let suggestions = [
-      "Chest press",
-      "Shoulder press",
-      "Lat pull down",
-      "Seated Cable Row",
-      "Dumbbell squats",
-      "Dumbbell Goblet Squat",
-    ];
+    /** @type {{name:string, kind:string}[]} */
+    let suggestions = [];
+    let tab = "all"; // all | stretch | main
 
     function persist() {
       saveJSON(LS.weights, state);
     }
 
-    function suggestFromMoves(names) {
-      suggestions = [...new Set([...names, ...suggestions])];
+    function inferKind(name, explicit) {
+      if (explicit === "stretch" || explicit === "main") return explicit;
+      const hit = suggestions.find((s) => s.name === name);
+      if (hit) return hit.kind;
+      const lower = String(name || "").toLowerCase();
+      if (/stretch|circle|swing|rotation|mobility/.test(lower)) return "stretch";
+      return "main";
+    }
+
+    function suggestFromMoves(items) {
+      // items: string[] or {name, kind}[]
+      const norm = (items || []).map((x) =>
+        typeof x === "string" ? { name: x, kind: "main" } : { name: x.name, kind: x.kind || "main" }
+      );
+      const map = new Map(suggestions.map((s) => [s.name, s]));
+      norm.forEach((s) => {
+        if (s.name) map.set(s.name, s);
+      });
+      state.entries.forEach((e) => {
+        if (e.exercise && !map.has(e.exercise)) {
+          map.set(e.exercise, { name: e.exercise, kind: e.kind || "main" });
+        }
+      });
+      suggestions = [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
       fillDatalist();
     }
 
     function fillDatalist() {
       const dl = $("log-exercise-list");
       if (!dl) return;
-      const fromLogs = state.entries.map((e) => e.exercise);
-      const all = [...new Set([...suggestions, ...fromLogs])].filter(Boolean).sort();
-      dl.innerHTML = all.map((n) => `<option value="${escapeHtml(n)}"></option>`).join("");
+      const kindSel = $("log-kind")?.value;
+      let list = suggestions;
+      if (kindSel === "stretch" || kindSel === "main") {
+        list = suggestions.filter((s) => s.kind === kindSel);
+      }
+      dl.innerHTML = list.map((s) => `<option value="${escapeHtml(s.name)}"></option>`).join("");
     }
 
-    function byExercise() {
+    function lastFor(name) {
+      const arr = state.entries.filter((e) => e.exercise === name).sort((a, b) => a.date.localeCompare(b.date));
+      return arr[arr.length - 1] || null;
+    }
+
+    function addEntry({ exercise, weight, rx = "", note = "", kind, date }) {
+      state.entries.push({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        exercise,
+        weight: Number(weight),
+        date: date || todayISO(),
+        rx,
+        note,
+        kind: inferKind(exercise, kind),
+      });
+      persist();
+      if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+    }
+
+    function filteredEntries() {
+      let entries = [...state.entries];
+      if (tab === "stretch" || tab === "main") {
+        entries = entries.filter((e) => (e.kind || inferKind(e.exercise)) === tab);
+      }
+      const selected = $("log-filter")?.value || "";
+      if (selected) entries = entries.filter((e) => e.exercise === selected);
+      return entries.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    }
+
+    function byExercise(entries) {
       const map = new Map();
-      state.entries.forEach((e) => {
-        const k = e.exercise;
-        if (!map.has(k)) map.set(k, []);
-        map.get(k).push(e);
+      entries.forEach((e) => {
+        if (!map.has(e.exercise)) map.set(e.exercise, []);
+        map.get(e.exercise).push(e);
       });
       map.forEach((arr) => arr.sort((a, b) => a.date.localeCompare(b.date)));
       return map;
@@ -572,25 +725,30 @@
       fillDatalist();
       if ($("log-date") && !$("log-date").value) $("log-date").value = todayISO();
 
+      document.querySelectorAll("[data-log-tab]").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-log-tab") === tab);
+      });
+
+      const pool =
+        tab === "all"
+          ? state.entries
+          : state.entries.filter((e) => (e.kind || inferKind(e.exercise)) === tab);
+      const names = [...new Set(pool.map((e) => e.exercise))].sort();
       const filter = $("log-filter");
-      const map = byExercise();
       if (filter) {
         const cur = filter.value;
         filter.innerHTML =
-          `<option value="">All</option>` +
-          [...map.keys()]
-            .sort()
-            .map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`)
-            .join("");
-        if ([...map.keys()].includes(cur)) filter.value = cur;
+          `<option value="">All moves</option>` +
+          names.map((n) => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join("");
+        if (names.includes(cur)) filter.value = cur;
       }
 
-      const selected = filter?.value || "";
+      const map = byExercise(pool.filter((e) => !$("log-filter")?.value || e.exercise === $("log-filter").value));
       const progress = $("log-progress");
       if (progress) {
-        const keys = selected ? [selected] : [...map.keys()].sort();
+        const keys = [...map.keys()].sort();
         if (!keys.length) {
-          progress.innerHTML = `<p class="hint">No logs yet — add your first weight above.</p>`;
+          progress.innerHTML = `<p class="hint">No logs in this group yet — log from Workout under Stretching / Exercise.</p>`;
         } else {
           progress.innerHTML = keys
             .map((name) => {
@@ -598,9 +756,10 @@
               const first = arr[0]?.weight ?? 0;
               const last = arr[arr.length - 1]?.weight ?? 0;
               const delta = Math.round((last - first) * 10) / 10;
+              const kind = arr[arr.length - 1]?.kind || inferKind(name);
               const pct = first > 0 ? Math.min(100, Math.max(8, (last / (first * 1.5)) * 100)) : 40;
               return `<div class="log-entry">
-                <strong>${escapeHtml(name)}</strong>
+                <strong>${escapeHtml(name)}<span class="kind-chip">${kind === "stretch" ? "Stretch" : "Exercise"}</span></strong>
                 <div class="meta">${arr.length} logs · ${first} → ${last} kg ${
                   delta > 0 ? `(+${delta})` : delta < 0 ? `(${delta})` : ""
                 }</div>
@@ -613,45 +772,53 @@
 
       const history = $("log-history");
       if (history) {
-        let entries = [...state.entries].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
-        if (selected) entries = entries.filter((e) => e.exercise === selected);
+        const entries = filteredEntries();
         history.innerHTML = entries.length
           ? `<ul class="food-list">${entries
-              .slice(0, 40)
-              .map(
-                (e) => `<li>
+              .slice(0, 50)
+              .map((e) => {
+                const kind = e.kind || inferKind(e.exercise);
+                return `<li>
                 <div>
-                  <div><strong style="font-weight:600">${escapeHtml(e.exercise)}</strong> · ${e.weight} kg</div>
+                  <div><strong style="font-weight:600">${escapeHtml(e.exercise)}</strong>
+                    <span class="kind-chip">${kind === "stretch" ? "Stretch" : "Exercise"}</span>
+                    · ${e.weight} kg</div>
                   <div class="meta">${escapeHtml(e.date)}${e.rx ? " · " + escapeHtml(e.rx) : ""}${
                     e.note ? " · " + escapeHtml(e.note) : ""
                   }</div>
                 </div>
                 <button type="button" data-del-log="${e.id}" aria-label="Delete">✕</button>
-              </li>`
-              )
+              </li>`;
+              })
               .join("")}</ul>`
-          : `<p class="hint">No history yet.</p>`;
+          : `<p class="hint">No history in this group.</p>`;
       }
     }
 
     function wire() {
+      document.querySelectorAll("[data-log-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          tab = btn.getAttribute("data-log-tab") || "all";
+          render();
+        });
+      });
+      $("log-kind")?.addEventListener("change", fillDatalist);
       $("log-add")?.addEventListener("click", () => {
         const exercise = $("log-exercise")?.value.trim();
         const weight = Number($("log-weight")?.value);
         const date = $("log-date")?.value || todayISO();
         if (!exercise || !Number.isFinite(weight)) {
-          setStatus($("log-status"), "Exercise and weight required.", "error");
+          setStatus($("log-status"), "Move and weight required.", "error");
           return;
         }
-        state.entries.push({
-          id: Date.now(),
+        addEntry({
           exercise,
           weight,
           date,
           rx: $("log-rx")?.value.trim() || "",
           note: $("log-note")?.value.trim() || "",
+          kind: $("log-kind")?.value || "main",
         });
-        persist();
         $("log-weight").value = "";
         $("log-rx").value = "";
         $("log-note").value = "";
@@ -666,6 +833,7 @@
         state.entries = state.entries.filter((x) => x.id !== id);
         persist();
         render();
+        Workout.render();
       });
       $("log-export")?.addEventListener("click", () => {
         downloadJSON(`sapna-weight-logs-${todayISO()}.json`, {
@@ -684,6 +852,7 @@
           state = { entries: data.entries };
           persist();
           render();
+          Workout.render();
           setStatus($("log-status"), "Import complete.", "ok");
         } catch {
           setStatus($("log-status"), "Could not import.", "error");
@@ -693,11 +862,17 @@
     }
 
     function init() {
+      // migrate missing kind
+      state.entries = (state.entries || []).map((e) => ({
+        ...e,
+        kind: e.kind || inferKind(e.exercise),
+      }));
+      persist();
       wire();
       render();
     }
 
-    return { init, render, suggestFromMoves };
+    return { init, render, suggestFromMoves, addEntry, lastFor };
   })();
 
   /* ───────── Admin publish diet defaults ───────── */
@@ -791,11 +966,11 @@
   async function init() {
     wireNav();
     wireAdmin();
+    Weights.init();
     await Diet.init();
     Periods.init();
-    Weights.init();
+    await Workout.init();
     showPanel(location.hash.replace(/^#/, "") || "workout");
-    loadWorkoutPreview();
   }
 
   init();

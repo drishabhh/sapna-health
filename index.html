@@ -80,13 +80,13 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261007health1"></script>
+  <script src="./js/admin-auth.js?v=20261007health2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261007health1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261007health2" />
 </head>
-<body>
+<body data-section="workout">
   <div class="atmosphere" aria-hidden="true"></div>
 
   <header class="topbar">
@@ -102,18 +102,18 @@
 
   <!-- WORKOUT -->
   <section class="panel is-active" id="panel-workout" data-panel="workout">
-    <div class="hero">
+    <div class="hero workout-hero-compact">
       <p class="brand">Sapna</p>
-      <h1 class="headline">Health &amp; gym</h1>
-      <p class="support">Diet, private cycle tracking, weight logs — and today’s workout next door.</p>
+      <h1 class="headline">Today’s workout</h1>
+      <p class="support">Stretching &amp; exercise from her gym plan — log weights right here.</p>
       <div class="cta-row">
-        <a class="btn-primary" href="https://drishabhh.github.io/sapna-workout/" target="_blank" rel="noopener">Open today’s workout</a>
-        <a class="btn-ghost" href="#diet">Go to Diet</a>
+        <a class="btn-primary" href="https://drishabhh.github.io/sapna-workout/" target="_blank" rel="noopener">Open full workout (GIFs)</a>
+        <a class="btn-ghost" href="#logs">All logs</a>
       </div>
-      <div class="workout-preview" id="workout-preview" hidden>
-        <h2>From today’s plan</h2>
-        <ul id="workout-preview-list"></ul>
-      </div>
+    </div>
+    <div class="workout-shell">
+      <p class="hint" id="workout-plan-status">Loading today’s plan…</p>
+      <div id="workout-groups"></div>
     </div>
   </section>
 
@@ -235,12 +235,24 @@
     <div class="panel-inner">
       <header class="section-head">
         <h1>Weight logs</h1>
-        <p>Track gym weights over time. Saved on this phone; export anytime.</p>
+        <p>Progress for Stretching &amp; Exercise — saved on this phone.</p>
       </header>
+
+      <div class="logs-tabs" role="tablist">
+        <button type="button" class="is-active" data-log-tab="all">All</button>
+        <button type="button" data-log-tab="stretch">Stretching</button>
+        <button type="button" data-log-tab="main">Exercise</button>
+      </div>
 
       <div class="block">
         <h2>Log a set</h2>
-        <label class="field">Exercise
+        <label class="field">Type
+          <select id="log-kind">
+            <option value="main">Exercise</option>
+            <option value="stretch">Stretching</option>
+          </select>
+        </label>
+        <label class="field">Move
           <input type="text" id="log-exercise" list="log-exercise-list" placeholder="e.g. Chest press" />
           <datalist id="log-exercise-list"></datalist>
         </label>
@@ -338,6 +350,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261007health1"></script>
+  <script src="./js/app.js?v=20261007health2"></script>
 </body>
 </html>
