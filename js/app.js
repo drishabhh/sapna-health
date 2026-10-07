@@ -5,6 +5,8 @@
     periods: "sapna_health_periods_v1",
     weights: "sapna_health_weights_v1",
     token: "sapna_gh_token",
+    googleKey: "sapna_google_cse_key",
+    googleCx: "sapna_google_cse_cx",
   };
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
@@ -384,10 +386,11 @@
 
   /* ───────── Diet ───────── */
   const Diet = (() => {
-    const OFF_SEARCH_URL = "https://world.openfoodfacts.org/cgi/search.pl";
-    const OFF_DEBOUNCE_MS = 350;
-    const OFF_MIN_CHARS = 2;
-    const OFF_PAGE_SIZE = 20;
+    const GSEARCH_URL = "https://www.googleapis.com/customsearch/v1";
+    const G_DEBOUNCE_MS = 400;
+    const G_MIN_CHARS = 2;
+    const SETUP_CSE = "https://programmablesearchengine.google.com/controlpanel/create";
+    const SETUP_KEY = "https://developers.google.com/custom-search/v1/introduction";
 
     const emptyDay = () => ({
       date: todayISO(),
@@ -399,14 +402,16 @@
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
     let state = loadJSON(LS.diet, { targets: null, day: emptyDay(), customFoods: [] });
-    /** @type {Map<string, {id:string,name:string,kcal:number,protein:number,tags:string[],unitNote?:string}>} */
-    const offFoods = new Map();
-    let offResults = [];
-    let offStatus = ""; // "" | loading | ok | empty | error
-    let offTimer = null;
-    let offAbort = null;
-    let offReqSeq = 0;
-    let lastOffQuery = "";
+    /** @type {Map<string, object>} */
+    const googleItems = new Map();
+    let googleResults = [];
+    let googleStatus = ""; // "" | needkeys | loading | ok | empty | error
+    let googleError = "";
+    let gTimer = null;
+    let gAbort = null;
+    let gReqSeq = 0;
+    let lastGQuery = "";
+    let pendingGoogle = null;
 
     function ensureDay() {
       if (!state.day || state.day.date !== todayISO()) {
@@ -428,7 +433,33 @@
     }
 
     function findFood(id) {
-      return allFoods().find((f) => f.id === id) || offFoods.get(id) || null;
+      return allFoods().find((f) => f.id === id) || null;
+    }
+
+    function getGoogleCreds() {
+      return {
+        key: (localStorage.getItem(LS.googleKey) || "").trim(),
+        cx: (localStorage.getItem(LS.googleCx) || "").trim(),
+      };
+    }
+
+    function saveGoogleCreds(key, cx) {
+      if (key) localStorage.setItem(LS.googleKey, key.trim());
+      else localStorage.removeItem(LS.googleKey);
+      if (cx) localStorage.setItem(LS.googleCx, cx.trim());
+      else localStorage.removeItem(LS.googleCx);
+    }
+
+    function fillGoogleCredInputs() {
+      const { key, cx } = getGoogleCreds();
+      ["diet-google-key", "admin-google-key"].forEach((id) => {
+        const el = $(id);
+        if (el && document.activeElement !== el) el.value = key;
+      });
+      ["diet-google-cx", "admin-google-cx"].forEach((id) => {
+        const el = $(id);
+        if (el && document.activeElement !== el) el.value = cx;
+      });
     }
 
     function totals() {
@@ -483,54 +514,81 @@
       return list.slice(0, 40);
     }
 
-    function numNutriment(n, keys) {
-      for (const k of keys) {
-        const v = Number(n?.[k]);
-        if (Number.isFinite(v) && v >= 0) return v;
-      }
-      return null;
-    }
-
-    function mapOffProduct(p) {
-      if (!p || !p.code) return null;
-      const n = p.nutriments || {};
-      /* Prefer per-100g — OFF serving sizes are often missing or package-total */
-      let kcal = numNutriment(n, ["energy-kcal_100g"]);
-      let protein = numNutriment(n, ["proteins_100g"]);
-      let unitNote = "per 100g";
-      if (kcal == null || kcal <= 0) {
-        kcal = numNutriment(n, ["energy-kcal_serving", "energy-kcal_value", "energy-kcal"]);
-        protein = numNutriment(n, ["proteins_serving", "proteins_value", "proteins"]);
-        unitNote = "per serving";
-      }
-      if (kcal == null || kcal <= 0) return null;
-      if (protein == null || protein < 0) protein = 0;
-      const baseName = (p.product_name || p.product_name_en || "").trim();
-      if (!baseName) return null;
-      const brand = String(p.brands || "")
-        .split(",")[0]
-        .trim();
-      const name = brand ? `${baseName} · ${brand}` : baseName;
+    function parseNutrition(text) {
+      const s = String(text || "");
+      let kcal = null;
+      let protein = null;
+      const kcalM =
+        s.match(/(\d+(?:\.\d+)?)\s*(?:kcal|calories?|cal)\b/i) ||
+        s.match(/\b(?:kcal|calories?)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
+      if (kcalM) kcal = Number(kcalM[1]);
+      const proM =
+        s.match(/(\d+(?:\.\d+)?)\s*g(?:rams?)?\s*(?:of\s+)?protein\b/i) ||
+        s.match(/\bprotein\s*[:=]?\s*(\d+(?:\.\d+)?)\s*g?\b/i);
+      if (proM) protein = Number(proM[1]);
       return {
-        id: "off-" + String(p.code),
-        name,
-        kcal: Math.round(kcal),
-        protein: Math.round(protein * 10) / 10,
-        tags: ["off", "open-food-facts"],
-        unitNote,
-        source: "off",
+        kcal: Number.isFinite(kcal) && kcal > 0 ? Math.round(kcal) : null,
+        protein: Number.isFinite(protein) && protein >= 0 ? Math.round(protein * 10) / 10 : null,
       };
     }
 
-    function foodButtonHtml(f, source) {
-      const meta =
-        source === "off"
-          ? `${f.kcal} kcal · ${f.protein}g protein · ${escapeHtml(f.unitNote || "per 100g")}`
-          : `${f.kcal} kcal · ${f.protein}g protein`;
-      return `<button type="button" data-food-id="${escapeHtml(f.id)}" data-food-source="${source}">
+    function mapGoogleItem(item, idx) {
+      if (!item?.title || !item?.link) return null;
+      const blob = `${item.title} ${item.snippet || ""}`;
+      const nut = parseNutrition(blob);
+      const id = "gcs-" + idx + "-" + String(item.link).slice(-48);
+      return {
+        id,
+        title: item.title,
+        snippet: item.snippet || "",
+        link: item.link,
+        displayLink: item.displayLink || "",
+        kcal: nut.kcal,
+        protein: nut.protein,
+        source: "google",
+      };
+    }
+
+    function foodButtonHtml(f) {
+      return `<button type="button" data-food-id="${escapeHtml(f.id)}" data-food-source="local">
         ${escapeHtml(f.name)}
-        <em>${meta}</em>
+        <em>${f.kcal} kcal · ${f.protein}g protein</em>
       </button>`;
+    }
+
+    function googleCardHtml(item) {
+      const nutBits = [];
+      if (item.kcal != null) nutBits.push(`${item.kcal} kcal`);
+      if (item.protein != null) nutBits.push(`${item.protein}g protein`);
+      const nutLine = nutBits.length ? nutBits.join(" · ") + " (from snippet)" : "kcal/protein not found — you’ll enter them";
+      return `<article class="gsearch-card" data-gsearch-id="${escapeHtml(item.id)}">
+        <p class="gsearch-title">${escapeHtml(item.title)}</p>
+        <p class="gsearch-snippet">${escapeHtml(item.snippet || "No preview.")}</p>
+        <p class="gsearch-meta">${escapeHtml(item.displayLink || "")} · ${escapeHtml(nutLine)}</p>
+        <div class="gsearch-actions">
+          <a class="btn-diet-ghost gsearch-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">Open</a>
+          <button type="button" class="btn-diet" data-gsearch-add="${escapeHtml(item.id)}">Add to plate</button>
+        </div>
+      </article>`;
+    }
+
+    function setupKeysHtml() {
+      return `<div class="gsearch-setup">
+        <p>Google search needs a free <strong>API key</strong> + <strong>Search engine ID (cx)</strong> — saved only on this phone.</p>
+        <ol>
+          <li>Create a Programmable Search Engine → <a href="${SETUP_CSE}" target="_blank" rel="noopener">control panel</a> (search the entire web).</li>
+          <li>Enable Custom Search API &amp; create a key → <a href="${SETUP_KEY}" target="_blank" rel="noopener">Google docs</a> (100 free queries/day).</li>
+          <li>Paste both below and tap Save.</li>
+        </ol>
+        <label class="field">Google API key
+          <input type="password" id="diet-google-key" autocomplete="off" placeholder="AIza…" />
+        </label>
+        <label class="field">Search engine ID (cx)
+          <input type="text" id="diet-google-cx" autocomplete="off" placeholder="abc123:…" />
+        </label>
+        <button type="button" class="btn-diet" id="diet-google-save">Save Google search keys</button>
+        <p class="status" id="diet-google-status" hidden></p>
+      </div>`;
     }
 
     function renderFoodPick(query) {
@@ -539,107 +597,196 @@
       const q = String(query || "").trim();
       const local = localMatches(q);
       const localHtml = local.length
-        ? local.map((f) => foodButtonHtml(f, "local")).join("")
+        ? local.map((f) => foodButtonHtml(f)).join("")
         : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}.</p>`;
 
-      let offBlock = "";
-      if (q.length >= OFF_MIN_CHARS) {
+      const { key, cx } = getGoogleCreds();
+      const hasKeys = !!(key && cx);
+      let gBlock = "";
+      if (!hasKeys) {
+        gBlock = `<div class="food-pick-group is-google">
+          <p class="food-pick-label">Google search <span class="food-pick-hint">setup</span></p>
+          ${setupKeysHtml()}
+        </div>`;
+      } else if (q.length >= G_MIN_CHARS) {
         let body = "";
-        if (offStatus === "loading") {
-          body = `<p class="food-pick-empty">Searching Open Food Facts…</p>`;
-        } else if (offStatus === "error") {
-          body = `<p class="food-pick-empty">Couldn’t reach Open Food Facts. Try again.</p>`;
-        } else if (offStatus === "empty" || (offStatus === "ok" && !offResults.length)) {
-          body = `<p class="food-pick-empty">No OFF products with usable kcal for “${escapeHtml(q)}”.</p>`;
-        } else if (offResults.length) {
-          body = offResults.map((f) => foodButtonHtml(f, "off")).join("");
+        if (googleStatus === "loading") {
+          body = `<p class="food-pick-empty">Searching Google…</p>`;
+        } else if (googleStatus === "error") {
+          body = `<p class="food-pick-empty">${escapeHtml(googleError || "Google search failed. Check keys / daily quota.")}</p>`;
+        } else if (googleStatus === "empty" || (googleStatus === "ok" && !googleResults.length)) {
+          body = `<p class="food-pick-empty">No Google results for “${escapeHtml(q)}”.</p>`;
+        } else if (googleResults.length) {
+          body = googleResults.map(googleCardHtml).join("");
         } else {
-          body = `<p class="food-pick-empty">Type to search packaged foods…</p>`;
+          body = `<p class="food-pick-empty">Keep typing to search Google…</p>`;
         }
-        offBlock = `<div class="food-pick-group is-off">
-          <p class="food-pick-label">Open Food Facts <span class="food-pick-hint">packaged · world</span></p>
+        gBlock = `<div class="food-pick-group is-google">
+          <p class="food-pick-label">Google <span class="food-pick-hint">web results</span></p>
           ${body}
+        </div>`;
+      } else {
+        gBlock = `<div class="food-pick-group is-google">
+          <p class="food-pick-label">Google <span class="food-pick-hint">web results</span></p>
+          <p class="food-pick-empty">Type 2+ letters to search Google (keys saved on this phone).</p>
         </div>`;
       }
 
       root.innerHTML = `<div class="food-pick-group">
         <p class="food-pick-label">Your library <span class="food-pick-hint">Indian / home</span></p>
         ${localHtml}
-      </div>${offBlock}`;
+      </div>${gBlock}`;
+      if (!hasKeys) fillGoogleCredInputs();
     }
 
-    async function runOffSearch(query) {
+    async function runGoogleSearch(query) {
       const q = String(query || "").trim();
-      if (q.length < OFF_MIN_CHARS) return;
-      if (offAbort) {
+      if (q.length < G_MIN_CHARS) return;
+      const { key, cx } = getGoogleCreds();
+      if (!key || !cx) {
+        googleStatus = "needkeys";
+        renderFoodPick(q);
+        return;
+      }
+      if (gAbort) {
         try {
-          offAbort.abort();
+          gAbort.abort();
         } catch (_) {}
       }
-      const seq = ++offReqSeq;
-      offAbort = new AbortController();
-      offStatus = "loading";
+      const seq = ++gReqSeq;
+      gAbort = new AbortController();
+      googleStatus = "loading";
+      googleError = "";
       renderFoodPick(q);
       try {
         const params = new URLSearchParams({
-          search_terms: q,
-          search_simple: "1",
-          action: "process",
-          json: "1",
-          page_size: String(OFF_PAGE_SIZE),
-          fields: "code,product_name,product_name_en,brands,nutriments",
+          key,
+          cx,
+          q,
+          num: "8",
         });
-        const res = await fetch(`${OFF_SEARCH_URL}?${params}`, {
-          signal: offAbort.signal,
+        const res = await fetch(`${GSEARCH_URL}?${params}`, {
+          signal: gAbort.signal,
           headers: { Accept: "application/json" },
         });
-        if (!res.ok) throw new Error("off " + res.status);
-        const data = await res.json();
-        if (seq !== offReqSeq) return;
+        const data = await res.json().catch(() => ({}));
+        if (seq !== gReqSeq) return;
+        if (!res.ok) {
+          const msg = data?.error?.message || `Google API ${res.status}`;
+          throw new Error(msg);
+        }
         const mapped = [];
-        const seen = new Set();
-        (data.products || []).forEach((p) => {
-          const food = mapOffProduct(p);
-          if (!food || seen.has(food.id)) return;
-          seen.add(food.id);
-          mapped.push(food);
-          offFoods.set(food.id, food);
+        googleItems.clear();
+        (data.items || []).forEach((raw, i) => {
+          const item = mapGoogleItem(raw, i);
+          if (!item) return;
+          mapped.push(item);
+          googleItems.set(item.id, item);
         });
-        offResults = mapped.slice(0, 16);
-        lastOffQuery = q;
-        offStatus = offResults.length ? "ok" : "empty";
+        googleResults = mapped;
+        lastGQuery = q;
+        googleStatus = googleResults.length ? "ok" : "empty";
         renderFoodPick(q);
       } catch (e) {
         if (e?.name === "AbortError") return;
-        if (seq !== offReqSeq) return;
-        offResults = [];
-        offStatus = "error";
+        if (seq !== gReqSeq) return;
+        googleResults = [];
+        googleStatus = "error";
+        googleError = e?.message || "Google search failed.";
         renderFoodPick(q);
       }
     }
 
-    function scheduleOffSearch(query) {
+    function scheduleGoogleSearch(query) {
       const q = String(query || "").trim();
-      if (offTimer) clearTimeout(offTimer);
-      if (q.length < OFF_MIN_CHARS) {
-        if (offAbort) {
+      if (gTimer) clearTimeout(gTimer);
+      if (q.length < G_MIN_CHARS) {
+        if (gAbort) {
           try {
-            offAbort.abort();
+            gAbort.abort();
           } catch (_) {}
         }
-        offResults = [];
-        offStatus = "";
-        lastOffQuery = "";
+        googleResults = [];
+        googleStatus = "";
+        lastGQuery = "";
         renderFoodPick(q);
         return;
       }
-      renderFoodPick(q);
-      if (q === lastOffQuery && (offStatus === "ok" || offStatus === "empty")) {
+      const { key, cx } = getGoogleCreds();
+      if (!key || !cx) {
+        googleStatus = "needkeys";
+        renderFoodPick(q);
         return;
       }
-      offStatus = "loading";
+      if (q === lastGQuery && (googleStatus === "ok" || googleStatus === "empty" || googleStatus === "error")) {
+        renderFoodPick(q);
+        return;
+      }
+      googleStatus = "loading";
       renderFoodPick(q);
-      offTimer = setTimeout(() => runOffSearch(q), OFF_DEBOUNCE_MS);
+      gTimer = setTimeout(() => runGoogleSearch(q), G_DEBOUNCE_MS);
+    }
+
+    function openGoogleAddSheet(item) {
+      pendingGoogle = item;
+      const sheet = $("gsearch-add-sheet");
+      if (!sheet) return;
+      $("gsearch-add-title").textContent = item.title || "Add from Google";
+      $("gsearch-add-snippet").textContent = item.snippet || "";
+      $("gsearch-add-link").href = item.link || "#";
+      $("gsearch-add-name").value = item.title || "";
+      $("gsearch-add-kcal").value = item.kcal != null ? String(item.kcal) : "";
+      $("gsearch-add-protein").value = item.protein != null ? String(item.protein) : "";
+      const st = $("gsearch-add-status");
+      if (st) {
+        st.hidden = true;
+        st.textContent = "";
+      }
+      sheet.hidden = false;
+      sheet.classList.add("is-open");
+      document.body.classList.add("modal-open");
+      setTimeout(() => {
+        try {
+          (item.kcal != null ? $("gsearch-add-protein") : $("gsearch-add-kcal"))?.focus({ preventScroll: true });
+        } catch (_) {}
+      }, 60);
+    }
+
+    function closeGoogleAddSheet() {
+      const sheet = $("gsearch-add-sheet");
+      if (!sheet) return;
+      sheet.hidden = true;
+      sheet.classList.remove("is-open");
+      document.body.classList.remove("modal-open");
+      pendingGoogle = null;
+    }
+
+    function addGoogleToPlate() {
+      const name = ($("gsearch-add-name")?.value || "").trim();
+      const kcal = Number($("gsearch-add-kcal")?.value);
+      const protein = Number($("gsearch-add-protein")?.value);
+      const st = $("gsearch-add-status");
+      if (!name || !Number.isFinite(kcal)) {
+        if (st) {
+          st.hidden = false;
+          st.textContent = "Name and kcal are required.";
+          st.className = "status is-error";
+        }
+        return;
+      }
+      const food = {
+        id: "gweb-" + Date.now(),
+        name,
+        kcal,
+        protein: Number.isFinite(protein) ? protein : 0,
+        tags: ["google"],
+        source: "google",
+      };
+      const meal = $("diet-meal")?.value || "breakfast";
+      const servings = $("diet-servings")?.value || 1;
+      addItem(food, meal, servings);
+      setStatus($("diet-status"), `Added ${name} from Google`, "ok");
+      closeGoogleAddSheet();
     }
 
     function render() {
@@ -701,9 +848,31 @@
       $("diet-search")?.addEventListener("input", (e) => {
         const q = e.target.value;
         renderFoodPick(q);
-        scheduleOffSearch(q);
+        scheduleGoogleSearch(q);
       });
       $("diet-food-pick")?.addEventListener("click", (e) => {
+        if (e.target.closest("a.gsearch-link")) return;
+        const saveKeys = e.target.closest("#diet-google-save");
+        if (saveKeys) {
+          const key = $("diet-google-key")?.value.trim() || "";
+          const cx = $("diet-google-cx")?.value.trim() || "";
+          if (!key || !cx) {
+            setStatus($("diet-google-status"), "Paste both API key and Search engine ID (cx).", "error");
+            return;
+          }
+          saveGoogleCreds(key, cx);
+          fillGoogleCredInputs();
+          setStatus($("diet-google-status"), "Saved on this phone.", "ok");
+          const q = $("diet-search")?.value || "";
+          scheduleGoogleSearch(q);
+          return;
+        }
+        const gAdd = e.target.closest("[data-gsearch-add]");
+        if (gAdd) {
+          const item = googleItems.get(gAdd.getAttribute("data-gsearch-add"));
+          if (item) openGoogleAddSheet(item);
+          return;
+        }
         const btn = e.target.closest("[data-food-id]");
         if (!btn) return;
         const food = findFood(btn.getAttribute("data-food-id"));
@@ -714,8 +883,18 @@
         const meal = $("diet-meal")?.value || "breakfast";
         const servings = $("diet-servings")?.value || 1;
         addItem(food, meal, servings);
-        const note = food.source === "off" && food.unitNote ? ` (${food.unitNote})` : "";
-        setStatus($("diet-status"), `Added ${food.name}${note}`, "ok");
+        setStatus($("diet-status"), `Added ${food.name}`, "ok");
+      });
+      $("gsearch-add-close")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeGoogleAddSheet();
+      });
+      $("gsearch-add-sheet")?.addEventListener("click", (e) => {
+        if (e.target.id === "gsearch-add-sheet") closeGoogleAddSheet();
+      });
+      $("gsearch-add-form")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        addGoogleToPlate();
       });
       $("diet-add-custom")?.addEventListener("click", () => {
         const name = $("diet-custom-name")?.value.trim();
@@ -766,8 +945,8 @@
     async function init() {
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261007off"),
-          fetch("./data/diet-defaults.json?v=20261007off"),
+          fetch("./data/foods.json?v=20261007gsearch"),
+          fetch("./data/diet-defaults.json?v=20261007gsearch"),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();
@@ -781,6 +960,7 @@
         console.warn(e);
       }
       wire();
+      fillGoogleCredInputs();
       render();
       renderFoodPick($("diet-search")?.value || "");
     }
@@ -789,7 +969,7 @@
       return targets();
     }
 
-    return { init, render, getTargetsForAdmin };
+    return { init, render, getTargetsForAdmin, fillGoogleCredInputs, getGoogleCreds, saveGoogleCreds };
   })();
 
   /* ───────── Periods (local + syncable dates) ───────── */
@@ -1346,6 +1526,22 @@
       localStorage.setItem(LS.token, raw);
       setStatus($("admin-status"), "Token saved in this browser only.", "ok");
     });
+    $("admin-save-google")?.addEventListener("click", () => {
+      const key = $("admin-google-key")?.value.trim() || "";
+      const cx = $("admin-google-cx")?.value.trim() || "";
+      if (!key || !cx) {
+        setStatus($("admin-status"), "Paste both Google API key and Search engine ID (cx).", "error");
+        return;
+      }
+      Diet.saveGoogleCreds(key, cx);
+      Diet.fillGoogleCredInputs();
+      setStatus($("admin-status"), "Google search keys saved on this phone.", "ok");
+    });
+    $("admin-clear-google")?.addEventListener("click", () => {
+      Diet.saveGoogleCreds("", "");
+      Diet.fillGoogleCredInputs();
+      setStatus($("admin-status"), "Google keys cleared.", "info");
+    });
     $("admin-publish")?.addEventListener("click", async () => {
       const token = localStorage.getItem(LS.token) || $("admin-token")?.value.trim();
       if (!token) {
@@ -1381,6 +1577,7 @@
       if ($("admin-token") && localStorage.getItem(LS.token)) {
         $("admin-token").placeholder = "Token saved — paste to replace";
       }
+      Diet.fillGoogleCredInputs();
       setStatus($("admin-status"), "");
     };
   }

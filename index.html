@@ -165,9 +165,9 @@
           <option value="snacks">Snacks</option>
         </select>
         <label class="field">Search foods
-          <input type="search" id="diet-search" placeholder="roti, dal, paneer, Amul…" enterkeyhint="search" autocomplete="off" />
+          <input type="search" id="diet-search" placeholder="roti calories, paneer protein…" enterkeyhint="search" autocomplete="off" />
         </label>
-        <p class="diet-search-hint">Library first, then Open Food Facts for packaged foods (needs network).</p>
+        <p class="diet-search-hint">Library first, then Google web results (needs free API key + cx on this phone).</p>
         <div class="food-pick" id="diet-food-pick"></div>
         <details class="diet-custom">
           <summary>Add a custom food</summary>
@@ -341,7 +341,7 @@
         <h2 id="admin-title">Publish defaults</h2>
         <button type="button" class="btn-ghost" id="admin-close">Close</button>
       </header>
-      <p class="hint">Diet defaults → <code>data/diet-defaults.json</code>. Period dates → <code>data/periods.json</code> (wellness calendar). Weight logs stay on-device.</p>
+      <p class="hint">Diet defaults → <code>data/diet-defaults.json</code>. Period dates → <code>data/periods.json</code> (wellness calendar). Weight logs stay on-device. Google keys stay on this phone only.</p>
       <div class="field-row">
         <label class="field">Default kcal
           <input type="number" id="admin-kcal" min="800" step="50" />
@@ -358,7 +358,47 @@
         <button type="button" class="btn-primary" id="admin-publish">Post diet defaults</button>
         <button type="button" class="btn-ghost" id="admin-publish-periods">Post period dates</button>
       </div>
+      <hr class="admin-sep" />
+      <h3 class="admin-subhead">Google Diet search</h3>
+      <p class="hint">Paste free Custom Search API key + Search engine ID (cx). Never committed — localStorage only. 100 free queries/day.</p>
+      <label class="field">Google API key
+        <input type="password" id="admin-google-key" autocomplete="off" placeholder="AIza…" />
+      </label>
+      <label class="field">Search engine ID (cx)
+        <input type="text" id="admin-google-cx" autocomplete="off" placeholder="abc123:…" />
+      </label>
+      <div class="actions">
+        <button type="button" class="btn-ghost" id="admin-save-google">Save Google keys</button>
+        <button type="button" class="btn-ghost" id="admin-clear-google">Clear Google keys</button>
+      </div>
       <p class="status" id="admin-status" hidden></p>
+    </div>
+  </div>
+
+  <!-- Add Google search hit to plate -->
+  <div class="overlay" id="gsearch-add-sheet" hidden>
+    <div class="sheet gsearch-add-panel" role="dialog" aria-modal="true" aria-labelledby="gsearch-add-title">
+      <header class="sheet-head">
+        <h2 id="gsearch-add-title">Add from Google</h2>
+        <button type="button" class="btn-ghost" id="gsearch-add-close">Close</button>
+      </header>
+      <p class="gsearch-add-snippet" id="gsearch-add-snippet"></p>
+      <p class="hint"><a id="gsearch-add-link" href="#" target="_blank" rel="noopener noreferrer">Open result</a> · enter kcal/protein if the snippet didn’t include them.</p>
+      <form id="gsearch-add-form" autocomplete="off">
+        <label class="field">Name on plate
+          <input type="text" id="gsearch-add-name" required />
+        </label>
+        <div class="field-row">
+          <label class="field">kcal
+            <input type="number" id="gsearch-add-kcal" inputmode="decimal" min="0" step="1" required />
+          </label>
+          <label class="field">Protein (g)
+            <input type="number" id="gsearch-add-protein" inputmode="decimal" min="0" step="0.1" placeholder="0" />
+          </label>
+        </div>
+        <button type="submit" class="btn-diet" style="width:100%;margin-top:0.5rem">Add to plate</button>
+        <p class="status" id="gsearch-add-status" hidden></p>
+      </form>
     </div>
   </div>
 
