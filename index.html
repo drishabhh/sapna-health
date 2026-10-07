@@ -272,8 +272,11 @@
           </label>
         </div>
         <div class="field-row">
-          <label class="field">Sets × reps
-            <input type="text" id="log-rx" placeholder="3 × 10" />
+          <label class="field">Sets
+            <input type="number" id="log-sets" inputmode="numeric" min="1" step="1" placeholder="3" />
+          </label>
+          <label class="field">Reps
+            <input type="number" id="log-reps" inputmode="numeric" min="1" step="1" placeholder="10" />
           </label>
           <label class="field">Note
             <input type="text" id="log-note" placeholder="Optional" />
@@ -358,6 +361,46 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261007health4b"></script>
+  <!-- Exercise log sheet (static DOM — never remounted while typing) -->
+  <div class="log-sheet-overlay" id="log-sheet" hidden>
+    <div class="log-sheet" role="dialog" aria-modal="true" aria-labelledby="log-sheet-title">
+      <header class="log-sheet-head">
+        <h2 id="log-sheet-title">Log</h2>
+        <button type="button" class="btn-ghost" id="log-sheet-close">Close</button>
+      </header>
+      <div class="log-sheet-scroll">
+        <p class="log-sheet-order">Saved logs · oldest → newest</p>
+        <div class="log-sheet-table-wrap">
+          <table class="log-sheet-table">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">kg</th>
+                <th scope="col">Sets</th>
+                <th scope="col">Reps</th>
+              </tr>
+            </thead>
+            <tbody id="log-sheet-tbody"></tbody>
+          </table>
+        </div>
+        <p class="log-sheet-empty" id="log-sheet-empty">No logs yet for this exercise.</p>
+      </div>
+      <form class="log-sheet-form" id="log-sheet-form" autocomplete="off">
+        <label>kg
+          <input id="log-sheet-kg" name="kg" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" enterkeyhint="next" />
+        </label>
+        <label>Sets
+          <input id="log-sheet-sets" name="sets" type="number" inputmode="numeric" min="1" step="1" placeholder="2" enterkeyhint="next" />
+        </label>
+        <label>Reps
+          <input id="log-sheet-reps" name="reps" type="number" inputmode="numeric" min="1" step="1" placeholder="12" enterkeyhint="done" />
+        </label>
+        <button type="submit" class="log-sheet-save">Save entry</button>
+        <p class="log-sheet-status" id="log-sheet-status" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="./js/app.js?v=20261007logsheet"></script>
 </body>
 </html>
