@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261007gsearch"></script>
+  <script src="./js/admin-auth.js?v=20261007cse-sites"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261007gsearch" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261007cse-sites" />
 </head>
 <body data-section="workout">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -360,7 +360,7 @@
       </div>
       <hr class="admin-sep" />
       <h3 class="admin-subhead">Google Diet search</h3>
-      <p class="hint">Paste free Custom Search API key + Search engine ID (cx). Never committed — localStorage only. 100 free queries/day.</p>
+      <p class="hint">Paste free Custom Search API key + Search engine ID (cx). Never committed — localStorage only. 100 free queries/day. Do <strong>not</strong> use “Search the entire web” (deprecated) — add nutrition sites to the CSE include list instead (nutritionix.com, fatsecret.com, nutritionvalue.org, indianhealthyrecipes.com, tarladalal.com, wikipedia.org, openfoodfacts.org, with <code>/*</code> patterns).</p>
       <label class="field">Google API key
         <input type="password" id="admin-google-key" autocomplete="off" placeholder="AIza…" />
       </label>
@@ -442,6 +442,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261007gsearch"></script>
+  <script src="./js/app.js?v=20261007cse-sites"></script>
 </body>
 </html>

@@ -575,10 +575,13 @@
     function setupKeysHtml() {
       return `<div class="gsearch-setup">
         <p>Google search needs a free <strong>API key</strong> + <strong>Search engine ID (cx)</strong> — saved only on this phone.</p>
+        <p class="gsearch-setup-note"><strong>“Search the entire web” is deprecated</strong> — Google no longer lets new engines enable it. Instead, add nutrition/food sites to the engine’s <em>include</em> list (see sites below).</p>
         <ol>
-          <li>Create a Programmable Search Engine → <a href="${SETUP_CSE}" target="_blank" rel="noopener">control panel</a> (search the entire web).</li>
-          <li>Enable Custom Search API &amp; create a key → <a href="${SETUP_KEY}" target="_blank" rel="noopener">Google docs</a> (100 free queries/day).</li>
-          <li>Paste both below and tap Save.</li>
+          <li>Create a Programmable Search Engine → <a href="${SETUP_CSE}" target="_blank" rel="noopener">control panel</a>.</li>
+          <li>Under Sites to search, <strong>add nutrition/food sites</strong> (use <code>site.com/*</code> patterns), e.g. nutritionix.com, fatsecret.com, nutritionvalue.org, indianhealthyrecipes.com, tarladalal.com, wikipedia.org, openfoodfacts.org.</li>
+          <li>Open the engine → copy <strong>Search engine ID (cx)</strong>.</li>
+          <li>Enable Custom Search API &amp; create an API key → <a href="${SETUP_KEY}" target="_blank" rel="noopener">Google docs</a> (100 free queries/day).</li>
+          <li>Paste key + cx below (or in Admin) and tap Save.</li>
         </ol>
         <label class="field">Google API key
           <input type="password" id="diet-google-key" autocomplete="off" placeholder="AIza…" />
@@ -945,8 +948,8 @@
     async function init() {
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261007gsearch"),
-          fetch("./data/diet-defaults.json?v=20261007gsearch"),
+          fetch("./data/foods.json?v=20261007cse-sites"),
+          fetch("./data/diet-defaults.json?v=20261007cse-sites"),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();

@@ -527,6 +527,17 @@ body {
   color: #1f6f40;
 }
 
+.gsearch-setup-note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(20, 36, 33, 0.78);
+}
+
+.gsearch-setup code {
+  font-size: 0.78em;
+}
+
 .gsearch-add-panel .gsearch-add-snippet {
   margin: 0 0 0.65rem;
   font-size: 0.88rem;
