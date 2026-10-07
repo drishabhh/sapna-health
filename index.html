@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Sapna health — diet, periods (private on device), gym weight logs, and today’s workout." />
+  <meta name="theme-color" content="#050f0e" />
+  <title>Sapna — Health</title>
+  <script>
+    window.sapnaAdminOpen = function (ev) {
+      try { if (ev && ev.preventDefault) ev.preventDefault(); } catch (e) {}
+      var gate = document.getElementById("admin-gate");
+      if (!gate) return false;
+      try {
+        if (sessionStorage.getItem("sapna_admin_unlocked") === "1") {
+          return window.sapnaAdminShowEditor();
+        }
+      } catch (e) {}
+      gate.hidden = false;
+      gate.classList.add("is-open");
+      gate.style.cssText = "display:flex !important;";
+      document.body.classList.add("modal-open");
+      var pw = document.getElementById("gate-password");
+      if (pw) { pw.value = ""; setTimeout(function () { try { pw.focus(); } catch (e) {} }, 40); }
+      return false;
+    };
+    window.sapnaAdminCloseGate = function () {
+      var gate = document.getElementById("admin-gate");
+      if (gate) { gate.hidden = true; gate.classList.remove("is-open"); gate.style.cssText = ""; }
+      document.body.classList.remove("modal-open");
+      return false;
+    };
+    window.sapnaAdminShowEditor = function () {
+      window.sapnaAdminCloseGate();
+      var ed = document.getElementById("admin-editor");
+      if (ed) {
+        ed.hidden = false;
+        ed.classList.add("is-open");
+        ed.style.cssText = "display:flex !important;";
+        document.body.classList.add("modal-open");
+      }
+      if (typeof window.__sapnaOpenHealthAdmin === "function") {
+        try { window.__sapnaOpenHealthAdmin(); } catch (e) {}
+      }
+      return false;
+    };
+    window.sapnaAdminUnlock = function (ev) {
+      try { if (ev && ev.preventDefault) ev.preventDefault(); } catch (e) {}
+      var pw = document.getElementById("gate-password");
+      var st = document.getElementById("gate-status");
+      var typed = ((pw && pw.value) || "").trim();
+      function setStatus(msg, kind) {
+        if (!st) return;
+        if (!msg) { st.hidden = true; st.textContent = ""; return; }
+        st.hidden = false;
+        st.textContent = msg;
+        st.className = "status is-" + (kind || "error");
+      }
+      if (!window.__sapnaAdminAuth || !window.__sapnaAdminAuth.verifyPassword) {
+        setStatus("Unlock module failed to load. Hard refresh.", "error");
+        return false;
+      }
+      var lock = window.__sapnaAdminAuth.getLockStatus();
+      if (lock.locked) {
+        setStatus("Too many attempts. Try again in " + lock.secs + "s.", "error");
+        return false;
+      }
+      if (!typed) { setStatus("Enter the Admin password.", "error"); return false; }
+      setStatus("Checking…", "info");
+      window.__sapnaAdminAuth.verifyPassword(typed).then(function (res) {
+        if (res.ok) {
+          try { sessionStorage.setItem("sapna_admin_unlocked", "1"); } catch (e) {}
+          setStatus("");
+          window.sapnaAdminShowEditor();
+        } else {
+          setStatus(res.message || "Wrong password.", "error");
+          if (pw) { pw.value = ""; pw.focus(); }
+        }
+      }).catch(function () { setStatus("Could not verify password.", "error"); });
+      return false;
+    };
+  </script>
+  <script src="./js/admin-auth.js?v=20261007health1"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261007health1" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <p class="topbar-brand">Sapna</p>
+    <nav class="top-nav-desktop" aria-label="Sections">
+      <a href="#workout" data-nav="workout">Workout</a>
+      <a href="#diet" data-nav="diet">Diet</a>
+      <a href="#periods" data-nav="periods">Periods</a>
+      <a href="#logs" data-nav="logs">Logs</a>
+    </nav>
+    <button type="button" class="btn-admin" id="admin-trigger" onclick="return window.sapnaAdminOpen(event);">Admin</button>
+  </header>
+
+  <!-- WORKOUT -->
+  <section class="panel is-active" id="panel-workout" data-panel="workout">
+    <div class="hero">
+      <p class="brand">Sapna</p>
+      <h1 class="headline">Health &amp; gym</h1>
+      <p class="support">Diet, private cycle tracking, weight logs — and today’s workout next door.</p>
+      <div class="cta-row">
+        <a class="btn-primary" href="https://drishabhh.github.io/sapna-workout/" target="_blank" rel="noopener">Open today’s workout</a>
+        <a class="btn-ghost" href="#diet">Go to Diet</a>
+      </div>
+      <div class="workout-preview" id="workout-preview" hidden>
+        <h2>From today’s plan</h2>
+        <ul id="workout-preview-list"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIET -->
+  <section class="panel" id="panel-diet" data-panel="diet">
+    <div class="panel-inner">
+      <header class="section-head">
+        <h1>Diet</h1>
+        <p>Build meals toward your calorie &amp; protein targets. Saved on this phone.</p>
+      </header>
+
+      <div class="totals" id="diet-totals"></div>
+
+      <div class="block">
+        <h2>Targets</h2>
+        <div class="field-row">
+          <label class="field">Calories (kcal)
+            <input type="number" id="diet-target-kcal" min="800" max="5000" step="50" />
+          </label>
+          <label class="field">Protein (g)
+            <input type="number" id="diet-target-protein" min="20" max="300" step="5" />
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn-ghost" id="diet-save-targets">Save targets</button>
+          <button type="button" class="btn-ghost" id="diet-clear-day">Clear today</button>
+        </div>
+        <p class="status" id="diet-status" hidden></p>
+      </div>
+
+      <div class="block">
+        <h2>Add food</h2>
+        <label class="field">Meal
+          <select id="diet-meal">
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="snacks">Snacks</option>
+          </select>
+        </label>
+        <label class="field">Search foods
+          <input type="search" id="diet-search" placeholder="roti, dal, paneer…" enterkeyhint="search" />
+        </label>
+        <div class="food-pick" id="diet-food-pick"></div>
+        <p class="hint">Or add a custom food:</p>
+        <div class="field-row">
+          <label class="field">Name
+            <input type="text" id="diet-custom-name" placeholder="e.g. Homemade sandwich" />
+          </label>
+          <label class="field">Servings
+            <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">kcal / serving
+            <input type="number" id="diet-custom-kcal" min="0" step="1" />
+          </label>
+          <label class="field">Protein g / serving
+            <input type="number" id="diet-custom-protein" min="0" step="0.1" />
+          </label>
+        </div>
+        <button type="button" class="btn-primary jade" id="diet-add-custom">Add custom food</button>
+      </div>
+
+      <div class="block" id="diet-meals"></div>
+    </div>
+  </section>
+
+  <!-- PERIODS -->
+  <section class="panel" id="panel-periods" data-panel="periods">
+    <div class="panel-inner">
+      <header class="section-head">
+        <h1>Periods</h1>
+        <p>Mark cycle days and optional notes. Estimates improve with more logs.</p>
+      </header>
+      <p class="privacy-banner">
+        Private on this phone only. Period data is stored in your browser (localStorage) and is
+        <strong>never</strong> uploaded or committed to GitHub Pages. Export a backup file if you switch phones.
+      </p>
+
+      <div class="cal-head">
+        <button type="button" class="btn-ghost" id="period-prev" aria-label="Previous month">‹</button>
+        <h2 id="period-month-label">Month</h2>
+        <button type="button" class="btn-ghost" id="period-next" aria-label="Next month">›</button>
+      </div>
+      <div class="cal-grid" id="period-cal"></div>
+
+      <div class="stat-row" id="period-stats"></div>
+
+      <div class="block">
+        <h2>Day note</h2>
+        <p class="hint" id="period-selected-label">Tap a day to mark period or add a short note.</p>
+        <label class="field">Symptoms / notes
+          <textarea id="period-note" rows="3" placeholder="Optional — cramps, flow, mood…"></textarea>
+        </label>
+        <div class="actions">
+          <button type="button" class="btn-primary" id="period-toggle">Mark as period day</button>
+          <button type="button" class="btn-ghost" id="period-save-note">Save note</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>Backup (stays with you)</h2>
+        <p class="hint">Download or restore a JSON file on your device. Do not share publicly.</p>
+        <div class="actions">
+          <button type="button" class="btn-ghost" id="period-export">Export</button>
+          <label class="btn-ghost" style="cursor:pointer">
+            Import
+            <input type="file" id="period-import" accept="application/json,.json" hidden />
+          </label>
+        </div>
+        <p class="status" id="period-status" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOGS -->
+  <section class="panel" id="panel-logs" data-panel="logs">
+    <div class="panel-inner">
+      <header class="section-head">
+        <h1>Weight logs</h1>
+        <p>Track gym weights over time. Saved on this phone; export anytime.</p>
+      </header>
+
+      <div class="block">
+        <h2>Log a set</h2>
+        <label class="field">Exercise
+          <input type="text" id="log-exercise" list="log-exercise-list" placeholder="e.g. Chest press" />
+          <datalist id="log-exercise-list"></datalist>
+        </label>
+        <div class="field-row">
+          <label class="field">Weight (kg)
+            <input type="number" id="log-weight" min="0" step="0.5" placeholder="7.5" />
+          </label>
+          <label class="field">Date
+            <input type="date" id="log-date" />
+          </label>
+        </div>
+        <div class="field-row">
+          <label class="field">Sets × reps
+            <input type="text" id="log-rx" placeholder="3 × 10" />
+          </label>
+          <label class="field">Note
+            <input type="text" id="log-note" placeholder="Optional" />
+          </label>
+        </div>
+        <button type="button" class="btn-primary" id="log-add">Save log</button>
+        <p class="status" id="log-status" hidden></p>
+      </div>
+
+      <div class="block">
+        <h2>Progress</h2>
+        <label class="field">Filter exercise
+          <select id="log-filter"><option value="">All</option></select>
+        </label>
+        <div id="log-progress"></div>
+      </div>
+
+      <div class="block">
+        <h2>History</h2>
+        <div id="log-history"></div>
+        <div class="actions" style="margin-top:1rem">
+          <button type="button" class="btn-ghost" id="log-export">Export JSON</button>
+          <label class="btn-ghost" style="cursor:pointer">
+            Import
+            <input type="file" id="log-import" accept="application/json,.json" hidden />
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <nav class="site-nav" aria-label="Primary">
+    <a href="#workout" data-nav="workout"><span class="nav-ico">W</span>Workout</a>
+    <a href="#diet" data-nav="diet"><span class="nav-ico">D</span>Diet</a>
+    <a href="#periods" data-nav="periods"><span class="nav-ico">P</span>Periods</a>
+    <a href="#logs" data-nav="logs"><span class="nav-ico">L</span>Logs</a>
+  </nav>
+
+  <!-- Admin gate -->
+  <div class="overlay" id="admin-gate" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+      <header class="sheet-head">
+        <h2 id="gate-title">Admin</h2>
+        <button type="button" class="btn-ghost" onclick="return window.sapnaAdminCloseGate();">Cancel</button>
+      </header>
+      <p class="hint">Publish shared diet defaults to GitHub Pages (optional). Period data is never published.</p>
+      <form id="gate-form" onsubmit="return window.sapnaAdminUnlock(event);">
+        <label class="field">Password
+          <input type="password" id="gate-password" autocomplete="current-password" />
+        </label>
+        <button type="submit" class="btn-primary">Unlock</button>
+        <p class="status" id="gate-status" hidden></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin editor -->
+  <div class="overlay" id="admin-editor" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+      <header class="sheet-head">
+        <h2 id="admin-title">Publish defaults</h2>
+        <button type="button" class="btn-ghost" id="admin-close">Close</button>
+      </header>
+      <p class="hint">Updates <code>data/diet-defaults.json</code> so other devices see new calorie/protein targets after Pages refresh. Does not touch period or weight logs.</p>
+      <div class="field-row">
+        <label class="field">Default kcal
+          <input type="number" id="admin-kcal" min="800" step="50" />
+        </label>
+        <label class="field">Default protein (g)
+          <input type="number" id="admin-protein" min="20" step="5" />
+        </label>
+      </div>
+      <label class="field">GitHub PAT (repo scope)
+        <input type="password" id="admin-token" autocomplete="off" placeholder="ghp_…" />
+      </label>
+      <div class="actions">
+        <button type="button" class="btn-ghost" id="admin-save-token">Save token</button>
+        <button type="button" class="btn-primary" id="admin-publish">Post defaults</button>
+      </div>
+      <p class="status" id="admin-status" hidden></p>
+    </div>
+  </div>
+
+  <script src="./js/app.js?v=20261007health1"></script>
+</body>
+</html>

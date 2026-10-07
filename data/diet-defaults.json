@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-07",
+  "targets": {
+    "kcal": 1800,
+    "protein": 100
+  },
+  "note": "Default daily targets — Sapna can change these on her phone (saved on device). Admin may publish new defaults here for all devices."
+}
