@@ -384,6 +384,11 @@
 
   /* ───────── Diet ───────── */
   const Diet = (() => {
+    const OFF_SEARCH_URL = "https://world.openfoodfacts.org/cgi/search.pl";
+    const OFF_DEBOUNCE_MS = 350;
+    const OFF_MIN_CHARS = 2;
+    const OFF_PAGE_SIZE = 20;
+
     const emptyDay = () => ({
       date: todayISO(),
       breakfast: [],
@@ -394,6 +399,14 @@
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
     let state = loadJSON(LS.diet, { targets: null, day: emptyDay(), customFoods: [] });
+    /** @type {Map<string, {id:string,name:string,kcal:number,protein:number,tags:string[],unitNote?:string}>} */
+    const offFoods = new Map();
+    let offResults = [];
+    let offStatus = ""; // "" | loading | ok | empty | error
+    let offTimer = null;
+    let offAbort = null;
+    let offReqSeq = 0;
+    let lastOffQuery = "";
 
     function ensureDay() {
       if (!state.day || state.day.date !== todayISO()) {
@@ -414,6 +427,10 @@
       return [...foods, ...(state.customFoods || [])];
     }
 
+    function findFood(id) {
+      return allFoods().find((f) => f.id === id) || offFoods.get(id) || null;
+    }
+
     function totals() {
       ensureDay();
       const slots = ["breakfast", "lunch", "dinner", "snacks"];
@@ -432,11 +449,13 @@
     function addItem(food, meal, servings) {
       ensureDay();
       const s = Number(servings) || 1;
+      const kcal = Number(food.kcal);
+      if (!Number.isFinite(kcal)) return;
       state.day[meal] = state.day[meal] || [];
       state.day[meal].push({
         id: food.id || "custom-" + Date.now(),
         name: food.name,
-        kcal: Number(food.kcal) || 0,
+        kcal,
         protein: Number(food.protein) || 0,
         servings: s,
       });
@@ -451,23 +470,176 @@
       render();
     }
 
-    function renderFoodPick(query) {
-      const root = $("diet-food-pick");
-      if (!root) return;
+    function localMatches(query) {
       const q = String(query || "")
         .toLowerCase()
         .trim();
       let list = allFoods();
-      if (q) list = list.filter((f) => f.name.toLowerCase().includes(q) || (f.tags || []).some((t) => t.includes(q)));
-      root.innerHTML = list
-        .slice(0, 40)
-        .map(
-          (f) => `<button type="button" data-food-id="${escapeHtml(f.id)}">
-          ${escapeHtml(f.name)}
-          <em>${f.kcal} kcal · ${f.protein}g protein</em>
-        </button>`
-        )
-        .join("");
+      if (q) {
+        list = list.filter(
+          (f) => f.name.toLowerCase().includes(q) || (f.tags || []).some((t) => String(t).toLowerCase().includes(q))
+        );
+      }
+      return list.slice(0, 40);
+    }
+
+    function numNutriment(n, keys) {
+      for (const k of keys) {
+        const v = Number(n?.[k]);
+        if (Number.isFinite(v) && v >= 0) return v;
+      }
+      return null;
+    }
+
+    function mapOffProduct(p) {
+      if (!p || !p.code) return null;
+      const n = p.nutriments || {};
+      /* Prefer per-100g — OFF serving sizes are often missing or package-total */
+      let kcal = numNutriment(n, ["energy-kcal_100g"]);
+      let protein = numNutriment(n, ["proteins_100g"]);
+      let unitNote = "per 100g";
+      if (kcal == null || kcal <= 0) {
+        kcal = numNutriment(n, ["energy-kcal_serving", "energy-kcal_value", "energy-kcal"]);
+        protein = numNutriment(n, ["proteins_serving", "proteins_value", "proteins"]);
+        unitNote = "per serving";
+      }
+      if (kcal == null || kcal <= 0) return null;
+      if (protein == null || protein < 0) protein = 0;
+      const baseName = (p.product_name || p.product_name_en || "").trim();
+      if (!baseName) return null;
+      const brand = String(p.brands || "")
+        .split(",")[0]
+        .trim();
+      const name = brand ? `${baseName} · ${brand}` : baseName;
+      return {
+        id: "off-" + String(p.code),
+        name,
+        kcal: Math.round(kcal),
+        protein: Math.round(protein * 10) / 10,
+        tags: ["off", "open-food-facts"],
+        unitNote,
+        source: "off",
+      };
+    }
+
+    function foodButtonHtml(f, source) {
+      const meta =
+        source === "off"
+          ? `${f.kcal} kcal · ${f.protein}g protein · ${escapeHtml(f.unitNote || "per 100g")}`
+          : `${f.kcal} kcal · ${f.protein}g protein`;
+      return `<button type="button" data-food-id="${escapeHtml(f.id)}" data-food-source="${source}">
+        ${escapeHtml(f.name)}
+        <em>${meta}</em>
+      </button>`;
+    }
+
+    function renderFoodPick(query) {
+      const root = $("diet-food-pick");
+      if (!root) return;
+      const q = String(query || "").trim();
+      const local = localMatches(q);
+      const localHtml = local.length
+        ? local.map((f) => foodButtonHtml(f, "local")).join("")
+        : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}.</p>`;
+
+      let offBlock = "";
+      if (q.length >= OFF_MIN_CHARS) {
+        let body = "";
+        if (offStatus === "loading") {
+          body = `<p class="food-pick-empty">Searching Open Food Facts…</p>`;
+        } else if (offStatus === "error") {
+          body = `<p class="food-pick-empty">Couldn’t reach Open Food Facts. Try again.</p>`;
+        } else if (offStatus === "empty" || (offStatus === "ok" && !offResults.length)) {
+          body = `<p class="food-pick-empty">No OFF products with usable kcal for “${escapeHtml(q)}”.</p>`;
+        } else if (offResults.length) {
+          body = offResults.map((f) => foodButtonHtml(f, "off")).join("");
+        } else {
+          body = `<p class="food-pick-empty">Type to search packaged foods…</p>`;
+        }
+        offBlock = `<div class="food-pick-group is-off">
+          <p class="food-pick-label">Open Food Facts <span class="food-pick-hint">packaged · world</span></p>
+          ${body}
+        </div>`;
+      }
+
+      root.innerHTML = `<div class="food-pick-group">
+        <p class="food-pick-label">Your library <span class="food-pick-hint">Indian / home</span></p>
+        ${localHtml}
+      </div>${offBlock}`;
+    }
+
+    async function runOffSearch(query) {
+      const q = String(query || "").trim();
+      if (q.length < OFF_MIN_CHARS) return;
+      if (offAbort) {
+        try {
+          offAbort.abort();
+        } catch (_) {}
+      }
+      const seq = ++offReqSeq;
+      offAbort = new AbortController();
+      offStatus = "loading";
+      renderFoodPick(q);
+      try {
+        const params = new URLSearchParams({
+          search_terms: q,
+          search_simple: "1",
+          action: "process",
+          json: "1",
+          page_size: String(OFF_PAGE_SIZE),
+          fields: "code,product_name,product_name_en,brands,nutriments",
+        });
+        const res = await fetch(`${OFF_SEARCH_URL}?${params}`, {
+          signal: offAbort.signal,
+          headers: { Accept: "application/json" },
+        });
+        if (!res.ok) throw new Error("off " + res.status);
+        const data = await res.json();
+        if (seq !== offReqSeq) return;
+        const mapped = [];
+        const seen = new Set();
+        (data.products || []).forEach((p) => {
+          const food = mapOffProduct(p);
+          if (!food || seen.has(food.id)) return;
+          seen.add(food.id);
+          mapped.push(food);
+          offFoods.set(food.id, food);
+        });
+        offResults = mapped.slice(0, 16);
+        lastOffQuery = q;
+        offStatus = offResults.length ? "ok" : "empty";
+        renderFoodPick(q);
+      } catch (e) {
+        if (e?.name === "AbortError") return;
+        if (seq !== offReqSeq) return;
+        offResults = [];
+        offStatus = "error";
+        renderFoodPick(q);
+      }
+    }
+
+    function scheduleOffSearch(query) {
+      const q = String(query || "").trim();
+      if (offTimer) clearTimeout(offTimer);
+      if (q.length < OFF_MIN_CHARS) {
+        if (offAbort) {
+          try {
+            offAbort.abort();
+          } catch (_) {}
+        }
+        offResults = [];
+        offStatus = "";
+        lastOffQuery = "";
+        renderFoodPick(q);
+        return;
+      }
+      renderFoodPick(q);
+      if (q === lastOffQuery && (offStatus === "ok" || offStatus === "empty")) {
+        return;
+      }
+      offStatus = "loading";
+      renderFoodPick(q);
+      offTimer = setTimeout(() => runOffSearch(q), OFF_DEBOUNCE_MS);
     }
 
     function render() {
@@ -526,16 +698,24 @@
           c.classList.toggle("is-active", c === chip);
         });
       });
-      $("diet-search")?.addEventListener("input", (e) => renderFoodPick(e.target.value));
+      $("diet-search")?.addEventListener("input", (e) => {
+        const q = e.target.value;
+        renderFoodPick(q);
+        scheduleOffSearch(q);
+      });
       $("diet-food-pick")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-food-id]");
         if (!btn) return;
-        const food = allFoods().find((f) => f.id === btn.getAttribute("data-food-id"));
-        if (!food) return;
+        const food = findFood(btn.getAttribute("data-food-id"));
+        if (!food || !Number.isFinite(Number(food.kcal))) {
+          setStatus($("diet-status"), "That item has no usable kcal.", "error");
+          return;
+        }
         const meal = $("diet-meal")?.value || "breakfast";
         const servings = $("diet-servings")?.value || 1;
         addItem(food, meal, servings);
-        setStatus($("diet-status"), `Added ${food.name}`, "ok");
+        const note = food.source === "off" && food.unitNote ? ` (${food.unitNote})` : "";
+        setStatus($("diet-status"), `Added ${food.name}${note}`, "ok");
       });
       $("diet-add-custom")?.addEventListener("click", () => {
         const name = $("diet-custom-name")?.value.trim();
@@ -586,8 +766,8 @@
     async function init() {
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261007health1"),
-          fetch("./data/diet-defaults.json?v=20261007health1"),
+          fetch("./data/foods.json?v=20261007off"),
+          fetch("./data/diet-defaults.json?v=20261007off"),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();
@@ -602,6 +782,7 @@
       }
       wire();
       render();
+      renderFoodPick($("diet-search")?.value || "");
     }
 
     function getTargetsForAdmin() {

@@ -441,11 +441,45 @@ body {
 
 .food-pick {
   display: grid;
-  gap: 0.45rem;
-  max-height: 240px;
+  gap: 0.55rem;
+  max-height: min(42vh, 340px);
   overflow: auto;
-  margin: 0.5rem 0 0.75rem;
+  margin: 0.35rem 0 0.75rem;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.food-pick-group {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.food-pick-group.is-off {
+  padding-top: 0.55rem;
+  border-top: 1px dashed rgba(80, 150, 70, 0.28);
+}
+
+.food-pick-label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(26, 77, 40, 0.72);
+}
+
+.food-pick-hint {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(26, 77, 40, 0.45);
+}
+
+.food-pick-empty {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.35rem 0.1rem;
 }
 
 .food-pick button {
@@ -459,6 +493,7 @@ body {
   font-size: 0.9rem;
   padding: 0.7rem 0.85rem;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .food-pick button em {
@@ -467,6 +502,13 @@ body {
   font-size: 0.78rem;
   color: var(--text-faint);
   margin-top: 0.15rem;
+}
+
+.diet-search-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  color: rgba(26, 77, 40, 0.55);
+  line-height: 1.35;
 }
 
 /* —— Periods calendar —— */
