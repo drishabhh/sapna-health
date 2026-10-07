@@ -1,6 +1,6 @@
 # Sapna Health
 
-Personal health companion for Sapna — **Diet**, **Periods** (private on device), and **Gym weight logs**, with a link to today’s workout.
+Personal health companion for Sapna — **Diet**, **Periods** (dates syncable), and **Gym weight logs**, with a link to today’s workout.
 
 **Live:** https://drishabhh.github.io/sapna-health/  
 **Workout app (separate, locked):** https://drishabhh.github.io/sapna-workout/
@@ -9,15 +9,15 @@ Personal health companion for Sapna — **Diet**, **Periods** (private on device
 
 | Section | Persistence |
 |---------|-------------|
-| Diet | Device (`localStorage`) + optional Admin publish of shared defaults (`data/diet-defaults.json`) |
-| Periods | **Device only** — never committed to this public repo |
-| Weight logs | Device + export/import backup |
-| Workout | Links out to the Sapna workout Pages site |
+| Diet | Device (`localStorage`) + optional Admin publish of defaults (`data/diet-defaults.json`) |
+| Periods | Device + optional sync of **dates** to `data/periods.json` (cross-device) |
+| Weight logs | Device + export/import (exercise moves only) |
+| Workout | Links out to Sapna workout Pages; inline exercise weight logs on-device |
 
 ## Admin
 
-Password-gated (same hashed gate pattern as the workout site). Used to publish diet default targets via GitHub PAT if desired. Intimate period data is never published.
+Password-gated (hashed). Publish diet defaults and/or period calendar dates via GitHub PAT.
 
 ## Stack
 
-Static site on GitHub Pages — HTML/CSS/JS, no backend.
+Static site on GitHub Pages — HTML/CSS/JS, no backend. Light Sapna visual shell with section accent colors.

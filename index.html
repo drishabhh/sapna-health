@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Sapna health — diet, periods (private on device), gym weight logs, and today’s workout." />
-  <meta name="theme-color" content="#050f0e" />
+  <meta name="theme-color" content="#eef5f1" />
   <title>Sapna — Health</title>
   <script>
     window.sapnaAdminOpen = function (ev) {
@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261007health2"></script>
+  <script src="./js/admin-auth.js?v=20261007health3"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261007health2" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261007health3" />
 </head>
 <body data-section="workout">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -105,7 +105,7 @@
     <div class="hero workout-hero-compact">
       <p class="brand">Sapna</p>
       <h1 class="headline">Today’s workout</h1>
-      <p class="support">Stretching &amp; exercise from her gym plan — log weights right here.</p>
+      <p class="support">Stretching for warm-up · log weights on Exercise moves.</p>
       <div class="cta-row">
         <a class="btn-primary" href="https://drishabhh.github.io/sapna-workout/" target="_blank" rel="noopener">Open full workout (GIFs)</a>
         <a class="btn-ghost" href="#logs">All logs</a>
@@ -190,8 +190,8 @@
         <p>Mark cycle days and optional notes. Estimates improve with more logs.</p>
       </header>
       <p class="privacy-banner">
-        Private on this phone only. Period data is stored in your browser (localStorage) and is
-        <strong>never</strong> uploaded or committed to GitHub Pages. Export a backup file if you switch phones.
+        Period <strong>dates</strong> (and optional short notes) can sync across Sapna’s devices via
+        <code>data/periods.json</code> when you tap <strong>Sync dates</strong>. Dates-only wellness calendar — keep notes brief.
       </p>
 
       <div class="cal-head">
@@ -216,10 +216,14 @@
       </div>
 
       <div class="block">
-        <h2>Backup (stays with you)</h2>
-        <p class="hint">Download or restore a JSON file on your device. Do not share publicly.</p>
+        <h2>Sync across devices</h2>
+        <p class="hint">Publishes period dates to GitHub Pages (same PAT as Admin). Other phones load them automatically.</p>
+        <label class="field">GitHub PAT (repo scope)
+          <input type="password" id="period-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
+        </label>
         <div class="actions">
-          <button type="button" class="btn-ghost" id="period-export">Export</button>
+          <button type="button" class="btn-primary" id="period-sync">Sync dates</button>
+          <button type="button" class="btn-ghost" id="period-export">Export backup</button>
           <label class="btn-ghost" style="cursor:pointer">
             Import
             <input type="file" id="period-import" accept="application/json,.json" hidden />
@@ -235,24 +239,13 @@
     <div class="panel-inner">
       <header class="section-head">
         <h1>Weight logs</h1>
-        <p>Progress for Stretching &amp; Exercise — saved on this phone.</p>
+        <p>Exercise weight progress — saved on this phone. Stretching has no weight logs.</p>
       </header>
-
-      <div class="logs-tabs" role="tablist">
-        <button type="button" class="is-active" data-log-tab="all">All</button>
-        <button type="button" data-log-tab="stretch">Stretching</button>
-        <button type="button" data-log-tab="main">Exercise</button>
-      </div>
 
       <div class="block">
         <h2>Log a set</h2>
-        <label class="field">Type
-          <select id="log-kind">
-            <option value="main">Exercise</option>
-            <option value="stretch">Stretching</option>
-          </select>
-        </label>
-        <label class="field">Move
+        <input type="hidden" id="log-kind" value="main" />
+        <label class="field">Exercise
           <input type="text" id="log-exercise" list="log-exercise-list" placeholder="e.g. Chest press" />
           <datalist id="log-exercise-list"></datalist>
         </label>
@@ -312,7 +305,7 @@
         <h2 id="gate-title">Admin</h2>
         <button type="button" class="btn-ghost" onclick="return window.sapnaAdminCloseGate();">Cancel</button>
       </header>
-      <p class="hint">Publish shared diet defaults to GitHub Pages (optional). Period data is never published.</p>
+      <p class="hint">Publish diet defaults and/or period calendar dates to GitHub Pages.</p>
       <form id="gate-form" onsubmit="return window.sapnaAdminUnlock(event);">
         <label class="field">Password
           <input type="password" id="gate-password" autocomplete="current-password" />
@@ -330,7 +323,7 @@
         <h2 id="admin-title">Publish defaults</h2>
         <button type="button" class="btn-ghost" id="admin-close">Close</button>
       </header>
-      <p class="hint">Updates <code>data/diet-defaults.json</code> so other devices see new calorie/protein targets after Pages refresh. Does not touch period or weight logs.</p>
+      <p class="hint">Diet defaults → <code>data/diet-defaults.json</code>. Period dates → <code>data/periods.json</code> (wellness calendar). Weight logs stay on-device.</p>
       <div class="field-row">
         <label class="field">Default kcal
           <input type="number" id="admin-kcal" min="800" step="50" />
@@ -344,12 +337,13 @@
       </label>
       <div class="actions">
         <button type="button" class="btn-ghost" id="admin-save-token">Save token</button>
-        <button type="button" class="btn-primary" id="admin-publish">Post defaults</button>
+        <button type="button" class="btn-primary" id="admin-publish">Post diet defaults</button>
+        <button type="button" class="btn-ghost" id="admin-publish-periods">Post period dates</button>
       </div>
       <p class="status" id="admin-status" hidden></p>
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261007health2"></script>
+  <script src="./js/app.js?v=20261007health3"></script>
 </body>
 </html>

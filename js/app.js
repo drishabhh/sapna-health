@@ -8,6 +8,7 @@
   };
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
+  const PERIODS_PATH = "data/periods.json";
 
   const $ = (id) => document.getElementById(id);
   const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -129,7 +130,14 @@
 
     function cardHtml(move) {
       const name = move.name || "Move";
-      return `<article class="move-log-card" data-move="${escapeHtml(name)}" data-kind="${escapeHtml(move.kind)}">
+      const isStretch = move.kind === "stretch";
+      if (isStretch) {
+        return `<article class="move-log-card is-stretch" data-move="${escapeHtml(name)}" data-kind="stretch">
+          <p class="move-title">${escapeHtml(name)}</p>
+          <p class="move-rx">${escapeHtml(move.rx || "Easy and controlled")} · no weight log</p>
+        </article>`;
+      }
+      return `<article class="move-log-card" data-move="${escapeHtml(name)}" data-kind="main">
         <p class="move-title">${escapeHtml(name)}</p>
         <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
         <p class="last-log">${escapeHtml(lastLogLine(name))}</p>
@@ -161,8 +169,8 @@
       const { stretch, main } = movesByKind();
       if (status) {
         status.textContent = plan.headline
-          ? `${plan.headline} — log weights under each move (saved on this phone).`
-          : "Log weights under each move (saved on this phone).";
+          ? `${plan.headline} — log weights on Exercise moves (saved on this phone).`
+          : "Log weights on Exercise moves (saved on this phone).";
       }
       let html = "";
       if (stretch.length) {
@@ -183,6 +191,7 @@
         if (!card) return;
         const name = card.getAttribute("data-move");
         const kind = card.getAttribute("data-kind") || "main";
+        if (kind === "stretch") return;
         const kg = Number(card.querySelector("[data-w-kg]")?.value);
         const rx = card.querySelector("[data-w-rx]")?.value.trim() || "";
         if (!Number.isFinite(kg)) {
@@ -209,9 +218,7 @@
         if (!res.ok) throw new Error("no plan");
         plan = await res.json();
         const { stretch, main } = movesByKind();
-        Weights.suggestFromMoves(
-          [...stretch, ...main].map((m) => ({ name: m.name, kind: m.kind })),
-        );
+        Weights.suggestFromMoves(main.map((m) => ({ name: m.name, kind: "main" })));
       } catch {
         plan = null;
       }
@@ -449,9 +456,9 @@
     return { init, render, getTargetsForAdmin };
   })();
 
-  /* ───────── Periods (device-only) ───────── */
+  /* ───────── Periods (local + syncable dates) ───────── */
   const Periods = (() => {
-    let state = loadJSON(LS.periods, { days: {}, /* ISO -> { period: bool, note: string } */ });
+    let state = loadJSON(LS.periods, { days: {} });
     let view = new Date();
     view.setDate(1);
     let selected = todayISO();
@@ -588,7 +595,7 @@
         if (!state.days[selected].period && !state.days[selected].note) delete state.days[selected];
         persist();
         render();
-        setStatus($("period-status"), "Saved on this phone only.", "ok");
+        setStatus($("period-status"), "Saved here — Sync dates to share across devices.", "ok");
       });
       $("period-save-note")?.addEventListener("click", () => {
         const note = $("period-note")?.value.trim() || "";
@@ -597,16 +604,17 @@
         if (!state.days[selected].period && !note) delete state.days[selected];
         persist();
         render();
-        setStatus($("period-status"), "Note saved on this phone.", "ok");
+        setStatus($("period-status"), "Note saved. Sync dates to publish.", "ok");
       });
+      $("period-sync")?.addEventListener("click", () => publishPeriods($("period-status"), $("period-token")?.value.trim()));
       $("period-export")?.addEventListener("click", () => {
         downloadJSON(`sapna-periods-backup-${todayISO()}.json`, {
-          kind: "sapna-periods-private",
+          kind: "sapna-periods",
           exportedAt: new Date().toISOString(),
-          warning: "Private — do not commit or share publicly.",
+          label: "Personal wellness dates",
           ...state,
         });
-        setStatus($("period-status"), "Exported. Keep the file private.", "ok");
+        setStatus($("period-status"), "Backup downloaded.", "ok");
       });
       $("period-import")?.addEventListener("change", async (e) => {
         const file = e.target.files?.[0];
@@ -617,7 +625,7 @@
           state = { days: data.days };
           persist();
           render();
-          setStatus($("period-status"), "Import complete (device only).", "ok");
+          setStatus($("period-status"), "Import complete.", "ok");
         } catch {
           setStatus($("period-status"), "Could not import that file.", "error");
         }
@@ -625,12 +633,70 @@
       });
     }
 
-    function init() {
+    function mergeCloud(cloud) {
+      if (!cloud?.days || typeof cloud.days !== "object") return;
+      Object.entries(cloud.days).forEach(([key, info]) => {
+        const local = state.days[key] || {};
+        state.days[key] = {
+          period: !!(info.period || local.period),
+          note: local.note || info.note || "",
+        };
+        if (!state.days[key].period && !state.days[key].note) delete state.days[key];
+      });
+      persist();
+    }
+
+    function publishPayload() {
+      // Prefer dates; keep short notes if present
+      const days = {};
+      Object.entries(state.days || {}).forEach(([k, v]) => {
+        if (!v?.period && !v?.note) return;
+        days[k] = { period: !!v.period };
+        if (v.note) days[k].note = String(v.note).slice(0, 200);
+      });
+      return {
+        version: 1,
+        updatedAt: todayISO(),
+        label: "Personal wellness dates for Sapna — period calendar dates (and optional short notes).",
+        days,
+      };
+    }
+
+    async function publishPeriods(statusEl, tokenOverride) {
+      const token = tokenOverride || localStorage.getItem(LS.token) || $("admin-token")?.value.trim();
+      if (!token) {
+        setStatus(statusEl, "Add a GitHub PAT (repo scope) — or save one in Admin.", "error");
+        return;
+      }
+      if (tokenOverride) localStorage.setItem(LS.token, tokenOverride);
+      setStatus(statusEl, "Syncing period dates…", "info");
+      try {
+        const payload = publishPayload();
+        await githubPutFile(
+          PERIODS_PATH,
+          b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
+          `Update period dates (${todayISO()})`,
+          token
+        );
+        setStatus(statusEl, "Synced. Other devices see dates after Pages refresh (~30–60s).", "ok");
+      } catch (err) {
+        setStatus(statusEl, err.message || String(err), "error");
+      }
+    }
+
+    async function init() {
       wire();
+      try {
+        const res = await fetch(`./${PERIODS_PATH}?t=${Date.now()}`, { cache: "no-store" });
+        if (res.ok) mergeCloud(await res.json());
+      } catch (_) {}
+      if ($("period-token") && localStorage.getItem(LS.token)) {
+        $("period-token").placeholder = "Token saved — paste to replace";
+      }
       render();
     }
 
-    return { init, render };
+    return { init, render, publishPeriods, publishPayload };
   })();
 
   /* ───────── Weight logs ───────── */
@@ -638,33 +704,25 @@
     let state = loadJSON(LS.weights, { entries: [] });
     /** @type {{name:string, kind:string}[]} */
     let suggestions = [];
-    let tab = "all"; // all | stretch | main
+    let tab = "main"; // exercise logs only
 
     function persist() {
       saveJSON(LS.weights, state);
     }
 
     function inferKind(name, explicit) {
-      if (explicit === "stretch" || explicit === "main") return explicit;
-      const hit = suggestions.find((s) => s.name === name);
-      if (hit) return hit.kind;
-      const lower = String(name || "").toLowerCase();
-      if (/stretch|circle|swing|rotation|mobility/.test(lower)) return "stretch";
       return "main";
     }
 
     function suggestFromMoves(items) {
-      // items: string[] or {name, kind}[]
-      const norm = (items || []).map((x) =>
-        typeof x === "string" ? { name: x, kind: "main" } : { name: x.name, kind: x.kind || "main" }
-      );
+      const norm = (items || [])
+        .map((x) => (typeof x === "string" ? { name: x, kind: "main" } : { name: x.name, kind: "main" }))
+        .filter((s) => s.name && s.kind !== "stretch");
       const map = new Map(suggestions.map((s) => [s.name, s]));
-      norm.forEach((s) => {
-        if (s.name) map.set(s.name, s);
-      });
+      norm.forEach((s) => map.set(s.name, s));
       state.entries.forEach((e) => {
-        if (e.exercise && !map.has(e.exercise)) {
-          map.set(e.exercise, { name: e.exercise, kind: e.kind || "main" });
+        if (e.exercise && (e.kind || "main") === "main" && !map.has(e.exercise)) {
+          map.set(e.exercise, { name: e.exercise, kind: "main" });
         }
       });
       suggestions = [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -674,12 +732,7 @@
     function fillDatalist() {
       const dl = $("log-exercise-list");
       if (!dl) return;
-      const kindSel = $("log-kind")?.value;
-      let list = suggestions;
-      if (kindSel === "stretch" || kindSel === "main") {
-        list = suggestions.filter((s) => s.kind === kindSel);
-      }
-      dl.innerHTML = list.map((s) => `<option value="${escapeHtml(s.name)}"></option>`).join("");
+      dl.innerHTML = suggestions.map((s) => `<option value="${escapeHtml(s.name)}"></option>`).join("");
     }
 
     function lastFor(name) {
@@ -695,17 +748,18 @@
         date: date || todayISO(),
         rx,
         note,
-        kind: inferKind(exercise, kind),
+        kind: "main",
       });
       persist();
       if (typeof Workout !== "undefined" && Workout.render) Workout.render();
     }
 
+    function exerciseEntries() {
+      return state.entries.filter((e) => (e.kind || "main") === "main");
+    }
+
     function filteredEntries() {
-      let entries = [...state.entries];
-      if (tab === "stretch" || tab === "main") {
-        entries = entries.filter((e) => (e.kind || inferKind(e.exercise)) === tab);
-      }
+      let entries = exerciseEntries();
       const selected = $("log-filter")?.value || "";
       if (selected) entries = entries.filter((e) => e.exercise === selected);
       return entries.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
@@ -725,14 +779,7 @@
       fillDatalist();
       if ($("log-date") && !$("log-date").value) $("log-date").value = todayISO();
 
-      document.querySelectorAll("[data-log-tab]").forEach((btn) => {
-        btn.classList.toggle("is-active", btn.getAttribute("data-log-tab") === tab);
-      });
-
-      const pool =
-        tab === "all"
-          ? state.entries
-          : state.entries.filter((e) => (e.kind || inferKind(e.exercise)) === tab);
+      const pool = exerciseEntries();
       const names = [...new Set(pool.map((e) => e.exercise))].sort();
       const filter = $("log-filter");
       if (filter) {
@@ -748,7 +795,7 @@
       if (progress) {
         const keys = [...map.keys()].sort();
         if (!keys.length) {
-          progress.innerHTML = `<p class="hint">No logs in this group yet — log from Workout under Stretching / Exercise.</p>`;
+          progress.innerHTML = `<p class="hint">No exercise logs yet — log kg under Exercise moves on Workout.</p>`;
         } else {
           progress.innerHTML = keys
             .map((name) => {
@@ -756,10 +803,9 @@
               const first = arr[0]?.weight ?? 0;
               const last = arr[arr.length - 1]?.weight ?? 0;
               const delta = Math.round((last - first) * 10) / 10;
-              const kind = arr[arr.length - 1]?.kind || inferKind(name);
               const pct = first > 0 ? Math.min(100, Math.max(8, (last / (first * 1.5)) * 100)) : 40;
               return `<div class="log-entry">
-                <strong>${escapeHtml(name)}<span class="kind-chip">${kind === "stretch" ? "Stretch" : "Exercise"}</span></strong>
+                <strong>${escapeHtml(name)}</strong>
                 <div class="meta">${arr.length} logs · ${first} → ${last} kg ${
                   delta > 0 ? `(+${delta})` : delta < 0 ? `(${delta})` : ""
                 }</div>
@@ -777,11 +823,9 @@
           ? `<ul class="food-list">${entries
               .slice(0, 50)
               .map((e) => {
-                const kind = e.kind || inferKind(e.exercise);
                 return `<li>
                 <div>
                   <div><strong style="font-weight:600">${escapeHtml(e.exercise)}</strong>
-                    <span class="kind-chip">${kind === "stretch" ? "Stretch" : "Exercise"}</span>
                     · ${e.weight} kg</div>
                   <div class="meta">${escapeHtml(e.date)}${e.rx ? " · " + escapeHtml(e.rx) : ""}${
                     e.note ? " · " + escapeHtml(e.note) : ""
@@ -796,13 +840,6 @@
     }
 
     function wire() {
-      document.querySelectorAll("[data-log-tab]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          tab = btn.getAttribute("data-log-tab") || "all";
-          render();
-        });
-      });
-      $("log-kind")?.addEventListener("change", fillDatalist);
       $("log-add")?.addEventListener("click", () => {
         const exercise = $("log-exercise")?.value.trim();
         const weight = Number($("log-weight")?.value);
@@ -817,7 +854,7 @@
           date,
           rx: $("log-rx")?.value.trim() || "",
           note: $("log-note")?.value.trim() || "",
-          kind: $("log-kind")?.value || "main",
+          kind: "main",
         });
         $("log-weight").value = "";
         $("log-rx").value = "";
@@ -862,11 +899,12 @@
     }
 
     function init() {
-      // migrate missing kind
-      state.entries = (state.entries || []).map((e) => ({
-        ...e,
-        kind: e.kind || inferKind(e.exercise),
-      }));
+      // Keep exercise logs only (drop legacy stretch weight logs)
+      state.entries = (state.entries || [])
+        .map((e) => ({ ...e, kind: "main" }))
+        .filter((e) => e.kind === "main");
+      // Filter out known stretch names from suggestions path later; strip stretch-like legacy if flagged
+      state.entries = state.entries.filter((e) => e.kind !== "stretch");
       persist();
       wire();
       render();
@@ -968,7 +1006,7 @@
     wireAdmin();
     Weights.init();
     await Diet.init();
-    Periods.init();
+    await Periods.init();
     await Workout.init();
     showPanel(location.hash.replace(/^#/, "") || "workout");
   }
