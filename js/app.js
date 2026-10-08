@@ -948,8 +948,8 @@
     async function init() {
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261007cse-sites"),
-          fetch("./data/diet-defaults.json?v=20261007cse-sites"),
+          fetch("./data/foods.json?v=20261008crazy"),
+          fetch("./data/diet-defaults.json?v=20261008crazy"),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();
