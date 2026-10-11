@@ -11,13 +11,18 @@ Personal companion for Sapna — **Today**, **Workout** (plan + GIFs + LOG), **D
 | Section | Persistence |
 |---------|-------------|
 | Workout | `data/today.json` + `media/` / GIF library; lift LOG → `data/weights.json` |
-| Diet | Device (`localStorage`) + optional Admin publish of defaults |
+| Diet | Admin publishes `data/diet-today.json` + `data/diet-plans/`; Sapna checkmarks + extras on device (`localStorage`) with optional sync to `data/diet-checks.json` |
 | Periods | Device + optional sync to `data/periods.json` |
 | Weight logs | Device + sync to `data/weights.json` (shared PAT) |
 
 ## Admin
 
-Password-gated. **Edit current plan** loads today’s cart. **Create new plan** asks for name + date (default tomorrow), then the same cart. Browse **Library** or **Past plans**, tap tiles (or **+ Add custom** GIF/stretch with body part for the library), then **Publish**. Same panel also saves GitHub / Gemini keys and posts diet, periods, and lift logs.
+Password-gated (`SapnaJim`).
+
+- **Workout plans** — cart → Publish → `data/today.json` + history.
+- **Diet plans** — same cart pattern → Publish → `data/diet-today.json` + `data/diet-plans/`. Sapna only checkmarks items + quick-adds extras (no AI UI).
+- **AI** (Insights regenerate, packaged-product fill, batch foods, Puter Grok, diet AI fill) is **Admin only**.
+- Same panel saves GitHub / Gemini keys and posts diet defaults, periods, and lift logs.
 
 ## Overnight Insights (4:00 IST)
 
@@ -33,7 +38,7 @@ Browser can’t wake at 4am. GitHub Actions runs once daily:
 | Site | Today loads overnight file on open; **AI coach** = optional manual refresh (Gemini → Puter Grok) |
 
 ### Phone AI (browser)
-Paste/save Gemini under **Admin → Gemini key**, or Insights / Diet panels. Stored in `localStorage` only. Manual taps: **try Gemini first**, then **Puter.js Grok** (`https://js.puter.com/v2/`) — no Puter key; may prompt Puter sign-in (User-Pays). Overnight cron stays **Gemini-only** (Actions secret).
+Paste/save Gemini under **Admin → Gemini key**. Stored in `localStorage` only. Manual Admin taps: **try Gemini first**, then **Puter.js Grok** — no Puter key; may prompt Puter sign-in (User-Pays). Overnight cron stays **Gemini-only** (Actions secret). Sapna sees overnight Insights read-only.
 
 | Key / path | Where | Used for |
 |-----|--------|----------|

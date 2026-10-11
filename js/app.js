@@ -15,7 +15,21 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261011prof2";
+  const PROFILE_ASSET_V = "20261011diet1";
+  const DIET_TODAY_PATH = "data/diet-today.json";
+  const DIET_CHECKS_PATH = "data/diet-checks.json";
+
+  function isAdminUnlocked() {
+    try {
+      return sessionStorage.getItem("sapna_admin_unlocked") === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function syncAdminUi() {
+    document.body.classList.toggle("is-admin", isAdminUnlocked());
+  }
 
   const $ = (id) => document.getElementById(id);
   const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -1217,6 +1231,48 @@ Return JSON matching the schema.`;
       return generate({ prompt, schema, useSearch: false });
     }
 
+    function prepareDietPlan(targets) {
+      const kcal = Number(targets?.kcal) || 1800;
+      const pro = Number(targets?.protein) || 100;
+      const prompt = `You build a simple one-day Indian / home meal plan for Sapna.
+Target about ${kcal} kcal and ${pro}g protein total across breakfast, lunch, dinner, snacks.
+Return JSON only with:
+- headline (short)
+- meals: { breakfast, lunch, dinner, snacks } — each an array of { name, kcal, protein, note }
+Use 2–4 items per meal slot. Realistic home portions. Prefer roti, dal, sabzi, eggs, paneer, curd, fruit, oats.`;
+      const schema = {
+        type: "object",
+        properties: {
+          headline: { type: "string" },
+          meals: {
+            type: "object",
+            properties: {
+              breakfast: { type: "array", items: { type: "object" } },
+              lunch: { type: "array", items: { type: "object" } },
+              dinner: { type: "array", items: { type: "object" } },
+              snacks: { type: "array", items: { type: "object" } },
+            },
+          },
+        },
+        required: ["meals"],
+      };
+      const example = {
+        headline: "Balanced plate",
+        meals: {
+          breakfast: [{ name: "Oats with milk", kcal: 280, protein: 12, note: "1 bowl" }],
+          lunch: [{ name: "Roti + dal + sabzi", kcal: 550, protein: 22, note: "" }],
+          dinner: [{ name: "Paneer + salad", kcal: 400, protein: 28, note: "" }],
+          snacks: [{ name: "Curd", kcal: 90, protein: 6, note: "1 katori" }],
+        },
+      };
+      return { prompt, schema, example };
+    }
+
+    async function suggestDietPlan(targets) {
+      const { prompt, schema } = prepareDietPlan(targets);
+      return generate({ prompt, schema, useSearch: false });
+    }
+
     async function testKey() {
       const key = getKey();
       if (!key) return { ok: false, message: "Paste a Gemini API key first." };
@@ -1257,6 +1313,8 @@ Return JSON matching the schema.`;
       hasKey,
       enrichFoods,
       enrichPackagedProduct,
+      prepareDietPlan,
+      suggestDietPlan,
       coach,
       testKey,
       preferredModels,
@@ -1430,6 +1488,11 @@ ${JSON.stringify(example, null, 2)}`;
       return chatJson(prompt, example, opts);
     }
 
+    async function suggestDietPlan(targets, opts) {
+      const { prompt, example } = Gemini.prepareDietPlan(targets);
+      return chatJson(prompt, example, opts);
+    }
+
     return {
       available,
       waitUntilReady,
@@ -1437,6 +1500,7 @@ ${JSON.stringify(example, null, 2)}`;
       isSignedIn,
       enrichFoods,
       enrichPackagedProduct,
+      suggestDietPlan,
       coach,
       formatError,
       isPopupBlocked,
@@ -1822,6 +1886,10 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     async function run({ statusEl, preferPuter } = {}) {
+      if (!isAdminUnlocked()) {
+        setStatus(statusEl, "AI coach regenerate is Admin only. Overnight insights still show here.", "error");
+        return null;
+      }
       const snap = buildSnapshot();
       const puterCall = (opts) => PuterGrok.coach(snap, opts);
       try {
@@ -1888,25 +1956,95 @@ ${JSON.stringify(example, null, 2)}`;
       lunch: [],
       dinner: [],
       snacks: [],
+      extras: [],
+      done: {},
     });
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
-    let state = loadJSON(LS.diet, { targets: null, day: emptyDay(), customFoods: [], recentFoodIds: [] });
+    /** @type {null | {planDate?:string,headline?:string,support?:string,targets?:object,meals?:object}} */
+    let publishedPlan = null;
+    let state = loadJSON(LS.diet, {
+      targets: null,
+      day: emptyDay(),
+      customFoods: [],
+      recentFoodIds: [],
+      checksByDate: {},
+    });
     let pkgPending = null; /* { food, mode: 'grams'|'servings' } */
 
     function ensureDay() {
-      if (!state.day || state.day.date !== todayISO()) {
-        state.day = emptyDay();
+      const d = todayISO();
+      if (!state.day || state.day.date !== d) {
+        const saved = state.checksByDate?.[d];
+        state.day = {
+          ...emptyDay(),
+          date: d,
+          done: { ...(saved?.done || {}) },
+          extras: Array.isArray(saved?.extras) ? saved.extras.slice() : [],
+          /* legacy free-form diary slots still count as extras if present */
+          breakfast: saved?.breakfast || [],
+          lunch: saved?.lunch || [],
+          dinner: saved?.dinner || [],
+          snacks: saved?.snacks || [],
+        };
         persist();
       }
+      if (!state.day.done) state.day.done = {};
+      if (!Array.isArray(state.day.extras)) state.day.extras = [];
+    }
+
+    function persistChecksSnapshot() {
+      ensureDay();
+      state.checksByDate = state.checksByDate || {};
+      state.checksByDate[state.day.date] = {
+        done: { ...(state.day.done || {}) },
+        extras: (state.day.extras || []).slice(),
+        breakfast: (state.day.breakfast || []).slice(),
+        lunch: (state.day.lunch || []).slice(),
+        dinner: (state.day.dinner || []).slice(),
+        snacks: (state.day.snacks || []).slice(),
+      };
     }
 
     function targets() {
-      return state.targets || defaults.targets || { kcal: 1800, protein: 100 };
+      if (state.targets) return state.targets;
+      if (publishedPlan?.targets) return publishedPlan.targets;
+      return defaults.targets || { kcal: 1800, protein: 100 };
     }
 
     function persist() {
+      persistChecksSnapshot();
       saveJSON(LS.diet, state);
+    }
+
+    function loadPublishedPlan(plan) {
+      publishedPlan = plan || null;
+      if (plan?.targets && !state.targets) {
+        /* Prefer published plan targets until she overrides */
+      }
+      render();
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+      if (typeof Today !== "undefined" && Today.render) Today.render();
+    }
+
+    function planItems(meal) {
+      return (publishedPlan?.meals && publishedPlan.meals[meal]) || [];
+    }
+
+    function isDone(itemId) {
+      ensureDay();
+      return !!(state.day.done && state.day.done[itemId]);
+    }
+
+    function toggleDone(itemId) {
+      ensureDay();
+      state.day.done = state.day.done || {};
+      state.day.done[itemId] = !state.day.done[itemId];
+      if (state.day.done[itemId]) markDietLogged(state.day.date);
+      persist();
+      render();
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+      maybeAutoSyncChecks();
     }
 
     function allFoods() {
@@ -2057,12 +2195,24 @@ ${JSON.stringify(example, null, 2)}`;
       return food;
     }
 
+    function extrasInMeal(meal) {
+      ensureDay();
+      const fromExtras = (state.day.extras || []).filter((x) => (x.meal || "snacks") === meal);
+      const legacy = state.day[meal] || [];
+      return [...fromExtras, ...legacy];
+    }
+
     function totals() {
       ensureDay();
       let kcal = 0;
       let protein = 0;
       MEALS.forEach(({ id }) => {
-        (state.day[id] || []).forEach((item) => {
+        planItems(id).forEach((item) => {
+          if (!isDone(item.id)) return;
+          kcal += Number(item.kcal) || 0;
+          protein += Number(item.protein) || 0;
+        });
+        extrasInMeal(id).forEach((item) => {
           const s = Number(item.servings) || 1;
           kcal += (Number(item.kcal) || 0) * s;
           protein += (Number(item.protein) || 0) * s;
@@ -2072,12 +2222,15 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function slotKcal(slot) {
-      return Math.round(
-        (state.day[slot] || []).reduce(
-          (a, item) => a + (Number(item.kcal) || 0) * (Number(item.servings) || 1),
-          0
-        )
-      );
+      ensureDay();
+      let n = 0;
+      planItems(slot).forEach((item) => {
+        if (isDone(item.id)) n += Number(item.kcal) || 0;
+      });
+      extrasInMeal(slot).forEach((item) => {
+        n += (Number(item.kcal) || 0) * (Number(item.servings) || 1);
+      });
+      return Math.round(n);
     }
 
     function markDietLogged(date) {
@@ -2105,9 +2258,10 @@ ${JSON.stringify(example, null, 2)}`;
       const s = Number(servings) || 1;
       const kcal = Number(food.kcal);
       if (!Number.isFinite(kcal)) return;
-      state.day[meal] = state.day[meal] || [];
       const entry = {
-        id: food.id || "custom-" + Date.now(),
+        id: "extra-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 5),
+        foodId: food.id || "",
+        meal: meal || "snacks",
         name: food.name,
         kcal,
         protein: Number(food.protein) || 0,
@@ -2120,12 +2274,44 @@ ${JSON.stringify(example, null, 2)}`;
       if (food.sodiumMg != null) entry.sodiumMg = Number(food.sodiumMg);
       if (extras.amountLabel) entry.amountLabel = extras.amountLabel;
       if (food.kind === "packaged" || extras.kind === "packaged") entry.kind = "packaged";
-      state.day[meal].push(entry);
+      state.day.extras = state.day.extras || [];
+      state.day.extras.push(entry);
       pushRecent(food.id);
       markDietLogged(state.day.date || todayISO());
       persist();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+      maybeAutoSyncChecks();
+    }
+
+    function addQuickExtra() {
+      const name = ($("diet-quick-name")?.value || "").trim();
+      const kcal = Number($("diet-quick-kcal")?.value);
+      const protein = Number($("diet-quick-protein")?.value);
+      if (!name || !Number.isFinite(kcal)) {
+        setStatus($("diet-status"), "Name + kcal needed.", "error");
+        return;
+      }
+      addItem(
+        { id: "quick-" + Date.now(), name, kcal, protein: Number.isFinite(protein) ? protein : 0 },
+        $("diet-meal")?.value || "snacks",
+        1
+      );
+      if ($("diet-quick-name")) $("diet-quick-name").value = "";
+      if ($("diet-quick-kcal")) $("diet-quick-kcal").value = "";
+      if ($("diet-quick-protein")) $("diet-quick-protein").value = "";
+      setStatus($("diet-status"), `Added ${name}`, "ok");
+    }
+
+    function removeExtra(extraId) {
+      ensureDay();
+      state.day.extras = (state.day.extras || []).filter((x) => x.id !== extraId);
+      MEALS.forEach(({ id }) => {
+        state.day[id] = (state.day[id] || []).filter((x) => x.id !== extraId);
+      });
+      persist();
+      render();
+      maybeAutoSyncChecks();
     }
 
     function addPackagedAmount(food, meal, mode, amount) {
@@ -2139,7 +2325,16 @@ ${JSON.stringify(example, null, 2)}`;
 
     function removeItem(meal, index) {
       ensureDay();
-      state.day[meal].splice(index, 1);
+      const list = extrasInMeal(meal);
+      const item = list[index];
+      if (!item) return;
+      if (item.id && (state.day.extras || []).some((x) => x.id === item.id)) {
+        removeExtra(item.id);
+        return;
+      }
+      state.day[meal] = state.day[meal] || [];
+      const li = state.day[meal].findIndex((x) => x === item || x.id === item.id);
+      if (li >= 0) state.day[meal].splice(li, 1);
       persist();
       render();
     }
@@ -2217,7 +2412,7 @@ ${JSON.stringify(example, null, 2)}`;
       const hint = $("diet-add-meal-hint");
       if (hint) {
         const label = MEALS.find((m) => m.id === meal)?.label || meal;
-        hint.textContent = `Adding to ${label}`;
+        hint.textContent = `Extra · ${label}`;
       }
       renderFoodPick($("diet-search")?.value || "");
       try {
@@ -2237,19 +2432,37 @@ ${JSON.stringify(example, null, 2)}`;
       if (kcalEl && document.activeElement !== kcalEl) kcalEl.value = t.kcal;
       if (proEl && document.activeElement !== proEl) proEl.value = t.protein;
 
+      if ($("diet-plan-headline")) {
+        $("diet-plan-headline").textContent = publishedPlan?.headline || "Today’s plate";
+      }
+      if ($("diet-plan-support")) {
+        $("diet-plan-support").textContent =
+          publishedPlan?.support || "Tap ✓ for what you ate · quick-add anything else.";
+      }
+      const planSt = $("diet-plan-status");
+      if (planSt) {
+        if (!publishedPlan) {
+          planSt.hidden = false;
+          planSt.textContent = "No published meal plan yet — Admin can set today’s diet. You can still quick-add foods.";
+        } else {
+          planSt.hidden = true;
+          planSt.textContent = "";
+        }
+      }
+
       const totalsRoot = $("diet-totals");
       if (totalsRoot) {
         const kcalPct = Math.max(0, Math.min(100, Math.round((tot.kcal / (t.kcal || 1)) * 100)));
         const proPct = Math.max(0, Math.min(100, Math.round((tot.protein / (t.protein || 1)) * 100)));
         totalsRoot.innerHTML = `
           <div class="hf-remain-card ${over ? "is-over" : ""}">
-            <p class="hf-remain-kicker">${over ? "Over target" : "Calories left"}</p>
-            <p class="hf-remain-num"><strong>${over ? tot.kcal - t.kcal : left}</strong>
-              <span>${over ? "kcal over" : "kcal"}</span></p>
+            <p class="hf-remain-kicker">${over ? "Over plan" : "Diet taken"}</p>
+            <p class="hf-remain-num"><strong>${tot.kcal}</strong>
+              <span>/ ${t.kcal} kcal</span></p>
             <div class="hf-remain-meta">
-              <span><b>${tot.kcal}</b> eaten</span>
-              <span><b>${t.kcal}</b> goal</span>
+              <span><b>${over ? "+" + (tot.kcal - t.kcal) : left}</b> ${over ? "over" : "left"}</span>
               <span><b>${tot.protein}g</b> / ${t.protein}g protein</span>
+              <span>checked + extras</span>
             </div>
             <div class="hf-remain-bars" aria-hidden="true">
               <div class="hf-bar"><i style="width:${kcalPct}%"></i></div>
@@ -2262,36 +2475,53 @@ ${JSON.stringify(example, null, 2)}`;
       if (mealsRoot) {
         const active = $("diet-meal")?.value || "breakfast";
         mealsRoot.innerHTML = MEALS.map(({ id, label }) => {
-          const items = state.day[id] || [];
+          const planned = planItems(id);
+          const extras = extrasInMeal(id);
           const sk = slotKcal(id);
-          const lis = items.length
-            ? items
-                .map((item, i) => {
-                  const s = Number(item.servings) || 1;
-                  const qty = item.amountLabel
-                    ? ` · ${escapeHtml(item.amountLabel)}`
-                    : s !== 1
-                      ? ` × ${s}`
-                      : "";
-                  return `<li>
-                    <div>
-                      <div>${escapeHtml(item.name)}${qty}</div>
-                      <div class="meta">${Math.round(item.kcal * s)} kcal · ${Math.round(item.protein * s * 10) / 10}g P</div>
-                    </div>
-                    <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
+          const checkedN = planned.filter((it) => isDone(it.id)).length;
+          const planLis = planned.length
+            ? planned
+                .map((item) => {
+                  const on = isDone(item.id);
+                  return `<li class="diet-check-row${on ? " is-done" : ""}">
+                    <button type="button" class="diet-check-toggle" data-check-id="${escapeHtml(item.id)}" aria-pressed="${on ? "true" : "false"}" aria-label="${on ? "Unmark" : "Mark eaten"}">
+                      <span class="diet-check-box" aria-hidden="true">${on ? "✓" : ""}</span>
+                      <span class="diet-check-copy">
+                        <strong>${escapeHtml(item.name)}</strong>
+                        <em>${item.kcal} kcal · ${item.protein}g P${item.note ? ` · ${escapeHtml(item.note)}` : ""}</em>
+                      </span>
+                    </button>
                   </li>`;
                 })
                 .join("")
-            : `<li class="hf-meal-empty">Nothing logged — tap <strong>+ Add</strong></li>`;
+            : `<li class="hf-meal-empty">No plan items — Admin publishes the day, or quick-add below.</li>`;
+          const extraLis = extras
+            .map((item, i) => {
+              const s = Number(item.servings) || 1;
+              const qty = item.amountLabel
+                ? ` · ${escapeHtml(item.amountLabel)}`
+                : s !== 1
+                  ? ` × ${s}`
+                  : "";
+              return `<li class="diet-extra-row">
+                <div>
+                  <div>${escapeHtml(item.name)}${qty} <span class="diet-extra-tag">extra</span></div>
+                  <div class="meta">${Math.round(item.kcal * s)} kcal · ${Math.round(item.protein * s * 10) / 10}g P</div>
+                </div>
+                <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
+              </li>`;
+            })
+            .join("");
           return `<section class="hf-meal-card meal-slot${id === active ? " is-active-meal" : ""}" data-meal-slot="${id}">
             <header class="hf-meal-head">
               <div>
                 <h3>${label}</h3>
-                <p class="hf-meal-kcal">${sk} kcal · ${items.length} item${items.length === 1 ? "" : "s"}</p>
+                <p class="hf-meal-kcal">${sk} kcal · ${checkedN}/${planned.length} checked${extras.length ? ` · ${extras.length} extra` : ""}</p>
               </div>
-              <button type="button" class="hf-add-btn" data-add-meal="${id}">+ Add</button>
+              <button type="button" class="hf-add-btn" data-add-meal="${id}">+ Extra</button>
             </header>
-            <ul class="food-list">${lis}</ul>
+            <ul class="food-list diet-check-list">${planLis}</ul>
+            ${extraLis ? `<ul class="food-list diet-extra-list">${extraLis}</ul>` : ""}
           </section>`;
         }).join("");
       }
@@ -2301,6 +2531,11 @@ ${JSON.stringify(example, null, 2)}`;
         c.classList.toggle("is-active", on);
         c.setAttribute("aria-selected", on ? "true" : "false");
       });
+      const hint = $("diet-add-meal-hint");
+      if (hint) {
+        const label = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
+        hint.textContent = `Extra · ${label}`;
+      }
       renderFoodPick($("diet-search")?.value || "");
       if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
         Today.render();
@@ -2420,6 +2655,10 @@ ${JSON.stringify(example, null, 2)}`;
 
     async function fillProductWithAi({ preferPuter } = {}) {
       const st = $("diet-pkg-status");
+      if (!isAdminUnlocked()) {
+        setStatus(st, "AI product fill is Admin only.", "error");
+        return;
+      }
       const input = readProductForm();
       try {
         Gemini.preparePackagedProduct(input);
@@ -2531,9 +2770,98 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-pkg-cancel")?.addEventListener("click", () => closePkgSheet());
     }
 
+    function checksPayload() {
+      persistChecksSnapshot();
+      return {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        days: { ...(state.checksByDate || {}) },
+      };
+    }
+
+    async function publishChecks(statusEl, tokenOverride) {
+      const token =
+        tokenOverride ||
+        localStorage.getItem(LS.token) ||
+        ($("admin-token")?.value || "").trim();
+      if (!token) {
+        setStatus(statusEl, "Save a GitHub PAT first (Connect this phone).", "error");
+        return false;
+      }
+      setStatus(statusEl, "Syncing checkmarks…", "info");
+      try {
+        const payload = checksPayload();
+        await githubPutFile(
+          DIET_CHECKS_PATH,
+          b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
+          `Sync diet checkmarks (${todayISO()})`,
+          token
+        );
+        setStatus(statusEl, "Checkmarks synced. Pages ~30–60s.", "ok");
+        return true;
+      } catch (e) {
+        setStatus(statusEl, e.message || String(e), "error");
+        return false;
+      }
+    }
+
+    let autoSyncTimer = null;
+    function maybeAutoSyncChecks() {
+      if (!(localStorage.getItem(LS.token) || "").trim()) return;
+      clearTimeout(autoSyncTimer);
+      autoSyncTimer = setTimeout(() => {
+        publishChecks($("diet-sync-status"));
+      }, 2500);
+    }
+
+    async function pullChecks() {
+      const st = $("diet-sync-status");
+      setStatus(st, "Refreshing checkmarks…", "info");
+      try {
+        const res = await fetch(`./${DIET_CHECKS_PATH}?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("No cloud checkmarks yet.");
+        const data = await res.json();
+        const days = data.days || {};
+        state.checksByDate = { ...(state.checksByDate || {}), ...days };
+        const d = todayISO();
+        if (days[d]) {
+          state.day = {
+            ...emptyDay(),
+            date: d,
+            done: { ...(days[d].done || {}) },
+            extras: Array.isArray(days[d].extras) ? days[d].extras.slice() : [],
+            breakfast: days[d].breakfast || [],
+            lunch: days[d].lunch || [],
+            dinner: days[d].dinner || [],
+            snacks: days[d].snacks || [],
+          };
+        }
+        persist();
+        render();
+        setStatus(st, "Pulled checkmarks from cloud.", "ok");
+      } catch (e) {
+        setStatus(st, e.message || String(e), "error");
+      }
+    }
+
     function wire() {
-      $("diet-regular-run")?.addEventListener("click", () => bootstrapRegularFoods());
-      $("diet-regular-puter")?.addEventListener("click", () => bootstrapRegularFoods({ preferPuter: true }));
+      $("diet-regular-run")?.addEventListener("click", () => {
+        if (!isAdminUnlocked()) {
+          setStatus($("diet-regular-status"), "Admin only.", "error");
+          return;
+        }
+        bootstrapRegularFoods();
+      });
+      $("diet-regular-puter")?.addEventListener("click", () => {
+        if (!isAdminUnlocked()) {
+          setStatus($("diet-regular-status"), "Admin only.", "error");
+          return;
+        }
+        bootstrapRegularFoods({ preferPuter: true });
+      });
+      $("diet-quick-add")?.addEventListener("click", () => addQuickExtra());
+      $("diet-sync-checks")?.addEventListener("click", () => publishChecks($("diet-sync-status")));
+      $("diet-pull-checks")?.addEventListener("click", () => pullChecks());
       $("diet-meal-chips")?.addEventListener("click", (e) => {
         const chip = e.target.closest("[data-meal]");
         if (!chip) return;
@@ -2599,13 +2927,19 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus($("diet-status"), "Targets saved on this phone.", "ok");
       });
       $("diet-clear-day")?.addEventListener("click", () => {
-        if (!confirm("Clear today’s meals?")) return;
+        if (!confirm("Clear today’s checkmarks and extras?")) return;
         state.day = emptyDay();
+        if (state.checksByDate) delete state.checksByDate[todayISO()];
         persist();
         render();
-        setStatus($("diet-status"), "Today cleared.", "info");
+        setStatus($("diet-status"), "Today’s checkmarks cleared.", "info");
       });
       $("diet-meals")?.addEventListener("click", (e) => {
+        const check = e.target.closest("[data-check-id]");
+        if (check) {
+          toggleDone(check.getAttribute("data-check-id"));
+          return;
+        }
         const add = e.target.closest("[data-add-meal]");
         if (add) {
           focusAddForMeal(add.getAttribute("data-add-meal"));
@@ -2625,9 +2959,10 @@ ${JSON.stringify(example, null, 2)}`;
         localStorage.removeItem("sapna_google_cse_cx");
       } catch (_) {}
       try {
-        const [fRes, dRes] = await Promise.all([
+        const [fRes, dRes, pRes] = await Promise.all([
           fetch(`./data/foods.json?v=${PROFILE_ASSET_V}`),
           fetch(`./data/diet-defaults.json?v=${PROFILE_ASSET_V}`),
+          fetch(`./${DIET_TODAY_PATH}?v=${PROFILE_ASSET_V}`, { cache: "no-store" }),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();
@@ -2637,9 +2972,33 @@ ${JSON.stringify(example, null, 2)}`;
           defaults = await dRes.json();
           if (!state.targets && defaults.targets) state.targets = { ...defaults.targets };
         }
+        if (pRes.ok) {
+          publishedPlan = await pRes.json();
+        }
       } catch (e) {
         console.warn(e);
       }
+      try {
+        const cRes = await fetch(`./${DIET_CHECKS_PATH}?v=${PROFILE_ASSET_V}`, { cache: "no-store" });
+        if (cRes.ok) {
+          const data = await cRes.json();
+          const days = data.days || {};
+          state.checksByDate = { ...days, ...(state.checksByDate || {}) };
+          const d = todayISO();
+          if (days[d] && (!state.day || state.day.date !== d || !Object.keys(state.day.done || {}).length)) {
+            state.day = {
+              ...emptyDay(),
+              date: d,
+              done: { ...(days[d].done || {}) },
+              extras: Array.isArray(days[d].extras) ? days[d].extras.slice() : [],
+              breakfast: days[d].breakfast || [],
+              lunch: days[d].lunch || [],
+              dinner: days[d].dinner || [],
+              snacks: days[d].snacks || [],
+            };
+          }
+        }
+      } catch (_) {}
       wire();
       render();
       renderFoodPick($("diet-search")?.value || "");
@@ -2650,7 +3009,16 @@ ${JSON.stringify(example, null, 2)}`;
       ensureDay();
       const out = [];
       MEALS.forEach(({ id, label }) => {
-        (state.day[id] || []).forEach((item) => {
+        planItems(id).forEach((item) => {
+          if (!isDone(item.id)) return;
+          out.push({
+            meal: label,
+            name: item.name,
+            kcal: Math.round(Number(item.kcal) || 0),
+            protein: Math.round((Number(item.protein) || 0) * 10) / 10,
+          });
+        });
+        extrasInMeal(id).forEach((item) => {
           out.push({
             meal: label,
             name: item.name,
@@ -2660,6 +3028,10 @@ ${JSON.stringify(example, null, 2)}`;
         });
       });
       return out;
+    }
+
+    function listFoods() {
+      return allFoods();
     }
 
     function importGeminiFoods(foods, provider) {
@@ -2738,7 +3110,9 @@ ${JSON.stringify(example, null, 2)}`;
       ensureDay();
       const mealFill = {};
       MEALS.forEach(({ id }) => {
-        mealFill[id] = (state.day[id] || []).length > 0;
+        const planned = planItems(id);
+        const anyChecked = planned.some((it) => isDone(it.id));
+        mealFill[id] = anyChecked || extrasInMeal(id).length > 0;
       });
       return {
         kcal: tot.kcal,
@@ -2748,6 +3122,7 @@ ${JSON.stringify(example, null, 2)}`;
         left,
         over: tot.kcal > tg.kcal,
         mealFill,
+        planHeadline: publishedPlan?.headline || "",
       };
     }
 
@@ -2762,6 +3137,10 @@ ${JSON.stringify(example, null, 2)}`;
       todayPlate,
       importGeminiFoods,
       bootstrapRegularFoods,
+      loadPublishedPlan,
+      listFoods,
+      publishChecks,
+      pullChecks,
     };
   })();
 
@@ -4329,6 +4708,30 @@ ${JSON.stringify(example, null, 2)}`;
       return dailyStreak(set);
     }
 
+    function estimateBurnKcal() {
+      const today = localDayISO();
+      const entries = liftEntries().filter((e) => String(e.date || "").slice(0, 10) === today);
+      let kcal = 0;
+      entries.forEach((e) => {
+        const s = Weights.entrySets(e);
+        const r = Weights.entryReps(e);
+        const w = Number(e.weight) || 0;
+        const sets = Number.isFinite(s) && s > 0 ? s : 1;
+        const reps = Number.isFinite(r) && r > 0 ? r : 10;
+        if (w > 0) kcal += sets * reps * w * 0.05;
+        else kcal += sets * 8;
+      });
+      if (!entries.length) {
+        try {
+          const snap = Workout.snapshot ? Workout.snapshot() : null;
+          if (snap?.liftsLogged) kcal = snap.liftsLogged * 40;
+        } catch (_) {}
+      } else {
+        kcal += 25; /* session overhead */
+      }
+      return Math.round(Math.max(0, Math.min(kcal, 1200)));
+    }
+
     function chartSvg(series, selectedKey) {
       const w = 320;
       const h = 96;
@@ -4391,10 +4794,32 @@ ${JSON.stringify(example, null, 2)}`;
       }
       const selected = series.find((s) => s.key === selectedWeekKey) || series[series.length - 1];
       const dietN = dietStreak();
+      const burn = estimateBurnKcal();
+      const dietSnap = Diet.snapshot ? Diet.snapshot() : { kcal: 0, targetKcal: 1800 };
+      const eaten = Math.round(dietSnap.kcal || 0);
+      const dietGoal = Math.round(dietSnap.targetKcal || 1800);
+      const dietPct = Math.max(0, Math.min(100, Math.round((eaten / (dietGoal || 1)) * 100)));
 
       if (streakRoot) {
         streakRoot.innerHTML = `
-        <section class="prog-card prog-streak-card">
+        <section class="prog-card prog-streak-card prog-summary-card">
+          <div class="prog-summary-metrics" aria-label="Today summary">
+            <div class="prog-metric">
+              <em>Streak</em>
+              <strong>${streakDays}</strong>
+              <span>day${streakDays === 1 ? "" : "s"} · ${streakWeeks ? `${streakWeeks}w` : "start"}</span>
+            </div>
+            <div class="prog-metric">
+              <em>Burned</em>
+              <strong>${burn || "—"}</strong>
+              <span>kcal est.${burn ? "" : " · log lifts"}</span>
+            </div>
+            <div class="prog-metric">
+              <em>Diet taken</em>
+              <strong>${eaten}</strong>
+              <span>/ ${dietGoal} kcal · ${dietPct}%</span>
+            </div>
+          </div>
           <div class="prog-streak-head">
             <div class="prog-flame" aria-hidden="true">✦</div>
             <div>
@@ -4402,6 +4827,9 @@ ${JSON.stringify(example, null, 2)}`;
               <p class="prog-streak-count"><strong>${streakDays}</strong> <span>day${streakDays === 1 ? "" : "s"}</span></p>
               <p class="prog-streak-sub">${streakWeeks ? `${streakWeeks} week${streakWeeks === 1 ? "" : "s"} with a lift` : "Log a lift to start"} · ${dietN ? `Diet ${dietN}d` : "Diet —"}</p>
             </div>
+          </div>
+          <div class="prog-diet-mini" aria-hidden="true">
+            <div class="hf-bar"><i style="width:${dietPct}%"></i></div>
           </div>
           <p class="prog-month-label">${escapeHtml(month.label)}</p>
           <div class="prog-dow" aria-hidden="true"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
@@ -4656,10 +5084,13 @@ ${JSON.stringify(example, null, 2)}`;
     });
 
     window.__sapnaOpenHealthAdmin = () => {
+      syncAdminUi();
       forceAdminOverlay($("admin-editor"));
       const t = Diet.getTargetsForAdmin();
       if ($("admin-kcal")) $("admin-kcal").value = t.kcal;
       if ($("admin-protein")) $("admin-protein").value = t.protein;
+      if ($("diet-edit-kcal") && !$("diet-edit-kcal").value) $("diet-edit-kcal").value = t.kcal;
+      if ($("diet-edit-protein") && !$("diet-edit-protein").value) $("diet-edit-protein").value = t.protein;
       if ($("admin-token")) {
         $("admin-token").value = "";
         if (localStorage.getItem(LS.token)) {
@@ -4793,6 +5224,11 @@ ${JSON.stringify(example, null, 2)}`;
   })();
 
   async function init() {
+    syncAdminUi();
+    window.Diet = Diet;
+    window.Gemini = Gemini;
+    window.PuterGrok = PuterGrok;
+    window.AiBridge = AiBridge;
     wireNav();
     wireAdmin();
     try {
@@ -4800,6 +5236,12 @@ ${JSON.stringify(example, null, 2)}`;
       if (window.SapnaPlanAdmin?.boot) await window.SapnaPlanAdmin.boot();
     } catch (err) {
       console.error("Plan admin failed to wire", err);
+    }
+    try {
+      if (window.SapnaDietAdmin?.wire) window.SapnaDietAdmin.wire();
+      if (window.SapnaDietAdmin?.boot) await window.SapnaDietAdmin.boot();
+    } catch (err) {
+      console.error("Diet admin failed to wire", err);
     }
     /* Ask for PAT first on a fresh phone — powers logs, periods, Admin */
     TokenSetup.promptIfNeeded();
@@ -4813,6 +5255,7 @@ ${JSON.stringify(example, null, 2)}`;
     /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
     if (Workout.refreshSummaries) Workout.refreshSummaries();
     else Workout.render();
+    syncAdminUi();
     showPanel(location.hash.replace(/^#/, "") || "today");
   }
 
