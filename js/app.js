@@ -2656,7 +2656,7 @@
         g.addEventListener("click", () => {
           selectedWeekKey = g.getAttribute("data-week") || "";
           render();
-          $("prog-week-detail")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          $("prog-week-detail")?.scrollIntoView({ block: "end", behavior: "smooth" });
         });
       });
     }
