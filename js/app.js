@@ -26,7 +26,8 @@
     }
     el.hidden = false;
     el.textContent = msg;
-    el.className = "status is-" + (kind || "info");
+    const sticky = el.id === "admin-status" ? " admin-status-sticky" : "";
+    el.className = "status" + sticky + " is-" + (kind || "info");
   }
 
   function loadJSON(key, fallback) {
@@ -1660,7 +1661,7 @@
       const token = tokenOverride || localStorage.getItem(LS.token) || $("admin-token")?.value.trim();
       if (!token) {
         setStatus(statusEl, "Add a GitHub PAT (repo scope) — or save one in Admin.", "error");
-        return;
+        return false;
       }
       if (tokenOverride) localStorage.setItem(LS.token, tokenOverride);
       setStatus(statusEl, "Syncing period dates…", "info");
@@ -1673,8 +1674,10 @@
           token
         );
         setStatus(statusEl, "Synced. Other devices see dates after Pages refresh (~30–60s).", "ok");
+        return true;
       } catch (err) {
         setStatus(statusEl, err.message || String(err), "error");
+        return false;
       }
     }
 
@@ -2249,6 +2252,86 @@
     }
   }
 
+  function setKeyBadge(id, kind, label) {
+    const el = $(id);
+    if (!el) return;
+    if (!kind) {
+      el.hidden = true;
+      el.textContent = "";
+      el.className = "key-badge";
+      return;
+    }
+    el.hidden = false;
+    el.textContent = label || (kind === "ok" ? "✓ Working" : kind === "error" ? "Invalid" : "Checking…");
+    el.className = "key-badge is-" + kind;
+  }
+
+  function resolveAdminToken() {
+    const typed = ($("admin-token")?.value || "").trim();
+    if (typed && !typed.startsWith("••")) return typed;
+    return (localStorage.getItem(LS.token) || "").trim();
+  }
+
+  async function validateGithubToken(token) {
+    if (!token || token.length < 20) {
+      return { ok: false, message: "Token looks too short." };
+    }
+    try {
+      const res = await fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.name}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github+json",
+        },
+      });
+      if (res.status === 401 || res.status === 403) {
+        return { ok: false, message: "GitHub rejected this token (check repo scope)." };
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { ok: false, message: err.message || `GitHub ${res.status}` };
+      }
+      return { ok: true, message: "Token works for sapna-health." };
+    } catch (err) {
+      return { ok: false, message: err.message || "Could not reach GitHub." };
+    }
+  }
+
+  async function validateGoogleCreds(key, cx) {
+    if (!key || !cx) return { ok: false, message: "Paste both Google API key and cx." };
+    try {
+      const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent("apple calories")}&num=1`;
+      const res = await fetch(url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.error?.message || `Google ${res.status}`;
+        return { ok: false, message: msg };
+      }
+      return { ok: true, message: "Google search keys work." };
+    } catch (err) {
+      return { ok: false, message: err.message || "Could not reach Google." };
+    }
+  }
+
+  function forceAdminOverlay(el) {
+    if (!el) return;
+    el.hidden = false;
+    el.removeAttribute("hidden");
+    el.classList.add("is-open");
+    el.style.cssText =
+      "display:flex !important; position:fixed !important; inset:0 !important; z-index:100060 !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important; background:rgba(12,22,20,0.72) !important;";
+    document.body.classList.add("modal-open");
+    /* Keep page content from receiving taps under the sheet */
+    document.querySelectorAll(".panel, .site-nav, .atmosphere").forEach((node) => {
+      if (node) node.style.pointerEvents = "none";
+    });
+  }
+
+  function releaseAdminOverlayLocks() {
+    document.querySelectorAll(".panel, .site-nav, .atmosphere").forEach((node) => {
+      if (node) node.style.pointerEvents = "";
+    });
+  }
+
   function wireAdmin() {
     /* Admin FAB uses head onclick=sapnaAdminOpen — do not double-bind here */
     $("admin-close")?.addEventListener("click", () => {
@@ -2260,36 +2343,86 @@
         ed.style.cssText = "";
       }
       document.body.classList.remove("modal-open");
+      releaseAdminOverlayLocks();
     });
-    $("admin-save-token")?.addEventListener("click", () => {
-      const raw = $("admin-token")?.value.trim();
-      if (!raw) {
-        setStatus($("admin-status"), "Paste a token first.", "error");
+
+    $("admin-editor")?.addEventListener("click", (e) => {
+      if (e.target === $("admin-editor")) {
+        $("admin-close")?.click();
+      }
+    });
+
+    $("admin-save-token")?.addEventListener("click", async () => {
+      const btn = $("admin-save-token");
+      let token = ($("admin-token")?.value || "").trim();
+      if (!token || token.startsWith("••")) {
+        token = (localStorage.getItem(LS.token) || "").trim();
+      }
+      if (!token) {
+        setKeyBadge("admin-token-badge", "error", "Missing");
+        setStatus($("admin-status"), "Paste a GitHub PAT first (repo scope).", "error");
         return;
       }
-      localStorage.setItem(LS.token, raw);
-      setStatus($("admin-status"), "Token saved in this browser only.", "ok");
+      if (btn) btn.disabled = true;
+      setKeyBadge("admin-token-badge", "info", "Checking…");
+      setStatus($("admin-status"), "Testing GitHub token…", "info");
+      const result = await validateGithubToken(token);
+      if (btn) btn.disabled = false;
+      if (!result.ok) {
+        setKeyBadge("admin-token-badge", "error", "Invalid");
+        setStatus($("admin-status"), result.message, "error");
+        return;
+      }
+      localStorage.setItem(LS.token, token);
+      if ($("admin-token")) {
+        $("admin-token").value = "";
+        $("admin-token").placeholder = "Token saved — paste to replace";
+      }
+      TokenSetup.applyPlaceholders();
+      setKeyBadge("admin-token-badge", "ok", "✓ Working");
+      setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
     });
-    $("admin-save-google")?.addEventListener("click", () => {
-      const key = $("admin-google-key")?.value.trim() || "";
-      const cx = $("admin-google-cx")?.value.trim() || "";
+
+    $("admin-save-google")?.addEventListener("click", async () => {
+      const btn = $("admin-save-google");
+      let key = ($("admin-google-key")?.value || "").trim();
+      let cx = ($("admin-google-cx")?.value || "").trim();
+      const saved = Diet.getGoogleCreds();
+      if ((!key || key.startsWith("••")) && saved.key) key = saved.key;
+      if (!cx && saved.cx) cx = saved.cx;
       if (!key || !cx) {
+        setKeyBadge("admin-google-badge", "error", "Missing");
         setStatus($("admin-status"), "Paste both Google API key and Search engine ID (cx).", "error");
+        return;
+      }
+      if (btn) btn.disabled = true;
+      setKeyBadge("admin-google-badge", "info", "Checking…");
+      setStatus($("admin-status"), "Testing Google search keys…", "info");
+      const result = await validateGoogleCreds(key, cx);
+      if (btn) btn.disabled = false;
+      if (!result.ok) {
+        setKeyBadge("admin-google-badge", "error", "Invalid");
+        setStatus($("admin-status"), result.message, "error");
         return;
       }
       Diet.saveGoogleCreds(key, cx);
       Diet.fillGoogleCredInputs();
-      setStatus($("admin-status"), "Google search keys saved on this phone.", "ok");
+      setKeyBadge("admin-google-badge", "ok", "✓ Working");
+      setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
     });
+
     $("admin-clear-google")?.addEventListener("click", () => {
       Diet.saveGoogleCreds("", "");
       Diet.fillGoogleCredInputs();
+      setKeyBadge("admin-google-badge", null);
       setStatus($("admin-status"), "Google keys cleared.", "info");
     });
+
     $("admin-publish")?.addEventListener("click", async () => {
-      const token = localStorage.getItem(LS.token) || $("admin-token")?.value.trim();
+      const token = resolveAdminToken();
       if (!token) {
         setStatus($("admin-status"), "Save a GitHub token first (repo scope).", "error");
+        setKeyBadge("admin-token-badge", "warn", "Needed");
         return;
       }
       const payload = {
@@ -2301,7 +2434,7 @@
         },
         note: "Published defaults for Sapna Health. Period/weight logs are synced separately.",
       };
-      setStatus($("admin-status"), "Publishing…", "info");
+      setStatus($("admin-status"), "Posting diet defaults…", "info");
       try {
         await githubPutFile(
           DIET_DEFAULTS_PATH,
@@ -2309,26 +2442,80 @@
           `Update diet defaults (${todayISO()})`,
           token
         );
-        setStatus($("admin-status"), "Posted. Pages updates in ~30–60s.", "ok");
+        setKeyBadge("admin-token-badge", "ok", "✓ Working");
+        setStatus($("admin-status"), "Diet defaults posted. Pages updates in ~30–60s.", "ok");
       } catch (err) {
+        setKeyBadge("admin-token-badge", "error", "Failed");
         setStatus($("admin-status"), err.message || String(err), "error");
       }
     });
-    $("admin-publish-periods")?.addEventListener("click", () => {
-      Periods.publishPeriods($("admin-status"), $("admin-token")?.value.trim() || undefined);
+
+    $("admin-publish-periods")?.addEventListener("click", async () => {
+      const token = resolveAdminToken();
+      if (!token) {
+        setStatus($("admin-status"), "Save a GitHub token first (repo scope).", "error");
+        setKeyBadge("admin-token-badge", "warn", "Needed");
+        return;
+      }
+      setStatus($("admin-status"), "Posting period dates…", "info");
+      const ok = await Periods.publishPeriods($("admin-status"), token);
+      if (ok) setKeyBadge("admin-token-badge", "ok", "✓ Working");
+      else setKeyBadge("admin-token-badge", "error", "Failed");
     });
-    $("admin-publish-weights")?.addEventListener("click", () => {
-      Weights.publishWeights($("admin-status"), $("admin-token")?.value.trim() || undefined);
+
+    $("admin-publish-weights")?.addEventListener("click", async () => {
+      const token = resolveAdminToken();
+      if (!token) {
+        setStatus($("admin-status"), "Save a GitHub token first (repo scope).", "error");
+        setKeyBadge("admin-token-badge", "warn", "Needed");
+        return;
+      }
+      setStatus($("admin-status"), "Posting lift logs…", "info");
+      const ok = await Weights.publishWeights($("admin-status"), token);
+      if (ok) setKeyBadge("admin-token-badge", "ok", "✓ Working");
+      else setKeyBadge("admin-token-badge", "error", "Failed");
     });
+
     window.__sapnaOpenHealthAdmin = () => {
+      forceAdminOverlay($("admin-editor"));
       const t = Diet.getTargetsForAdmin();
       if ($("admin-kcal")) $("admin-kcal").value = t.kcal;
       if ($("admin-protein")) $("admin-protein").value = t.protein;
-      if ($("admin-token") && localStorage.getItem(LS.token)) {
-        $("admin-token").placeholder = "Token saved — paste to replace";
+      if ($("admin-token")) {
+        $("admin-token").value = "";
+        if (localStorage.getItem(LS.token)) {
+          $("admin-token").placeholder = "Token saved — paste to replace";
+          setKeyBadge("admin-token-badge", "info", "Saved");
+        } else {
+          $("admin-token").placeholder = "ghp_…";
+          setKeyBadge("admin-token-badge", null);
+        }
       }
       Diet.fillGoogleCredInputs();
-      setStatus($("admin-status"), "");
+      const g = Diet.getGoogleCreds();
+      if (g.key && g.cx) setKeyBadge("admin-google-badge", "info", "Saved");
+      else setKeyBadge("admin-google-badge", null);
+      setStatus($("admin-status"), "Admin ready — test a key or post to Pages.", "info");
+      const sheet = $("admin-editor")?.querySelector(".admin-sheet");
+      if (sheet) sheet.scrollTop = 0;
+    };
+
+    /* Patch head open helpers to use opaque force overlay */
+    const prevShow = window.sapnaAdminShowEditor;
+    window.sapnaAdminShowEditor = function () {
+      window.sapnaAdminDismissTokenSetup();
+      window.sapnaAdminCloseGate();
+      forceAdminOverlay($("admin-editor"));
+      if (typeof window.__sapnaOpenHealthAdmin === "function") {
+        try {
+          window.__sapnaOpenHealthAdmin();
+        } catch (e) {}
+      } else if (typeof prevShow === "function") {
+        try {
+          prevShow();
+        } catch (e) {}
+      }
+      return false;
     };
   }
 
