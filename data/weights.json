@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T12:25:12.006Z",
+  "updatedAt": "2026-10-11T12:25:13.892Z",
   "label": "Sapna lift logs — synced across her phones via Pages.",
   "entries": [
     {
@@ -57,17 +57,6 @@
       "rx": "2 × 10",
       "note": "",
       "kind": "main"
-    },
-    {
-      "id": 1791718116972,
-      "exercise": "Shoulder press",
-      "weight": 0,
-      "date": "2026-10-11",
-      "sets": 0,
-      "reps": 0,
-      "rx": "0 × 0",
-      "note": "",
-      "kind": "main"
     }
   ],
   "deletedIds": [
@@ -75,6 +64,7 @@
     "1791719702086",
     "1791719200148",
     "1791719154887",
-    "1791718597336"
+    "1791718597336",
+    "1791718116972"
   ]
 }
