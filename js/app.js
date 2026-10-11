@@ -929,7 +929,7 @@
 
   /* ───────── Gemini (only 2 call types — food bootstrap + coach) ───────── */
   const Gemini = (() => {
-    const MODEL = "gemini-2.5-flash";
+    const MODEL = "gemini-3.8-flash";
     const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
     function getKey() {
@@ -1064,7 +1064,7 @@ Return JSON matching the schema.`;
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) return { ok: false, message: data?.error?.message || `Gemini ${res.status}` };
-        return { ok: true, message: "Gemini key works (2.5 Flash)." };
+        return { ok: true, message: "Gemini key works (3.8 Flash)." };
       } catch (e) {
         return { ok: false, message: e.message || "Could not reach Gemini." };
       }

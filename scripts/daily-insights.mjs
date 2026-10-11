@@ -6,7 +6,7 @@
  * One Gemini call → data/insights/latest.json (+ optional dated copy).
  *
  * Requires env: GEMINI_API_KEY
- * Optional: GEMINI_MODEL (default gemini-2.5-flash)
+ * Optional: GEMINI_MODEL (default gemini-3.8-flash)
  */
 import fs from "fs";
 import path from "path";
@@ -14,7 +14,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const API = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 const TZ = "Asia/Kolkata";
