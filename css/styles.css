@@ -3037,3 +3037,180 @@ body.gif-lightbox-open {
 body.token-setup-open {
   overflow: hidden;
 }
+
+/* —— Merged workout plan builder (Health theme) —— */
+.plan-launch-actions { flex-wrap: wrap; }
+.plan-builder { margin-top: 0.25rem; }
+.admin-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+.admin-block-head .admin-subhead { margin: 0; }
+.admin-hint, .gif-browser-body .admin-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+.admin-moves { display: grid; gap: 0.85rem; }
+.admin-move {
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  padding: 0.85rem;
+  background: #fff;
+}
+.admin-move-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+.order-field {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.order-field input {
+  width: 4rem;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  padding: 0.35rem 0.45rem;
+}
+.admin-preview {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f3eee6;
+  min-height: 120px;
+  padding: 0;
+  cursor: pointer;
+}
+.admin-preview img {
+  display: block;
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+.admin-preview-empty {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  padding: 1rem;
+}
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.btn-icon {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  min-width: 40px;
+  min-height: 40px;
+  cursor: pointer;
+  font: inherit;
+}
+.btn-icon.danger { color: #b33; border-color: rgba(179,51,51,0.35); }
+.gif-menu-list { display: grid; gap: 0.55rem; }
+.gif-menu-item {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  font: inherit;
+}
+.gif-menu-item strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  margin-bottom: 0.15rem;
+}
+.gif-menu-item span { color: var(--text-muted); font-size: 0.85rem; }
+.gif-menu-item.is-equipment {
+  border-color: rgba(201, 149, 42, 0.45);
+  background: rgba(201, 149, 42, 0.08);
+}
+.gif-menu-item:active { transform: scale(0.99); }
+.gif-search {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  font: inherit;
+  font-size: 16px;
+  background: #fff;
+}
+.gif-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.gif-pick {
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.4rem;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.gif-pick img {
+  display: block;
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #f3eee6;
+}
+.gif-pick span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.gif-pick.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(201, 149, 42, 0.25);
+}
+.gif-picker-more {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+.plan-overlay.is-open { z-index: 100070 !important; }
+.admin-sheet-tall { max-height: 94dvh; min-height: min(86dvh, 780px); }
+.gif-browser-body { padding-bottom: 0.5rem; }
+body.plan-admin-open { overflow: hidden; }
+.admin-status {
+  margin: 0.35rem 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.admin-status.is-ok { color: #1f7a48; }
+.admin-status.is-error { color: #b33; }
+.admin-status.is-info { color: #8a6414; }

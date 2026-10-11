@@ -1,6 +1,6 @@
 (() => {
-  const WORKOUT_PLAN_URL = "https://drishabhh.github.io/sapna-workout/data/today.json";
-  const WORKOUT_ORIGIN = "https://drishabhh.github.io/sapna-workout/";
+  const WORKOUT_PLAN_URL = "./data/today.json";
+  const WORKOUT_ORIGIN = "./";
   const LS = {
     diet: "sapna_health_diet_v1",
     periods: "sapna_health_periods_v1",
@@ -91,6 +91,7 @@
     if (id === "periods") Periods.render();
     if (id === "logs") Weights.render();
   }
+  window.showPanel = showPanel;
 
   function wireNav() {
     document.querySelectorAll("[data-nav]").forEach((a) => {
@@ -387,8 +388,8 @@
         return;
       }
       if (!plan) {
-        if (status) status.textContent = "Couldn’t load today’s plan — open the full workout site, or log from Logs.";
-        root.innerHTML = "";
+        if (status) status.textContent = "No plan yet — open Admin → Create plan for today.";
+        root.innerHTML = `<p class="hint">Admin → <strong>Create plan for today</strong> to add stretches and lifts.</p>`;
         return;
       }
       const { stretch, main } = movesByKind();
@@ -758,6 +759,18 @@
       }
     }
 
+    function loadLocalPlan(next) {
+      plan = next || null;
+      loaded = true;
+      if (plan) {
+        const { main } = movesByKind();
+        Weights.suggestFromMoves(main.map((m) => ({ name: m.name, kind: "main" })));
+      }
+      render();
+      refreshCardSummaries();
+      updateSessionSteps();
+    }
+
     async function init() {
       wire();
       try {
@@ -775,7 +788,7 @@
 
     function snapshot() {
       if (!loaded) return { title: "Today’s workout", detail: "Loading plan…" };
-      if (!plan) return { title: "Today’s workout", detail: "Open full workout or try again" };
+      if (!plan) return { title: "Today’s workout", detail: "Open Admin to create today’s plan" };
       const mains = (plan.sections || []).filter((s) => s.kind !== "stretch" && s.id !== "stretching");
       const n = mains.reduce((a, s) => a + ((s.moves || []).length), 0);
       return {
@@ -784,7 +797,9 @@
       };
     }
 
-    return { init, render, snapshot, refreshSummaries: refreshCardSummaries };
+    const api = { init, render, snapshot, refreshSummaries: refreshCardSummaries, loadLocalPlan };
+    window.Workout = api;
+    return api;
   })();
 
   function escapeHtml(s) {
@@ -2618,6 +2633,12 @@
   async function init() {
     wireNav();
     wireAdmin();
+    try {
+      if (window.SapnaPlanAdmin?.wire) window.SapnaPlanAdmin.wire();
+      if (window.SapnaPlanAdmin?.boot) await window.SapnaPlanAdmin.boot();
+    } catch (err) {
+      console.error("Plan admin failed to wire", err);
+    }
     /* Ask for PAT first on a fresh phone — powers logs, periods, Admin */
     TokenSetup.promptIfNeeded();
     await Weights.init();
