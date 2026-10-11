@@ -1,19 +1,8 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T12:25:15.990Z",
+  "updatedAt": "2026-10-11T12:25:26.572Z",
   "label": "Sapna lift logs — synced across her phones via Pages.",
   "entries": [
-    {
-      "id": 1791385430950,
-      "exercise": "Chest press flat bench",
-      "weight": 25,
-      "date": "2026-10-07",
-      "sets": null,
-      "reps": null,
-      "rx": "2 15",
-      "note": "",
-      "kind": "main"
-    },
     {
       "id": 1791385449972,
       "exercise": "Chest press flat bench",
@@ -55,6 +44,7 @@
     "1791719154887",
     "1791718597336",
     "1791718116972",
-    "1791718107492"
+    "1791718107492",
+    "1791385430950"
   ]
 }
