@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T13:17:17.686Z",
+  "updatedAt": "2026-10-11T13:19:35.074Z",
   "plans": [
     {
       "date": "2026-10-11",
-      "headline": "Aaj ka workout",
-      "moveCount": 7,
+      "headline": "Chest triceps",
+      "moveCount": 8,
       "path": "data/plans/2026-10-11.json",
-      "updatedAt": "2026-10-11T13:17:17.686Z"
+      "updatedAt": "2026-10-11T13:19:35.074Z"
     },
     {
       "date": "2026-10-10",
