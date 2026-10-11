@@ -34,13 +34,19 @@ window.SapnaPlanAdmin = (() => {
   /** @type {Array<{id:string,name:string,rx:string,gif:string,demo:string,kind:string}>} */
   let cart = [];
 
-  let browse = { group: "exercises", bodyPart: "", equipment: "", query: "" };
+  /** library | past */
+  let browse = { source: "library", group: "exercises", bodyPart: "", equipment: "", query: "", pastDate: "", pastMoves: [] };
+  /** edit | create */
+  let planMode = "edit";
+  let targetDate = "";
   let headline = "Aaj ka workout";
   let support = "Stretch · lift · log";
   let restTitle = "Rest & water";
   let restBody = "Rest 1–1.5 min between sets. Drink water — not cold; warm or room temp, sip by sip.";
   /** @type {Array<{date:string,headline:string,moveCount:number,path:string}>} */
   let historyIndex = [];
+  /** @type {File|null} */
+  let customPendingFile = null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -56,7 +62,20 @@ window.SapnaPlanAdmin = (() => {
   }
 
   function todayISO() {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function tomorrowISO() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
 
   function slugify(text) {
@@ -96,8 +115,31 @@ window.SapnaPlanAdmin = (() => {
     });
   }
 
+  function setCustomStatus(msg, kind) {
+    const node = $("custom-status");
+    if (!node) return;
+    if (!msg) {
+      node.hidden = true;
+      node.textContent = "";
+      return;
+    }
+    node.hidden = false;
+    node.textContent = msg;
+    node.className = "admin-status is-" + (kind || "info");
+  }
+
   function b64EncodeUnicode(str) {
     return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  function arrayBufferToBase64(buf) {
+    const bytes = new Uint8Array(buf);
+    const chunk = 0x8000;
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
   }
 
   async function githubGetSha(path, token) {
@@ -137,9 +179,14 @@ window.SapnaPlanAdmin = (() => {
       const data = await res.json();
       if (data?.gifs?.length) {
         gifLibrary = {
+          version: data.version,
+          updatedAt: data.updatedAt,
+          sources: data.sources,
           groups: data.groups || gifLibrary.groups,
           bodyParts: data.bodyParts || gifLibrary.bodyParts,
           gifs: data.gifs,
+          count: data.count,
+          dumbbellCount: data.dumbbellCount,
         };
       }
     } catch (err) {
@@ -209,13 +256,30 @@ window.SapnaPlanAdmin = (() => {
     el.setAttribute("hidden", "");
     el.classList.remove("is-open");
     el.style.cssText = "";
-    const browseOpen = $("plan-browse") && !$("plan-browse").hidden;
-    if (!browseOpen) document.body.classList.remove("plan-admin-open");
+    const still =
+      ($("plan-browse") && !$("plan-browse").hidden) ||
+      ($("plan-meta") && !$("plan-meta").hidden) ||
+      ($("plan-custom") && !$("plan-custom").hidden);
+    if (!still) document.body.classList.remove("plan-admin-open");
   }
 
   function showBuilder(show) {
     const builder = $("plan-builder");
     if (builder) builder.hidden = !show;
+    updateBuilderMeta();
+  }
+
+  function updateBuilderMeta() {
+    const el = $("plan-builder-meta");
+    if (!el) return;
+    if (!targetDate && planMode !== "create") {
+      el.hidden = true;
+      return;
+    }
+    const date = targetDate || todayISO();
+    const label = planMode === "edit" ? "Editing current" : "New plan";
+    el.hidden = false;
+    el.textContent = `${label} · ${headline || "Plan"} · ${date}`;
   }
 
   function cartCount() {
@@ -259,6 +323,7 @@ window.SapnaPlanAdmin = (() => {
       })
       .join("");
     updateCartBadges();
+    updateBuilderMeta();
   }
 
   function addToCart(entry, kind) {
@@ -266,7 +331,7 @@ window.SapnaPlanAdmin = (() => {
     cart.push({
       id: uid(slugify(entry.name || "move")),
       name: entry.name || "Move",
-      rx: defaultRx(k),
+      rx: entry.rx || defaultRx(k),
       gif: entry.path || entry.gif || "",
       demo: "img",
       kind: k,
@@ -298,6 +363,7 @@ window.SapnaPlanAdmin = (() => {
     const rb = ($("edit-rest-body")?.value || "").trim() || restBody;
     return {
       updatedAt: new Date().toISOString(),
+      planDate: targetDate || todayISO(),
       headline: h,
       support: s,
       restNote: {
@@ -355,30 +421,51 @@ window.SapnaPlanAdmin = (() => {
     if ($("edit-rest-body")) $("edit-rest-body").value = restBody;
   }
 
+  function sourceTabsHtml() {
+    return `<div class="plan-browse-tabs plan-source-tabs" role="tablist">
+      <button type="button" class="plan-tab ${browse.source === "library" ? "is-active" : ""}" data-browse-source="library">Library</button>
+      <button type="button" class="plan-tab ${browse.source === "past" ? "is-active" : ""}" data-browse-source="past">Past plans</button>
+    </div>`;
+  }
+
+  function groupTabsHtml() {
+    return `<div class="plan-browse-tabs" role="tablist">
+      <button type="button" class="plan-tab ${browse.group === "stretching" ? "is-active" : ""}" data-browse-group="stretching">Stretching</button>
+      <button type="button" class="plan-tab ${browse.group === "exercises" ? "is-active" : ""}" data-browse-group="exercises">Exercise</button>
+    </div>`;
+  }
+
+  function customTileHtml() {
+    return `<button type="button" class="plan-tile plan-tile-custom" data-open-custom>
+      <span class="plan-tile-plus">+</span>
+      <span>Add custom</span>
+    </button>`;
+  }
+
   function renderBrowse() {
     const title = $("plan-browse-title");
     const body = $("plan-browse-body");
     const back = $("plan-browse-back");
     if (!body) return;
 
-    const kind = browse.group === "stretching" ? "stretch" : "main";
+    if (browse.source === "past") {
+      renderPastBrowse(title, body, back);
+      return;
+    }
 
-    // Group tabs
-    const tabs = `<div class="plan-browse-tabs" role="tablist">
-      <button type="button" class="plan-tab ${browse.group === "stretching" ? "is-active" : ""}" data-browse-group="stretching">Stretching</button>
-      <button type="button" class="plan-tab ${browse.group === "exercises" ? "is-active" : ""}" data-browse-group="exercises">Exercise</button>
-    </div>`;
+    const kind = browse.group === "stretching" ? "stretch" : "main";
+    const tabs = `${sourceTabsHtml()}${groupTabsHtml()}`;
 
     if (!browse.bodyPart && !browse.equipment) {
       if (title) title.textContent = "Add moves";
       if (back) back.hidden = true;
-      const parts = (gifLibrary.bodyParts || []).filter((p) => {
-        if (p.id === "dumbbell") return browse.group === "exercises";
-        return filterLibrary({ group: browse.group, bodyPart: p.id }).length > 0;
+      const show = (gifLibrary.bodyParts || []).filter((p) => {
+        if (p.id === "dumbbell" || p.kind === "equipment") return browse.group === "exercises";
+        return true;
       });
       body.innerHTML = `${tabs}
         <div class="plan-chip-row">
-          ${parts
+          ${show
             .map((p) => {
               const equip = p.kind === "equipment" || p.id === "dumbbell";
               return `<button type="button" class="plan-chip ${equip ? "is-equip" : ""}" data-browse-body="${escapeAttr(p.id)}" ${equip ? 'data-equip="1"' : ""}>${escapeHtml(p.label)}</button>`;
@@ -392,9 +479,7 @@ window.SapnaPlanAdmin = (() => {
     if (browse.equipment && !browse.bodyPart) {
       if (title) title.textContent = "Dumbbell";
       if (back) back.hidden = false;
-      const parts = anatomicalBodyParts().filter(
-        (p) => filterLibrary({ group: browse.group, equipment: "dumbbell", bodyPart: p.id }).length
-      );
+      const parts = anatomicalBodyParts();
       body.innerHTML = `${tabs}
         <div class="plan-chip-row">
           ${parts
@@ -408,7 +493,6 @@ window.SapnaPlanAdmin = (() => {
       return;
     }
 
-    // Tiles
     const partLabel =
       (gifLibrary.bodyParts || []).find((p) => p.id === browse.bodyPart)?.label || browse.bodyPart;
     if (title) title.textContent = partLabel;
@@ -422,6 +506,7 @@ window.SapnaPlanAdmin = (() => {
     body.innerHTML = `${tabs}
       <input type="search" class="plan-tile-search" id="plan-tile-search" placeholder="Search" value="${escapeAttr(browse.query)}" enterkeyhint="search" />
       <div class="plan-tile-grid">
+        ${customTileHtml()}
         ${
           list
             .map((g) => {
@@ -431,7 +516,7 @@ window.SapnaPlanAdmin = (() => {
                 <span>${escapeHtml(shortName(g.name))}</span>
               </button>`;
             })
-            .join("") || `<p class="hint">No moves here.</p>`
+            .join("") || ""
         }
       </div>`;
     const search = $("plan-tile-search");
@@ -448,6 +533,54 @@ window.SapnaPlanAdmin = (() => {
         }
       });
     }
+    fillCustomBodySelect(browse.bodyPart, browse.group);
+    renderBrowseFooter();
+  }
+
+  function renderPastBrowse(title, body, back) {
+    const tabs = sourceTabsHtml();
+    if (!browse.pastDate) {
+      if (title) title.textContent = "From past plans";
+      if (back) back.hidden = true;
+      if (!historyIndex.length) {
+        body.innerHTML = `${tabs}<p class="hint">No previous plans yet — Publish one first.</p>`;
+        renderBrowseFooter();
+        return;
+      }
+      const sorted = [...historyIndex].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+      body.innerHTML = `${tabs}
+        <div class="plan-history-pick">
+          ${sorted
+            .map(
+              (p) => `<button type="button" class="plan-chip" data-past-date="${escapeAttr(p.date)}" data-past-path="${escapeAttr(p.path)}">
+                ${escapeHtml(p.date)} · ${escapeHtml(shortName(p.headline || "Plan"))}
+              </button>`
+            )
+            .join("")}
+        </div>
+        <p class="hint">Tap a day, then tap moves to add them to this cart.</p>`;
+      renderBrowseFooter();
+      return;
+    }
+
+    if (title) title.textContent = browse.pastDate;
+    if (back) back.hidden = false;
+    const moves = browse.pastMoves || [];
+    body.innerHTML = `${tabs}
+      <div class="plan-tile-grid">
+        ${
+          moves
+            .map((m) => {
+              const kind = m.kind === "stretch" ? "stretch" : "main";
+              const src = m.gif || "";
+              return `<button type="button" class="plan-tile" data-add-gif="${escapeAttr(src)}" data-add-name="${escapeAttr(m.name)}" data-add-kind="${kind}" data-add-rx="${escapeAttr(m.rx || "")}">
+                ${src ? `<img src="${escapeAttr(src)}" alt="" loading="lazy" />` : `<span class="plan-tile-plus">·</span>`}
+                <span>${escapeHtml(shortName(m.name))}</span>
+              </button>`;
+            })
+            .join("") || `<p class="hint">No moves in that plan.</p>`
+        }
+      </div>`;
     renderBrowseFooter();
   }
 
@@ -458,18 +591,25 @@ window.SapnaPlanAdmin = (() => {
   }
 
   function openBrowse() {
-    browse = { group: "exercises", bodyPart: "", equipment: "", query: "" };
+    browse = { source: "library", group: "exercises", bodyPart: "", equipment: "", query: "", pastDate: "", pastMoves: [] };
     openOverlay($("plan-browse"));
     renderBrowse();
   }
 
   function browseBack() {
+    if (browse.source === "past") {
+      if (browse.pastDate) {
+        browse.pastDate = "";
+        browse.pastMoves = [];
+        renderBrowse();
+        return;
+      }
+      closeOverlay($("plan-browse"));
+      return;
+    }
     if (browse.bodyPart) {
       browse.bodyPart = "";
       browse.query = "";
-      if (!browse.equipment) {
-        /* back to part list */
-      }
       renderBrowse();
       return;
     }
@@ -479,6 +619,26 @@ window.SapnaPlanAdmin = (() => {
       return;
     }
     closeOverlay($("plan-browse"));
+  }
+
+  function afterTileAdd() {
+    if (browse.source === "past") {
+      browse.pastDate = "";
+      browse.pastMoves = [];
+      renderBrowse();
+      return;
+    }
+    browse.bodyPart = "";
+    browse.equipment = "";
+    browse.query = "";
+    renderBrowse();
+  }
+
+  async function loadPastPlanMoves(path) {
+    const res = await fetch(`./${path}?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) throw new Error("Could not load that plan.");
+    const plan = await res.json();
+    return cartFromPlan(plan);
   }
 
   async function loadHistoryIndex() {
@@ -502,7 +662,7 @@ window.SapnaPlanAdmin = (() => {
     const root = $("plan-history-list");
     if (!root) return;
     if (!historyIndex.length) {
-      root.innerHTML = `<p class="hint">No saved plans yet — Publish to keep today’s plan in history.</p>`;
+      root.innerHTML = `<p class="hint">No saved plans yet — Publish to keep a plan in history.</p>`;
       return;
     }
     const sorted = [...historyIndex].sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -531,7 +691,8 @@ window.SapnaPlanAdmin = (() => {
       return;
     }
     const plan = buildPlanFromCart();
-    const date = todayISO();
+    const date = targetDate || plan.planDate || todayISO();
+    plan.planDate = date;
     const histPath = `${PLANS_DIR}/${date}.json`;
     const histEntry = {
       date,
@@ -552,12 +713,15 @@ window.SapnaPlanAdmin = (() => {
     if (btn) btn.disabled = true;
     setAdminStatus("Publishing plan…", "info");
     try {
-      await githubPutFile(
-        PLAN_PATH,
-        b64EncodeUnicode(JSON.stringify(plan, null, 2) + "\n"),
-        `Update today's workout (${date})`,
-        token
-      );
+      const writeToday = planMode === "edit" || date === todayISO();
+      if (writeToday) {
+        await githubPutFile(
+          PLAN_PATH,
+          b64EncodeUnicode(JSON.stringify(plan, null, 2) + "\n"),
+          `Update today's workout (${date})`,
+          token
+        );
+      }
       await githubPutFile(
         histPath,
         b64EncodeUnicode(JSON.stringify(plan, null, 2) + "\n"),
@@ -572,10 +736,17 @@ window.SapnaPlanAdmin = (() => {
       );
       historyIndex = nextIndex.plans;
       renderHistory();
-      try {
-        if (window.Workout?.loadLocalPlan) window.Workout.loadLocalPlan(plan);
-      } catch (_) {}
-      setAdminStatus("Published. Today updated + saved in Previous plans. Pages ~30–60s.", "ok");
+      if (writeToday) {
+        try {
+          if (window.Workout?.loadLocalPlan) window.Workout.loadLocalPlan(plan);
+        } catch (_) {}
+      }
+      setAdminStatus(
+        writeToday
+          ? "Published. Today updated + saved in Previous plans. Pages ~30–60s."
+          : `Published plan for ${date} in Previous plans. Pages ~30–60s.`,
+        "ok"
+      );
     } catch (err) {
       setAdminStatus(err.message || String(err), "error");
     } finally {
@@ -589,6 +760,8 @@ window.SapnaPlanAdmin = (() => {
       const res = await fetch(`./${path}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error("Could not load that plan.");
       const plan = await res.json();
+      planMode = "edit";
+      targetDate = todayISO();
       cart = cartFromPlan(plan);
       fillCopyFields(plan);
       showBuilder(true);
@@ -600,47 +773,188 @@ window.SapnaPlanAdmin = (() => {
     }
   }
 
-  async function startCreatePlan({ fresh } = {}) {
+  async function startEditCurrent() {
     await loadGifLibrary();
-    if (fresh) {
-      cart = [];
-      fillCopyFields({
-        headline: "Aaj ka workout",
-        support: "Stretch · lift · log",
-        restNote: { title: "Rest & water", body: restBody },
-      });
-    } else {
-      try {
-        const res = await fetch(`./${PLAN_PATH}?t=${Date.now()}`, { cache: "no-store" });
-        if (res.ok) {
-          const plan = await res.json();
-          cart = cartFromPlan(plan);
-          fillCopyFields(plan);
-        } else {
-          cart = [];
-          fillCopyFields({});
-        }
-      } catch {
+    planMode = "edit";
+    targetDate = todayISO();
+    try {
+      const res = await fetch(`./${PLAN_PATH}?t=${Date.now()}`, { cache: "no-store" });
+      if (res.ok) {
+        const plan = await res.json();
+        cart = cartFromPlan(plan);
+        fillCopyFields(plan);
+      } else {
         cart = [];
         fillCopyFields({});
       }
+    } catch {
+      cart = [];
+      fillCopyFields({});
     }
     showBuilder(true);
     renderCart();
-    setAdminStatus(fresh ? "New cart — browse and tap tiles to add." : "Cart loaded — browse to add more, then Publish.", "info");
+    setAdminStatus("Editing current plan — browse to add or change moves, then Publish.", "info");
     openBrowse();
   }
 
+  function openCreateMeta() {
+    const name = $("plan-meta-name");
+    const date = $("plan-meta-date");
+    if (name) name.value = "";
+    if (date) date.value = tomorrowISO();
+    openOverlay($("plan-meta"));
+  }
+
+  async function continueCreateFromMeta() {
+    await loadGifLibrary();
+    const name = ($("plan-meta-name")?.value || "").trim() || "New plan";
+    const date = ($("plan-meta-date")?.value || "").trim() || tomorrowISO();
+    planMode = "create";
+    targetDate = date;
+    cart = [];
+    headline = name;
+    fillCopyFields({
+      headline: name,
+      support: "Stretch · lift · log",
+      restNote: { title: "Rest & water", body: restBody },
+    });
+    closeOverlay($("plan-meta"));
+    showBuilder(true);
+    renderCart();
+    setAdminStatus(`New plan “${name}” for ${date} — add moves (library or Past plans).`, "info");
+    openBrowse();
+  }
+
+  function fillCustomBodySelect(preferredBody, preferredGroup) {
+    const sel = $("custom-body");
+    if (!sel) return;
+    const parts = anatomicalBodyParts();
+    sel.innerHTML = parts
+      .map((p) => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.label)}</option>`)
+      .join("");
+    if (preferredBody && parts.some((p) => p.id === preferredBody)) sel.value = preferredBody;
+    const kind = $("custom-kind");
+    if (kind && preferredGroup) kind.value = preferredGroup === "stretching" ? "stretching" : "exercises";
+  }
+
+  function openCustomSheet() {
+    fillCustomBodySelect(browse.bodyPart || "full-body", browse.group);
+    if ($("custom-name")) $("custom-name").value = "";
+    if ($("custom-url")) $("custom-url").value = "";
+    if ($("custom-file")) $("custom-file").value = "";
+    customPendingFile = null;
+    setCustomStatus("");
+    openOverlay($("plan-custom"));
+  }
+
+  async function saveCustomMove() {
+    const name = ($("custom-name")?.value || "").trim();
+    const group = ($("custom-kind")?.value || "exercises") === "stretching" ? "stretching" : "exercises";
+    const bodyPart = ($("custom-body")?.value || "full-body").trim() || "full-body";
+    const url = ($("custom-url")?.value || "").trim();
+    if (!name) {
+      setCustomStatus("Enter a name.", "error");
+      return;
+    }
+    if (!url && !customPendingFile) {
+      setCustomStatus("Paste a GIF link or upload a GIF.", "error");
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      setCustomStatus("Save a GitHub PAT first so the move stays in the library.", "error");
+      return;
+    }
+
+    const btn = $("custom-save");
+    if (btn) btn.disabled = true;
+    setCustomStatus("Saving to library…", "info");
+    try {
+      let path = url;
+      if (customPendingFile) {
+        const ext =
+          (customPendingFile.name.split(".").pop() || "gif").toLowerCase().replace(/[^a-z0-9]/g, "") || "gif";
+        path = `media/custom-${slugify(name)}-${Date.now().toString(36)}.${ext}`;
+        const buf = await customPendingFile.arrayBuffer();
+        if (buf.byteLength > 4.5 * 1024 * 1024) throw new Error("GIF too large (keep under ~4.5 MB).");
+        await githubPutFile(path, arrayBufferToBase64(buf), `Upload custom GIF: ${name}`, token);
+      }
+
+      const entry = {
+        id: uid(`custom-${slugify(name)}`),
+        name,
+        path,
+        thumb: path,
+        group,
+        bodyPart,
+        category: group === "stretching" ? "stretch-custom" : "strength-custom",
+        equipment: "custom",
+        muscle: bodyPart,
+        aliases: [],
+        source: customPendingFile ? "upload" : "link",
+      };
+
+      const gifs = [...(gifLibrary.gifs || []).filter((g) => g.id !== entry.id), entry];
+      const nextLib = {
+        ...gifLibrary,
+        updatedAt: new Date().toISOString(),
+        count: gifs.length,
+        gifs,
+      };
+      await githubPutFile(
+        LIBRARY_PATH,
+        b64EncodeUnicode(JSON.stringify(nextLib) + "\n"),
+        `Add custom move: ${name}`,
+        token
+      );
+      gifLibrary = nextLib;
+
+      addToCart(entry, group === "stretching" ? "stretch" : "main");
+      closeOverlay($("plan-custom"));
+      browse.source = "library";
+      browse.group = group;
+      browse.bodyPart = "";
+      browse.equipment = "";
+      browse.query = "";
+      renderBrowse();
+      setAdminStatus(`Saved “${shortName(name)}” to library + cart.`, "ok");
+    } catch (err) {
+      setCustomStatus(err.message || String(err), "error");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
   function wire() {
-    $("plan-create-today")?.addEventListener("click", () => startCreatePlan({ fresh: false }));
-    $("plan-create-new")?.addEventListener("click", () => startCreatePlan({ fresh: true }));
+    $("plan-edit-current")?.addEventListener("click", () => startEditCurrent());
+    $("plan-create-new")?.addEventListener("click", () => openCreateMeta());
+    $("plan-meta-close")?.addEventListener("click", () => closeOverlay($("plan-meta")));
+    $("plan-meta-continue")?.addEventListener("click", () => continueCreateFromMeta());
+    $("plan-meta")?.addEventListener("click", (e) => {
+      if (e.target === $("plan-meta")) closeOverlay($("plan-meta"));
+    });
+
     $("plan-browse-open")?.addEventListener("click", () => openBrowse());
     $("plan-browse-close")?.addEventListener("click", () => closeOverlay($("plan-browse")));
     $("plan-browse-back")?.addEventListener("click", () => browseBack());
     $("plan-browse")?.addEventListener("click", (e) => {
       if (e.target === $("plan-browse")) closeOverlay($("plan-browse"));
+
+      const source = e.target.closest("[data-browse-source]");
+      if (source) {
+        browse.source = source.getAttribute("data-browse-source") || "library";
+        browse.bodyPart = "";
+        browse.equipment = "";
+        browse.query = "";
+        browse.pastDate = "";
+        browse.pastMoves = [];
+        renderBrowse();
+        return;
+      }
+
       const group = e.target.closest("[data-browse-group]");
       if (group) {
+        browse.source = "library";
         browse.group = group.getAttribute("data-browse-group") || "exercises";
         browse.bodyPart = "";
         browse.equipment = "";
@@ -648,6 +962,23 @@ window.SapnaPlanAdmin = (() => {
         renderBrowse();
         return;
       }
+
+      const past = e.target.closest("[data-past-path]");
+      if (past) {
+        const path = past.getAttribute("data-past-path") || "";
+        const date = past.getAttribute("data-past-date") || "";
+        setAdminStatus("Loading past moves…", "info");
+        loadPastPlanMoves(path)
+          .then((moves) => {
+            browse.pastDate = date;
+            browse.pastMoves = moves;
+            renderBrowse();
+            setAdminStatus("");
+          })
+          .catch((err) => setAdminStatus(err.message || String(err), "error"));
+        return;
+      }
+
       const bodyBtn = e.target.closest("[data-browse-body]");
       if (bodyBtn) {
         const id = bodyBtn.getAttribute("data-browse-body") || "";
@@ -662,24 +993,40 @@ window.SapnaPlanAdmin = (() => {
         renderBrowse();
         return;
       }
+
+      if (e.target.closest("[data-open-custom]")) {
+        openCustomSheet();
+        return;
+      }
+
       const tile = e.target.closest("[data-add-gif]");
       if (tile) {
         addToCart(
-          { name: tile.getAttribute("data-add-name"), path: tile.getAttribute("data-add-gif") },
+          {
+            name: tile.getAttribute("data-add-name"),
+            path: tile.getAttribute("data-add-gif"),
+            rx: tile.getAttribute("data-add-rx") || "",
+          },
           tile.getAttribute("data-add-kind")
         );
-        // After each add, return to body-part picker so the next move is one tap away.
-        browse.bodyPart = "";
-        browse.equipment = "";
-        browse.query = "";
-        renderBrowse();
+        afterTileAdd();
         return;
       }
+
       if (e.target.id === "plan-browse-done" || e.target.closest("#plan-browse-done")) {
         closeOverlay($("plan-browse"));
         renderCart();
       }
     });
+
+    $("plan-custom-close")?.addEventListener("click", () => closeOverlay($("plan-custom")));
+    $("plan-custom")?.addEventListener("click", (e) => {
+      if (e.target === $("plan-custom")) closeOverlay($("plan-custom"));
+    });
+    $("custom-file")?.addEventListener("change", (e) => {
+      customPendingFile = e.target.files?.[0] || null;
+    });
+    $("custom-save")?.addEventListener("click", () => saveCustomMove());
 
     $("plan-cart-list")?.addEventListener("click", (e) => {
       const card = e.target.closest("[data-cart-index]");
@@ -736,12 +1083,13 @@ window.SapnaPlanAdmin = (() => {
   async function boot() {
     await loadGifLibrary();
     await loadHistoryIndex();
+    fillCustomBodySelect("full-body", "exercises");
   }
 
   return {
     wire,
     boot,
-    startCreatePlan,
+    startEditCurrent,
     publishPlan,
     getDraftMoves: () => cart.slice(),
   };
