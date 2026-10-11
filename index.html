@@ -54,7 +54,14 @@
         gate.style.cssText = "";
       }
       var ed = document.getElementById("admin-editor");
-      if (!ed || ed.hidden) document.body.classList.remove("modal-open");
+      if (!ed || ed.hidden) {
+        document.body.classList.remove("modal-open");
+        try {
+          document.querySelectorAll(".panel, .site-nav, .atmosphere").forEach(function (node) {
+            if (node) node.style.pointerEvents = "";
+          });
+        } catch (e) {}
+      }
       return false;
     };
     window.sapnaAdminShowEditor = function () {
@@ -64,9 +71,14 @@
       if (ed) {
         ed.hidden = false;
         ed.removeAttribute("hidden");
-        ed.classList.add("is-open");
-        ed.style.cssText = "display:flex !important; position:fixed !important; inset:0 !important; z-index:100002 !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important;";
+        ed.classList.add("is-open", "admin-overlay");
+        ed.style.cssText = "display:flex !important; position:fixed !important; inset:0 !important; z-index:100060 !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important; background:rgba(12,22,20,0.72) !important;";
         document.body.classList.add("modal-open");
+        try {
+          document.querySelectorAll(".panel, .site-nav, .atmosphere").forEach(function (node) {
+            if (node) node.style.pointerEvents = "none";
+          });
+        } catch (e) {}
       }
       function fill() {
         if (typeof window.__sapnaOpenHealthAdmin === "function") {
@@ -116,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011logdel"></script>
+  <script src="./js/admin-auth.js?v=20261011adminfix"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011logdel" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011adminfix" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -412,13 +424,13 @@
   </div>
 
   <!-- Admin gate -->
-  <div class="overlay" id="admin-gate" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="overlay admin-overlay" id="admin-gate" hidden>
+    <div class="sheet admin-sheet" role="dialog" aria-modal="true" aria-labelledby="gate-title">
       <header class="sheet-head">
         <h2 id="gate-title">Admin</h2>
         <button type="button" class="btn-ghost" onclick="return window.sapnaAdminCloseGate();">Cancel</button>
       </header>
-      <p class="hint">Publish diet defaults and/or period calendar dates to GitHub Pages.</p>
+      <p class="hint">Unlock to publish diet / periods / logs, or open Workout Admin to edit today’s plan.</p>
       <form id="gate-form" onsubmit="return window.sapnaAdminUnlock(event);">
         <label class="field">Password
           <input type="password" id="gate-password" autocomplete="current-password" />
@@ -430,44 +442,75 @@
   </div>
 
   <!-- Admin editor -->
-  <div class="overlay" id="admin-editor" hidden>
-    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+  <div class="overlay admin-overlay" id="admin-editor" hidden>
+    <div class="sheet admin-sheet" role="dialog" aria-modal="true" aria-labelledby="admin-title">
       <header class="sheet-head">
-        <h2 id="admin-title">Publish defaults</h2>
+        <h2 id="admin-title">Admin</h2>
         <button type="button" class="btn-ghost" id="admin-close">Close</button>
       </header>
-      <p class="hint">Diet defaults → <code>data/diet-defaults.json</code>. Period dates → <code>data/periods.json</code>. Lift logs → <code>data/weights.json</code> (cross-phone). Google keys stay on this phone only.</p>
-      <div class="field-row">
-        <label class="field">Default kcal
-          <input type="number" id="admin-kcal" min="800" step="50" />
-        </label>
-        <label class="field">Default protein (g)
-          <input type="number" id="admin-protein" min="20" step="5" />
-        </label>
-      </div>
-      <label class="field">GitHub PAT (repo scope)
-        <input type="password" id="admin-token" autocomplete="off" placeholder="ghp_…" />
-      </label>
-      <div class="actions">
-        <button type="button" class="btn-ghost" id="admin-save-token">Save token</button>
-        <button type="button" class="btn-primary" id="admin-publish">Post diet defaults</button>
-        <button type="button" class="btn-ghost" id="admin-publish-periods">Post period dates</button>
-        <button type="button" class="btn-ghost" id="admin-publish-weights">Post lift logs</button>
-      </div>
+      <p class="status admin-status-sticky" id="admin-status" hidden></p>
+
+      <section class="admin-block">
+        <h3 class="admin-subhead">Today’s workout</h3>
+        <p class="hint">Add or edit moves, GIFs, and order on the Workout Admin page — then come back here for diet / periods / logs.</p>
+        <div class="actions">
+          <a class="btn-primary admin-workout-link" id="admin-open-workout" href="https://drishabhh.github.io/sapna-workout/?admin=1" target="_blank" rel="noopener">Add / edit workout</a>
+        </div>
+      </section>
+
       <hr class="admin-sep" />
-      <h3 class="admin-subhead">Google Diet search</h3>
-      <p class="hint">Paste free Custom Search API key + Search engine ID (cx). Never committed — localStorage only. 100 free queries/day. Do <strong>not</strong> use “Search the entire web” (deprecated) — add nutrition sites to the CSE include list instead (nutritionix.com, fatsecret.com, nutritionvalue.org, indianhealthyrecipes.com, tarladalal.com, wikipedia.org, openfoodfacts.org, with <code>/*</code> patterns).</p>
-      <label class="field">Google API key
-        <input type="password" id="admin-google-key" autocomplete="off" placeholder="AIza…" />
-      </label>
-      <label class="field">Search engine ID (cx)
-        <input type="text" id="admin-google-cx" autocomplete="off" placeholder="abc123:…" />
-      </label>
-      <div class="actions">
-        <button type="button" class="btn-ghost" id="admin-save-google">Save Google keys</button>
-        <button type="button" class="btn-ghost" id="admin-clear-google">Clear Google keys</button>
-      </div>
-      <p class="status" id="admin-status" hidden></p>
+
+      <section class="admin-block">
+        <h3 class="admin-subhead">Diet defaults</h3>
+        <div class="field-row">
+          <label class="field">Default kcal
+            <input type="number" id="admin-kcal" min="800" step="50" />
+          </label>
+          <label class="field">Default protein (g)
+            <input type="number" id="admin-protein" min="20" step="5" />
+          </label>
+        </div>
+      </section>
+
+      <section class="admin-block">
+        <div class="field-label-row">
+          <label class="field field-grow" for="admin-token">GitHub PAT (repo scope)</label>
+          <span class="key-badge" id="admin-token-badge" hidden></span>
+        </div>
+        <input type="password" id="admin-token" class="admin-key-input" autocomplete="off" placeholder="ghp_…" />
+        <p class="hint">Powers Post diet / periods / lift logs. Saved only on this phone.</p>
+        <div class="actions">
+          <button type="button" class="btn-primary" id="admin-save-token">Save &amp; test token</button>
+        </div>
+      </section>
+
+      <section class="admin-block">
+        <h3 class="admin-subhead">Publish to Pages</h3>
+        <div class="actions admin-publish-actions">
+          <button type="button" class="btn-primary" id="admin-publish">Post diet defaults</button>
+          <button type="button" class="btn-ghost" id="admin-publish-periods">Post period dates</button>
+          <button type="button" class="btn-ghost" id="admin-publish-weights">Post lift logs</button>
+        </div>
+      </section>
+
+      <hr class="admin-sep" />
+
+      <section class="admin-block">
+        <h3 class="admin-subhead">Google Diet search</h3>
+        <p class="hint">Custom Search API key + engine ID (cx). Local only · ~100 free queries/day. Prefer site include list (nutritionix, fatsecret, etc.) — not “entire web”.</p>
+        <div class="field-label-row">
+          <label class="field field-grow" for="admin-google-key">Google API key</label>
+          <span class="key-badge" id="admin-google-badge" hidden></span>
+        </div>
+        <input type="password" id="admin-google-key" class="admin-key-input" autocomplete="off" placeholder="AIza…" />
+        <label class="field" for="admin-google-cx">Search engine ID (cx)
+          <input type="text" id="admin-google-cx" autocomplete="off" placeholder="abc123:…" />
+        </label>
+        <div class="actions">
+          <button type="button" class="btn-primary" id="admin-save-google">Save &amp; test Google</button>
+          <button type="button" class="btn-ghost" id="admin-clear-google">Clear Google keys</button>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -567,6 +610,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261011logdel"></script>
+  <script src="./js/app.js?v=20261011adminfix"></script>
 </body>
 </html>

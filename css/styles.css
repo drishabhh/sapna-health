@@ -841,11 +841,23 @@ body {
   display: none;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(20, 36, 33, 0.35);
+  background: rgba(20, 36, 33, 0.55);
   padding: 0;
 }
 
-.overlay.is-open { display: flex; }
+.overlay.is-open {
+  display: flex;
+  pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+}
+
+.overlay.admin-overlay.is-open {
+  z-index: 100060;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
 
 .sheet {
   width: 100%;
@@ -856,9 +868,151 @@ body {
   border: 1px solid var(--line-strong);
   border-bottom: 0;
   border-radius: 22px 22px 0 0;
-  background: var(--bg-panel);
+  background: #fffdf9;
   padding: 1.25rem 1.15rem calc(1.25rem + env(safe-area-inset-bottom));
   box-shadow: var(--shadow);
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* Admin must never look ghosted over Workout / Today */
+.admin-overlay {
+  z-index: 100060;
+  background: rgba(12, 22, 20, 0.72) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.admin-overlay .admin-sheet,
+.admin-sheet {
+  background: #fffdf9 !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  isolation: isolate;
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.28);
+  max-height: 94dvh;
+  min-height: min(86dvh, 780px);
+}
+
+.admin-status-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 0 0.85rem !important;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  background: #f3eee6;
+  border: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.admin-status-sticky.is-ok {
+  background: rgba(47, 158, 98, 0.12);
+  border-color: rgba(47, 158, 98, 0.35);
+  color: #1f7a48;
+}
+
+.admin-status-sticky.is-error {
+  background: rgba(212, 80, 74, 0.1);
+  border-color: rgba(212, 80, 74, 0.35);
+  color: #b33;
+}
+
+.admin-status-sticky.is-info {
+  background: rgba(201, 149, 42, 0.12);
+  border-color: rgba(201, 149, 42, 0.35);
+  color: #8a6414;
+}
+
+.admin-block {
+  margin-bottom: 1rem;
+}
+
+.admin-block .hint {
+  margin-top: 0.35rem;
+}
+
+.admin-publish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-workout-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  min-height: 48px;
+  padding: 0.65rem 1rem;
+  border-radius: 14px;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.field-label-row .field {
+  margin: 0;
+}
+
+.field-grow { flex: 1; }
+
+.admin-key-input {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  font-size: 16px;
+  background: #fff;
+  color: var(--text);
+}
+
+.key-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 28px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.key-badge[hidden] { display: none !important; }
+
+.key-badge.is-ok {
+  background: rgba(47, 158, 98, 0.16);
+  color: #167a45;
+  border: 1px solid rgba(47, 158, 98, 0.4);
+}
+
+.key-badge.is-error {
+  background: rgba(212, 80, 74, 0.12);
+  color: #b33;
+  border: 1px solid rgba(212, 80, 74, 0.35);
+}
+
+.key-badge.is-warn {
+  background: rgba(201, 149, 42, 0.16);
+  color: #8a6414;
+  border: 1px solid rgba(201, 149, 42, 0.4);
+}
+
+.key-badge.is-info {
+  background: rgba(26, 20, 18, 0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--line);
 }
 
 .sheet-head {
