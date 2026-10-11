@@ -31,7 +31,7 @@ window.SapnaPlanAdmin = (() => {
     gifs: FALLBACK_GIFS,
   };
 
-  /** @type {Array<{id:string,name:string,rx:string,gif:string,demo:string,kind:string}>} */
+  /** @type {Array<{id:string,name:string,rx:string,remarks:string,gif:string,demo:string,kind:string}>} */
   let cart = [];
 
   /** library | past */
@@ -319,6 +319,9 @@ window.SapnaPlanAdmin = (() => {
             <button type="button" class="btn-icon" data-cart-down title="Move down" ${index === cart.length - 1 ? "disabled" : ""}>↓</button>
             <button type="button" class="btn-icon danger" data-cart-remove title="Remove">✕</button>
           </div>
+          <label class="plan-cart-remarks-label">Remarks
+            <textarea class="plan-cart-remarks" data-cart-remarks rows="2" placeholder="Cue, tempo, rest… (shows on Workout)">${escapeHtml(item.remarks || "")}</textarea>
+          </label>
         </article>`;
       })
       .join("");
@@ -332,6 +335,7 @@ window.SapnaPlanAdmin = (() => {
       id: uid(slugify(entry.name || "move")),
       name: entry.name || "Move",
       rx: entry.rx || defaultRx(k),
+      remarks: entry.remarks || "",
       gif: entry.path || entry.gif || "",
       demo: "img",
       kind: k,
@@ -341,11 +345,13 @@ window.SapnaPlanAdmin = (() => {
   }
 
   function syncRxFromDom() {
-    document.querySelectorAll("#plan-cart-list [data-cart-rx]").forEach((input) => {
-      const card = input.closest("[data-cart-index]");
-      const idx = Number(card?.getAttribute("data-cart-index"));
+    document.querySelectorAll("#plan-cart-list [data-cart-index]").forEach((card) => {
+      const idx = Number(card.getAttribute("data-cart-index"));
       if (!Number.isFinite(idx) || !cart[idx]) return;
-      cart[idx].rx = (input.value || "").trim() || defaultRx(cart[idx].kind);
+      const rx = card.querySelector("[data-cart-rx]");
+      const remarks = card.querySelector("[data-cart-remarks]");
+      if (rx) cart[idx].rx = (rx.value || "").trim() || defaultRx(cart[idx].kind);
+      if (remarks) cart[idx].remarks = (remarks.value || "").trim();
     });
   }
 
@@ -353,10 +359,24 @@ window.SapnaPlanAdmin = (() => {
     syncRxFromDom();
     const stretchMoves = cart
       .filter((m) => m.kind === "stretch")
-      .map(({ id, name, rx, gif, demo }) => ({ id, name, rx, gif, demo: gif ? "img" : demo || "img" }));
+      .map(({ id, name, rx, remarks, gif, demo }) => ({
+        id,
+        name,
+        rx,
+        remarks: remarks || "",
+        gif,
+        demo: gif ? "img" : demo || "img",
+      }));
     const mainMoves = cart
       .filter((m) => m.kind !== "stretch")
-      .map(({ id, name, rx, gif, demo }) => ({ id, name, rx, gif, demo: gif ? "img" : demo || "img" }));
+      .map(({ id, name, rx, remarks, gif, demo }) => ({
+        id,
+        name,
+        rx,
+        remarks: remarks || "",
+        gif,
+        demo: gif ? "img" : demo || "img",
+      }));
     const h = ($("edit-headline")?.value || "").trim() || headline;
     const s = ($("edit-support")?.value || "").trim() || support;
     const rt = ($("edit-rest-title")?.value || "").trim() || restTitle;
@@ -401,6 +421,7 @@ window.SapnaPlanAdmin = (() => {
           id: m.id || uid(slugify(m.name)),
           name: m.name || "Move",
           rx: m.rx || defaultRx(kind),
+          remarks: m.remarks || "",
           gif: m.gif || "",
           demo: m.demo || "img",
           kind,
@@ -573,7 +594,7 @@ window.SapnaPlanAdmin = (() => {
             .map((m) => {
               const kind = m.kind === "stretch" ? "stretch" : "main";
               const src = m.gif || "";
-              return `<button type="button" class="plan-tile" data-add-gif="${escapeAttr(src)}" data-add-name="${escapeAttr(m.name)}" data-add-kind="${kind}" data-add-rx="${escapeAttr(m.rx || "")}">
+              return `<button type="button" class="plan-tile" data-add-gif="${escapeAttr(src)}" data-add-name="${escapeAttr(m.name)}" data-add-kind="${kind}" data-add-rx="${escapeAttr(m.rx || "")}" data-add-remarks="${escapeAttr(m.remarks || "")}">
                 ${src ? `<img src="${escapeAttr(src)}" alt="" loading="lazy" />` : `<span class="plan-tile-plus">·</span>`}
                 <span>${escapeHtml(shortName(m.name))}</span>
               </button>`;
@@ -1006,6 +1027,7 @@ window.SapnaPlanAdmin = (() => {
             name: tile.getAttribute("data-add-name"),
             path: tile.getAttribute("data-add-gif"),
             rx: tile.getAttribute("data-add-rx") || "",
+            remarks: tile.getAttribute("data-add-remarks") || "",
           },
           tile.getAttribute("data-add-kind")
         );
@@ -1055,7 +1077,10 @@ window.SapnaPlanAdmin = (() => {
     });
 
     $("plan-cart-list")?.addEventListener("change", (e) => {
-      if (e.target.matches("[data-cart-rx]")) syncRxFromDom();
+      if (e.target.matches("[data-cart-rx], [data-cart-remarks]")) syncRxFromDom();
+    });
+    $("plan-cart-list")?.addEventListener("input", (e) => {
+      if (e.target.matches("[data-cart-remarks]")) syncRxFromDom();
     });
 
     $("preview-plan")?.addEventListener("click", () => {

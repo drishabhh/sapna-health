@@ -130,46 +130,120 @@
       </div>`;
     }
 
+    function pct(n, d) {
+      if (!d) return 0;
+      return Math.max(0, Math.min(100, Math.round((Number(n) / Number(d)) * 100)));
+    }
+
+    function barHtml(label, value, max, tone) {
+      const p = pct(value, max);
+      return `<div class="dash-bar" data-tone="${escapeHtml(tone || "warm")}">
+        <div class="dash-bar-head"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}${max ? ` / ${escapeHtml(String(max))}` : ""}</strong></div>
+        <div class="dash-bar-track"><i style="width:${p}%"></i></div>
+      </div>`;
+    }
+
     function render() {
       const root = $("today-overview");
       if (!root) return;
       const diet = Diet.snapshot ? Diet.snapshot() : { kcal: 0, protein: 0, targetKcal: 1800, targetProtein: 100 };
-      const period = Periods.snapshot ? Periods.snapshot() : { label: "Open calendar", detail: "Mark days privately" };
+      const period = Periods.snapshot ? Periods.snapshot() : { label: "Open calendar", detail: "Mark days privately", isPeriod: false };
       const lifts = Weights.snapshot ? Weights.snapshot() : { recent: [], count: 0 };
-      const workout = Workout.snapshot ? Workout.snapshot() : { title: "Today’s workout", detail: "Open session" };
+      const workout = Workout.snapshot
+        ? Workout.snapshot()
+        : { title: "Today’s workout", detail: "Open session", liftsTotal: 0, liftsLogged: 0, stretchCount: 0 };
+
+      const now = new Date();
+      const dateLabel = now.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+      const kcalPct = pct(diet.kcal, diet.targetKcal);
+      const proPct = pct(diet.protein, diet.targetProtein);
+      const liftPct = workout.liftsTotal ? pct(workout.liftsLogged, workout.liftsTotal) : 0;
+      const greet =
+        now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening";
+
+      const heroDate = $("today-date-line");
+      if (heroDate) heroDate.textContent = dateLabel;
+      const heroGreet = $("today-greet-line");
+      if (heroGreet) heroGreet.textContent = greet;
 
       const recentHtml = lifts.recent.length
-        ? `<ul class="today-lifts">${lifts.recent
+        ? `<ul class="today-lifts dash-lifts">${lifts.recent
             .map((e) => {
-              const sr = e.sets != null && e.reps != null ? ` · ${e.sets}×${e.reps}` : "";
-              return `<li><strong>${escapeHtml(e.exercise)}</strong><span>${e.weight} kg${sr}</span></li>`;
+              const sr = e.sets != null && e.reps != null ? `${e.sets}×${e.reps}` : "";
+              return `<li>
+                <div><strong>${escapeHtml(e.exercise)}</strong><em>${escapeHtml(e.date || "")}</em></div>
+                <span>${e.weight} kg${sr ? ` · ${sr}` : ""}</span>
+              </li>`;
             })
             .join("")}</ul>`
-        : `<p class="empty-teach">No lifts yet — open Workout, then tap <strong>LOG</strong> on an Exercise move.</p>`;
+        : `<p class="empty-teach">No lifts logged yet — finish a session and tap <strong>LOG</strong>.</p>`;
 
+      const periodTone = period.isPeriod ? "rose" : "soft";
       root.innerHTML = `
-        <a class="today-card today-card-workout" href="#workout" data-nav="workout">
-          <p class="today-kicker">Workout</p>
+        <div class="dash-strip" aria-label="Today at a glance">
+          <button type="button" class="dash-pill" data-nav="workout">
+            <em>Workout</em>
+            <strong>${workout.liftsTotal ? `${workout.liftsLogged}/${workout.liftsTotal}` : "—"}</strong>
+            <span>${workout.liftsTotal ? "lifts logged" : "plan ready"}</span>
+          </button>
+          <button type="button" class="dash-pill" data-nav="diet">
+            <em>Diet</em>
+            <strong>${kcalPct}%</strong>
+            <span>${Math.round(diet.kcal)} kcal</span>
+          </button>
+          <button type="button" class="dash-pill" data-nav="periods">
+            <em>Cycle</em>
+            <strong>${period.isPeriod ? "Day" : period.short || "—"}</strong>
+            <span>${escapeHtml(period.label)}</span>
+          </button>
+        </div>
+
+        <a class="today-card today-card-workout dash-card" href="#workout" data-nav="workout">
+          <div class="dash-card-top">
+            <p class="today-kicker">Workout tracker</p>
+            <span class="dash-badge">${liftPct}%</span>
+          </div>
           <h2>${escapeHtml(workout.title)}</h2>
           <p>${escapeHtml(workout.detail)}</p>
-          <span class="today-cta">Start session</span>
-        </a>
-        <div class="today-card today-card-diet">
-          <p class="today-kicker">Diet</p>
-          <div class="today-rings-row">
-            ${ringHtml("Calories", diet.kcal, diet.targetKcal, "kcal")}
-            ${ringHtml("Protein", diet.protein, diet.targetProtein, "g")}
+          ${barHtml("Session lifts", workout.liftsLogged || 0, workout.liftsTotal || 0, "gold")}
+          <div class="dash-meta-row">
+            <span>${Number(workout.stretchCount) || 0} stretches</span>
+            <span>${Number(workout.liftsTotal) || 0} lifts in plan</span>
           </div>
-          <a class="today-cta" href="#diet" data-nav="diet">Open diary</a>
-        </div>
-        <a class="today-card today-card-periods" href="#periods" data-nav="periods">
-          <p class="today-kicker">Periods</p>
-          <h2>${escapeHtml(period.label)}</h2>
-          <p>${escapeHtml(period.detail)}</p>
-          <span class="today-cta">Open calendar</span>
+          <span class="today-cta">Open session</span>
         </a>
-        <div class="today-card today-card-logs">
-          <p class="today-kicker">Recent lifts</p>
+
+        <div class="dash-split">
+          <div class="today-card today-card-diet dash-card">
+            <div class="dash-card-top">
+              <p class="today-kicker">Diet tracker</p>
+              <span class="dash-badge">${kcalPct}%</span>
+            </div>
+            <div class="today-rings-row">
+              ${ringHtml("Calories", diet.kcal, diet.targetKcal, "kcal")}
+              ${ringHtml("Protein", diet.protein, diet.targetProtein, "g")}
+            </div>
+            ${barHtml("Calories", Math.round(diet.kcal), diet.targetKcal, "jade")}
+            ${barHtml("Protein g", Math.round(diet.protein), diet.targetProtein, "jade")}
+            <a class="today-cta" href="#diet" data-nav="diet">Open diary</a>
+          </div>
+
+          <a class="today-card today-card-periods dash-card dash-card-${periodTone}" href="#periods" data-nav="periods">
+            <div class="dash-card-top">
+              <p class="today-kicker">Periods</p>
+              <span class="dash-badge">${period.isPeriod ? "Active" : "Calm"}</span>
+            </div>
+            <h2>${escapeHtml(period.label)}</h2>
+            <p>${escapeHtml(period.detail)}</p>
+            <span class="today-cta">Open calendar</span>
+          </a>
+        </div>
+
+        <div class="today-card today-card-logs dash-card">
+          <div class="dash-card-top">
+            <p class="today-kicker">Lift pulse</p>
+            <span class="dash-badge">${Number(lifts.count) || 0} total</span>
+          </div>
           ${recentHtml}
           <a class="today-cta" href="#logs" data-nav="logs">All logs</a>
         </div>`;
@@ -352,6 +426,12 @@
       });
     }
 
+    function remarksHtml(move) {
+      const note = String(move.remarks || "").trim();
+      if (!note) return "";
+      return `<p class="move-remarks">${escapeHtml(note)}</p>`;
+    }
+
     function cardHtml(move) {
       const name = move.name || "Move";
       const isStretch = move.kind === "stretch";
@@ -360,12 +440,14 @@
         return `<article class="move-log-card is-stretch" data-move="${escapeHtml(name)}" data-kind="stretch">
           <p class="move-title">${escapeHtml(name)}</p>
           <p class="move-rx">${escapeHtml(move.rx || "Easy and controlled")} · no weight log</p>
+          ${remarksHtml(move)}
           ${gif}
         </article>`;
       }
       return `<article class="move-log-card" data-move="${escapeHtml(name)}" data-kind="main">
         <p class="move-title">${escapeHtml(name)}</p>
         <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
+        ${remarksHtml(move)}
         ${gif}
         <div class="move-log-actions">
           <p class="last-log">${escapeHtml(lastLogLine(name))}</p>
@@ -388,8 +470,8 @@
         return;
       }
       if (!plan) {
-        if (status) status.textContent = "No plan yet — open Admin → Create plan for today.";
-        root.innerHTML = `<p class="hint">Admin → <strong>Create plan for today</strong> to add stretches and lifts.</p>`;
+        if (status) status.textContent = "No plan yet — open Admin → Edit current plan.";
+        root.innerHTML = `<p class="hint">Admin → <strong>Edit current plan</strong> to add stretches and lifts.</p>`;
         return;
       }
       const { stretch, main } = movesByKind();
@@ -787,13 +869,29 @@
     }
 
     function snapshot() {
-      if (!loaded) return { title: "Today’s workout", detail: "Loading plan…" };
-      if (!plan) return { title: "Today’s workout", detail: "Open Admin to create today’s plan" };
-      const mains = (plan.sections || []).filter((s) => s.kind !== "stretch" && s.id !== "stretching");
-      const n = mains.reduce((a, s) => a + ((s.moves || []).length), 0);
+      if (!loaded) {
+        return { title: "Today’s workout", detail: "Loading plan…", liftsTotal: 0, liftsLogged: 0, stretchCount: 0 };
+      }
+      if (!plan) {
+        return {
+          title: "Today’s workout",
+          detail: "Open Admin → Edit current plan",
+          liftsTotal: 0,
+          liftsLogged: 0,
+          stretchCount: 0,
+        };
+      }
+      const { stretch, main } = movesByKind();
+      const liftsLogged = main.filter((m) => Weights.lastFor(m.name)).length;
+      const n = main.length;
       return {
         title: plan.headline || "Today’s workout",
-        detail: n ? `${n} lifts ready · Stretch first, then LOG` : "Open session when ready",
+        detail: n
+          ? `${liftsLogged}/${n} lifts logged · ${stretch.length} stretches`
+          : "Open session when ready",
+        liftsTotal: n,
+        liftsLogged,
+        stretchCount: stretch.length,
       };
     }
 
@@ -1555,14 +1653,24 @@
     function snapshot() {
       const est = estimates();
       const today = state.days[todayISO()] || {};
-      if (today.period) return { label: "Period day", detail: "Marked for today · private on this phone" };
+      if (today.period) {
+        return {
+          label: "Period day",
+          detail: "Marked for today · private on this phone",
+          isPeriod: true,
+          short: "Now",
+        };
+      }
       if (est.next) {
+        const short = String(est.next).slice(5) || est.next;
         return {
           label: `Next ~ ${est.next}`,
           detail: est.cycleLen ? `Cycle ~ ${est.cycleLen} days` : "Keep marking to learn your cycle",
+          isPeriod: false,
+          short,
         };
       }
-      return { label: "Track your cycle", detail: "Tap days on the calm calendar" };
+      return { label: "Track your cycle", detail: "Tap days on the calm calendar", isPeriod: false, short: "—" };
     }
 
     function renderSelected() {

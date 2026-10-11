@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011plans"></script>
+  <script src="./js/admin-auth.js?v=20261011dash"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011plans" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011dash" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -152,9 +152,9 @@
   <!-- TODAY HUB -->
   <section class="panel is-active panel-today" id="panel-today" data-panel="today">
     <div class="today-hero">
-      <p class="brand today-brand">Sapna</p>
+      <p class="today-greet" id="today-greet-line">Good day</p>
       <h1 class="today-title">Today</h1>
-      <p class="today-lede">Your day in one glance — then dive in.</p>
+      <p class="today-lede" id="today-date-line">Workout · diet · cycle</p>
     </div>
     <div class="today-grid" id="today-overview" aria-live="polite">
       <p class="hint">Loading today’s snapshot…</p>
@@ -164,7 +164,6 @@
   <!-- WORKOUT SESSION -->
   <section class="panel panel-workout" id="panel-workout" data-panel="workout">
     <div class="hero workout-hero-compact">
-      <p class="brand">Sapna</p>
       <h1 class="headline">Workout</h1>
       <p class="support">Session flow: Stretch → Exercise → LOG each lift.</p>
       <div class="session-steps" aria-label="Session steps">
@@ -190,7 +189,6 @@
   <!-- DIET -->
   <section class="panel panel-diet" id="panel-diet" data-panel="diet">
     <div class="diet-hero diet-hero-compact">
-      <p class="brand diet-brand">Sapna</p>
       <h1 class="diet-title">Diet</h1>
       <p class="diet-lede">Diary by meal — search, tap, totals update.</p>
     </div>
@@ -269,7 +267,6 @@
   <!-- PERIODS -->
   <section class="panel panel-periods" id="panel-periods" data-panel="periods">
     <div class="periods-hero">
-      <p class="brand periods-brand">Sapna</p>
       <h1 class="periods-title">Periods</h1>
       <p class="periods-lede">Her private calendar — soft, calm, only hers.</p>
     </div>
@@ -321,7 +318,6 @@
   <section class="panel" id="panel-logs" data-panel="logs">
     <div class="panel-inner">
       <header class="section-head logs-hero">
-        <p class="brand logs-brand">Sapna</p>
         <h1>Logs</h1>
         <p>By lift or newest first — Stretching never logs weight.</p>
       </header>
@@ -719,7 +715,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011plans"></script>
-  <script src="./js/app.js?v=20261011plans"></script>
+  <script src="./js/workout-admin.js?v=20261011dash"></script>
+  <script src="./js/app.js?v=20261011dash"></script>
 </body>
 </html>
