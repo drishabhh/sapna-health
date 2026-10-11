@@ -406,6 +406,7 @@
       root.innerHTML = html;
       wireGifLightbox();
       wireGifLazyLoad(root);
+      refreshCardSummaries();
       updateSessionSteps();
     }
 
@@ -437,9 +438,9 @@
 
     function refreshCardSummaries() {
       document.querySelectorAll(".move-log-card[data-kind='main']").forEach((card) => {
-        const name = card.getAttribute("data-move") || "";
+        const name = card.getAttribute("data-move") || card.querySelector(".move-title")?.textContent || "";
         const last = card.querySelector(".last-log");
-        if (last) last.textContent = lastLogLine(name);
+        if (last) last.textContent = lastLogLine(name.trim());
       });
     }
 
@@ -631,7 +632,7 @@
       };
     }
 
-    return { init, render, snapshot };
+    return { init, render, snapshot, refreshSummaries: refreshCardSummaries };
   })();
 
   function escapeHtml(s) {
@@ -1596,15 +1597,30 @@
       return parseSetsReps(e.rx).reps;
     }
 
+    function normExercise(name) {
+      return String(name || "")
+        .toLowerCase()
+        .replace(/[–—]/g, "-")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
     function entriesFor(name) {
+      const n = normExercise(name);
       return state.entries
-        .filter((e) => e.exercise === name && (e.kind || "main") === "main")
+        .filter((e) => (e.kind || "main") === "main" && normExercise(e.exercise) === n)
         .sort((a, b) => a.date.localeCompare(b.date) || Number(a.id) - Number(b.id));
     }
 
     function lastFor(name) {
       const arr = entriesFor(name);
       return arr[arr.length - 1] || null;
+    }
+
+    function refreshWorkoutUi() {
+      if (typeof Workout === "undefined") return;
+      if (Workout.render) Workout.render();
+      if (Workout.refreshSummaries) Workout.refreshSummaries();
     }
 
     function addEntry({ exercise, weight, rx = "", sets, reps, note = "", kind, date }) {
@@ -1625,7 +1641,7 @@
       });
       persist();
       /* Prefer soft card refresh; Workout.render skips remount while sheet is open */
-      if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+      refreshWorkoutUi();
       scheduleAutoSync();
     }
 
@@ -1784,7 +1800,7 @@
         state.entries = state.entries.filter((x) => x.id !== id);
         persist();
         render();
-        Workout.render();
+        refreshWorkoutUi();
         scheduleAutoSync();
       });
       $("log-export")?.addEventListener("click", () => {
@@ -1804,7 +1820,7 @@
           state = { entries: data.entries };
           persist();
           render();
-          Workout.render();
+          refreshWorkoutUi();
           setStatus($("log-status"), "Import complete.", "ok");
           scheduleAutoSync();
         } catch {
@@ -1909,7 +1925,7 @@
           "ok"
         );
         render();
-        if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+        refreshWorkoutUi();
         if (typeof Today !== "undefined" && Today.render) Today.render();
         return true;
       } catch (err) {
@@ -1926,15 +1942,17 @@
           return 0;
         }
         const added = mergeCloud(await res.json());
+        /* Always refresh Workout cards + Today — quiet pull used to skip this, so
+           Recent lifts updated later while per-exercise “Last:” stayed empty. */
+        render();
+        refreshWorkoutUi();
+        if (typeof Today !== "undefined" && Today.render) Today.render();
         if (!quiet) {
           setStatus(
             $("log-sync-status"),
             added ? `Pulled ${added} new log${added === 1 ? "" : "s"} from cloud.` : "Already up to date with cloud.",
             "ok"
           );
-          render();
-          if (typeof Workout !== "undefined" && Workout.render) Workout.render();
-          if (typeof Today !== "undefined" && Today.render) Today.render();
         }
         return added;
       } catch (err) {
@@ -2199,6 +2217,9 @@
     await Diet.init();
     await Periods.init();
     await Workout.init();
+    /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
+    if (Workout.refreshSummaries) Workout.refreshSummaries();
+    else Workout.render();
     showPanel(location.hash.replace(/^#/, "") || "today");
   }
 
