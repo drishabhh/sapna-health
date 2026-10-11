@@ -171,8 +171,14 @@
             .map((e) => {
               const sr = e.sets != null && e.reps != null ? `${e.sets}×${e.reps}` : "";
               return `<li>
-                <div><strong>${escapeHtml(e.exercise)}</strong><em>${escapeHtml(e.date || "")}</em></div>
-                <span>${e.weight} kg${sr ? ` · ${sr}` : ""}</span>
+                <div class="dash-lift-main">
+                  <strong>${escapeHtml(e.exercise)}</strong>
+                  <em>${escapeHtml(e.date || "")}</em>
+                </div>
+                <div class="dash-lift-stats">
+                  <span class="dash-lift-kg">${escapeHtml(String(e.weight))} kg</span>
+                  ${sr ? `<span class="dash-lift-sr">${escapeHtml(sr)}</span>` : ""}
+                </div>
               </li>`;
             })
             .join("")}</ul>`
