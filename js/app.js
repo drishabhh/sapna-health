@@ -1102,7 +1102,7 @@ Return JSON matching the schema.`;
         const badge = panel.querySelector("[data-gemini-badge]");
         if (input && document.activeElement !== input) {
           input.value = "";
-          input.placeholder = has ? "Key saved — paste to replace" : "AIza…";
+          input.placeholder = has ? "Key saved — paste to replace" : "AIza… or AQ.…";
         }
         if (has && tested) setBadgeOn(badge, "ok", "✓ Working");
         else if (has) setBadgeOn(badge, "info", "Saved");
@@ -1112,6 +1112,19 @@ Return JSON matching the schema.`;
           else if (has && panel.id === "coach-gemini-panel") panel.open = false;
         }
       });
+    }
+
+    function keyLooksPlausible(key) {
+      const k = String(key || "").trim();
+      if (!k || k.length < 16) {
+        return { ok: false, message: "Paste a full Gemini API key from Google AI Studio." };
+      }
+      /* Known AI Studio formats: classic AIza… and newer AQ.… — API ping is the real check */
+      if (/^(AIza|AQ\.)/i.test(k)) return { ok: true };
+      if (/^[A-Za-z0-9._\-]{16,}$/.test(k)) {
+        return { ok: true, note: "Unusual key prefix — testing with Gemini anyway…" };
+      }
+      return { ok: false, message: "That doesn’t look like an API key. Paste the value from AI Studio (often starts with AIza or AQ.)." };
     }
 
     async function saveFrom(panel) {
@@ -1129,15 +1142,16 @@ Return JSON matching the schema.`;
         }
         return false;
       }
-      if (key.length < 20 || !/^AIza/i.test(key)) {
+      const shape = keyLooksPlausible(key);
+      if (!shape.ok) {
         setBadgeOn(badge, "error", "Check key");
-        setStatus(status, "That doesn’t look like an AI Studio key (usually starts with AIza).", "error");
+        setStatus(status, shape.message, "error");
         return false;
       }
       Gemini.saveKey(key);
       if (btn) btn.disabled = true;
       setBadgeOn(badge, "info", "Checking…");
-      setStatus(status, "Testing Gemini…", "info");
+      setStatus(status, shape.note || "Testing Gemini with this key…", "info");
       const result = await Gemini.testKey();
       if (btn) btn.disabled = false;
       if (!result.ok) {
