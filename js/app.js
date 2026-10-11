@@ -1,5 +1,6 @@
 (() => {
   const WORKOUT_PLAN_URL = "https://drishabhh.github.io/sapna-workout/data/today.json";
+  const WORKOUT_ORIGIN = "https://drishabhh.github.io/sapna-workout/";
   const LS = {
     diet: "sapna_health_diet_v1",
     periods: "sapna_health_periods_v1",
@@ -216,18 +217,147 @@
       return `Last: ${last.weight} kg · ${last.date}${sr}`;
     }
 
+    function absoluteGif(src) {
+      if (!src) return "";
+      if (/^https?:\/\//i.test(src)) return src;
+      return WORKOUT_ORIGIN + String(src).replace(/^\.\//, "");
+    }
+
+    function gifPreviewHtml(move) {
+      const name = move.name || "Move";
+      if (move.demo === "svg-leg-swing" && !move.gif) {
+        const fallback = absoluteGif("media/leg-swings.gif");
+        return `<button type="button" class="gif-preview" data-gif-open data-gif-src="${escapeHtml(fallback)}" aria-label="Enlarge form demo for ${escapeHtml(name)}">
+          <span class="gif-preview-frame">
+            <img data-src="${escapeHtml(fallback)}" alt="" width="320" height="140" decoding="async" />
+          </span>
+          <span class="gif-preview-hint">Tap to enlarge</span>
+        </button>`;
+      }
+      const src = absoluteGif(move.gif || "media/bodyweight-squats.gif");
+      return `<button type="button" class="gif-preview" data-gif-open data-gif-src="${escapeHtml(src)}" aria-label="Enlarge form demo for ${escapeHtml(name)}">
+        <span class="gif-preview-frame">
+          <img data-src="${escapeHtml(src)}" alt="" width="320" height="140" decoding="async" />
+        </span>
+        <span class="gif-preview-hint">Tap to enlarge</span>
+      </button>`;
+    }
+
+    function wireGifLazyLoad(root) {
+      const imgs = (root || document).querySelectorAll(".gif-preview img[data-src]");
+      const load = (img) => {
+        const src = img.getAttribute("data-src");
+        if (!src || img.dataset.loaded === "1") return;
+        img.src = src;
+        img.dataset.loaded = "1";
+      };
+      if (!("IntersectionObserver" in window)) {
+        imgs.forEach(load);
+        return;
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            load(entry.target);
+            io.unobserve(entry.target);
+          });
+        },
+        { rootMargin: "120px 0px", threshold: 0.01 }
+      );
+      imgs.forEach((img) => io.observe(img));
+    }
+
+    function openGifLightbox({ src, kind, title }) {
+      const overlay = $("gif-lightbox");
+      const img = $("gif-lightbox-img");
+      const label = $("gif-lightbox-title");
+      if (!overlay) return;
+      if (label) label.textContent = title || "Form demo";
+      if (img) {
+        if (kind === "svg" || !src) {
+          img.hidden = true;
+          img.removeAttribute("src");
+        } else {
+          img.hidden = false;
+          img.alt = title ? `Form demo: ${title}` : "Form demo";
+          img.src = src;
+        }
+      }
+      const note = $("gif-lightbox-note");
+      if (note) note.hidden = kind !== "svg";
+      overlay.hidden = false;
+      document.body.classList.add("gif-lightbox-open");
+      requestAnimationFrame(() => overlay.classList.add("is-open"));
+      try {
+        $("gif-lightbox-close")?.focus({ preventScroll: true });
+      } catch (_) {}
+    }
+
+    function closeGifLightbox() {
+      const overlay = $("gif-lightbox");
+      if (!overlay || overlay.hidden) return;
+      overlay.classList.remove("is-open");
+      document.body.classList.remove("gif-lightbox-open");
+      setTimeout(() => {
+        overlay.hidden = true;
+        const img = $("gif-lightbox-img");
+        if (img) {
+          img.removeAttribute("src");
+          img.alt = "";
+        }
+      }, 220);
+    }
+
+    function wireGifLightbox() {
+      const root = $("workout-groups");
+      if (root && root.dataset.gifWired !== "1") {
+        root.dataset.gifWired = "1";
+        root.addEventListener("click", (e) => {
+          const btn = e.target.closest("[data-gif-open]");
+          if (!btn) return;
+          e.preventDefault();
+          const card = btn.closest(".move-log-card");
+          const title = card?.querySelector(".move-title")?.textContent?.trim() || "Form demo";
+          const kind = btn.getAttribute("data-gif-kind") || "img";
+          const src =
+            btn.getAttribute("data-gif-src") ||
+            btn.querySelector("img")?.getAttribute("data-src") ||
+            btn.querySelector("img")?.src ||
+            "";
+          openGifLightbox({ src, kind, title });
+        });
+      }
+      const overlay = $("gif-lightbox");
+      if (!overlay || overlay.dataset.gifWired === "1") return;
+      overlay.dataset.gifWired = "1";
+      $("gif-lightbox-close")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        closeGifLightbox();
+      });
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeGifLightbox();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeGifLightbox();
+      });
+    }
+
     function cardHtml(move) {
       const name = move.name || "Move";
       const isStretch = move.kind === "stretch";
+      const gif = gifPreviewHtml(move);
       if (isStretch) {
         return `<article class="move-log-card is-stretch" data-move="${escapeHtml(name)}" data-kind="stretch">
           <p class="move-title">${escapeHtml(name)}</p>
           <p class="move-rx">${escapeHtml(move.rx || "Easy and controlled")} · no weight log</p>
+          ${gif}
         </article>`;
       }
       return `<article class="move-log-card" data-move="${escapeHtml(name)}" data-kind="main">
         <p class="move-title">${escapeHtml(name)}</p>
         <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
+        ${gif}
         <div class="move-log-actions">
           <p class="last-log">${escapeHtml(lastLogLine(name))}</p>
           <button type="button" class="btn-log-open" data-w-log-open>LOG</button>
@@ -268,6 +398,8 @@
       }
       if (!html) html = `<p class="hint">No moves in today’s plan.</p>`;
       root.innerHTML = html;
+      wireGifLightbox();
+      wireGifLazyLoad(root);
       updateSessionSteps();
     }
 

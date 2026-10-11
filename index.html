@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011inspired"></script>
+  <script src="./js/admin-auth.js?v=20261011gif"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011inspired" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011gif" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -470,6 +470,21 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261011inspired"></script>
+  <!-- GIF fullscreen lightbox -->
+  <div class="gif-lightbox" id="gif-lightbox" hidden>
+    <div class="gif-lightbox-panel" role="dialog" aria-modal="true" aria-labelledby="gif-lightbox-title">
+      <header class="gif-lightbox-head">
+        <h2 id="gif-lightbox-title">Form demo</h2>
+        <button type="button" class="btn-ghost" id="gif-lightbox-close">Close</button>
+      </header>
+      <div class="gif-lightbox-stage">
+        <img id="gif-lightbox-img" alt="" hidden />
+        <p class="gif-lightbox-note" id="gif-lightbox-note" hidden>Open the full workout app for this animated demo.</p>
+      </div>
+      <p class="gif-lightbox-hint">Pinch to zoom · tap outside or Close</p>
+    </div>
+  </div>
+
+  <script src="./js/app.js?v=20261011gif"></script>
 </body>
 </html>

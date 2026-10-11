@@ -2520,3 +2520,178 @@ body[data-section="today"] .today-brand {
     grid-column: 1 / -1;
   }
 }
+
+/* —— Compact GIF preview above LOG —— */
+.gif-preview {
+  appearance: none;
+  display: block;
+  width: 100%;
+  margin: 0.55rem 0 0.35rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 252, 248, 0.75);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.gif-preview:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.gif-preview:active {
+  transform: scale(0.985);
+}
+
+.gif-preview-frame {
+  display: grid;
+  place-items: center;
+  height: clamp(120px, 34vw, 160px);
+  background: #1a1412;
+  overflow: hidden;
+}
+
+.gif-preview-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  background: #1a1412;
+}
+
+.gif-preview-svg-fallback {
+  color: rgba(255, 252, 248, 0.55);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.gif-preview-hint {
+  display: block;
+  padding: 0.35rem 0.75rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.move-log-card .move-log-actions {
+  margin-top: 0.25rem;
+}
+
+/* Fullscreen GIF lightbox */
+.gif-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(0.75rem, env(safe-area-inset-top)) 0.85rem max(0.75rem, env(safe-area-inset-bottom));
+  background: rgba(12, 8, 6, 0.78);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.28s ease, visibility 0.28s ease;
+}
+
+.gif-lightbox[hidden] {
+  display: none !important;
+}
+
+.gif-lightbox.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.gif-lightbox-panel {
+  width: min(100%, 560px);
+  max-height: min(92svh, 900px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  border: 1px solid var(--accent-line);
+  background: rgba(255, 252, 248, 0.98);
+  box-shadow: 0 28px 80px rgba(30, 18, 12, 0.35);
+  overflow: hidden;
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.gif-lightbox.is-open .gif-lightbox-panel {
+  transform: none;
+}
+
+.gif-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.gif-lightbox-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.gif-lightbox-stage {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  min-height: 240px;
+  max-height: min(70svh, 640px);
+  padding: 0.75rem;
+  background: #14100e;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pinch-zoom;
+}
+
+.gif-lightbox-stage img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: min(68svh, 620px);
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+.gif-lightbox-note {
+  margin: 0;
+  padding: 1.5rem;
+  color: rgba(255, 252, 248, 0.7);
+  text-align: center;
+}
+
+.gif-lightbox-hint {
+  margin: 0;
+  padding: 0.55rem 1rem 0.85rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+body.gif-lightbox-open {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gif-lightbox,
+  .gif-lightbox-panel {
+    transition: none !important;
+  }
+}
