@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011hf1"></script>
+  <script src="./js/admin-auth.js?v=20261011gem1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011hf1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011gem1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -162,6 +162,18 @@
     <div class="today-grid" id="today-overview" aria-live="polite">
       <p class="hint">Loading today’s snapshot…</p>
     </div>
+    <section class="coach-card" id="coach-card" aria-label="Sapna insights">
+      <div class="coach-card-head">
+        <div>
+          <p class="today-kicker">Insights</p>
+          <h2 class="coach-title">What’s working</h2>
+          <p class="hint">One Gemini look at diet · lifts · cycle — not every tap.</p>
+        </div>
+        <button type="button" class="btn-primary" id="coach-run">Get insights</button>
+      </div>
+      <div id="coach-body" class="coach-body"></div>
+      <p class="status" id="coach-status" hidden></p>
+    </section>
     <div class="progress-root progress-graph-wrap" id="progress-graph-root" aria-label="Progress graph"></div>
   </section>
 
@@ -244,6 +256,21 @@
         </details>
         <p class="status" id="diet-status" hidden></p>
       </div>
+
+      <details class="diet-card diet-regular-card" id="diet-regular-card">
+        <summary class="diet-card-head">
+          <h2>My regular foods</h2>
+          <span class="diet-chip">1 Gemini call</span>
+        </summary>
+        <p class="hint">List foods she eats often (one per line). Gemini fills kcal/protein once — then log offline from the library.</p>
+        <label class="field">Regular list
+          <textarea id="diet-regular-list" rows="5" placeholder="Roti&#10;Dal&#10;Paneer bhurji&#10;Curd (1 bowl)&#10;Banana"></textarea>
+        </label>
+        <div class="actions">
+          <button type="button" class="btn-diet" id="diet-regular-run">Fill library with Gemini</button>
+        </div>
+        <p class="status" id="diet-regular-status" hidden></p>
+      </details>
 
       <details class="diet-card diet-targets-card">
         <summary class="diet-card-head">
@@ -526,6 +553,30 @@
       </section>
 
       <section class="admin-block">
+        <div class="field-label-row">
+          <label class="field field-grow" for="admin-gemini-key">Gemini API key</label>
+          <span class="key-badge" id="admin-gemini-badge" hidden></span>
+        </div>
+        <input type="password" id="admin-gemini-key" class="admin-key-input" autocomplete="off" placeholder="AIza…" />
+        <p class="hint">Free AI Studio key · only 2 uses: food list bootstrap + Insights. Saved on this phone.</p>
+        <div class="actions">
+          <button type="button" class="btn-primary" id="admin-save-gemini">Save &amp; test Gemini</button>
+          <button type="button" class="btn-ghost" id="admin-clear-gemini">Clear</button>
+        </div>
+      </section>
+
+      <section class="admin-block">
+        <div class="admin-block-head">
+          <h3 class="admin-subhead">Cycle-aware exercise ideas</h3>
+          <button type="button" class="btn-ghost" id="admin-coach-run">Refresh insights</button>
+        </div>
+        <p class="hint">From Sapna’s diet · lifts · cycle snapshot — add matching moves to her plan cart.</p>
+        <div id="admin-coach-exercises"></div>
+        <div id="admin-coach-body" class="coach-body coach-body-admin" hidden></div>
+        <p class="status" id="admin-coach-status" hidden></p>
+      </section>
+
+      <section class="admin-block">
         <h3 class="admin-subhead">Publish to Pages</h3>
         <div class="actions admin-publish-actions">
           <button type="button" class="btn-primary" id="admin-publish">Post diet defaults</button>
@@ -672,7 +723,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011hf1"></script>
-  <script src="./js/app.js?v=20261011hf1"></script>
+  <script src="./js/workout-admin.js?v=20261011gem1"></script>
+  <script src="./js/app.js?v=20261011gem1"></script>
 </body>
 </html>

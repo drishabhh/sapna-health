@@ -6,6 +6,8 @@
     periods: "sapna_health_periods_v1",
     weights: "sapna_health_weights_v1",
     token: "sapna_gh_token",
+    gemini: "sapna_gemini_key",
+    coach: "sapna_coach_last_v1",
   };
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
@@ -925,6 +927,276 @@
       .replace(/"/g, "&quot;");
   }
 
+  /* ───────── Gemini (only 2 call types — food bootstrap + coach) ───────── */
+  const Gemini = (() => {
+    const MODEL = "gemini-2.5-flash";
+    const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+
+    function getKey() {
+      return (localStorage.getItem(LS.gemini) || "").trim();
+    }
+    function saveKey(key) {
+      const k = String(key || "").trim();
+      if (k) localStorage.setItem(LS.gemini, k);
+      else localStorage.removeItem(LS.gemini);
+    }
+    function hasKey() {
+      return !!getKey();
+    }
+
+    async function generate({ prompt, schema, useSearch }) {
+      const key = getKey();
+      if (!key) throw new Error("Add a Gemini API key in Admin first.");
+      const body = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+        },
+      };
+      if (schema) body.generationConfig.responseSchema = schema;
+      if (useSearch) body.tools = [{ googleSearch: {} }];
+      const url = `${BASE}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.error?.message || `Gemini ${res.status}`;
+        throw new Error(msg);
+      }
+      const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+      if (!text.trim()) throw new Error("Gemini returned an empty answer.");
+      try {
+        return JSON.parse(text);
+      } catch {
+        const m = text.match(/\{[\s\S]*\}/);
+        if (m) return JSON.parse(m[0]);
+        throw new Error("Could not parse Gemini JSON.");
+      }
+    }
+
+    async function enrichFoods(rawList) {
+      const list = String(rawList || "")
+        .split(/\n|,/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 40);
+      if (!list.length) throw new Error("List at least one food (one per line).");
+      const prompt = `You estimate nutrition for Sapna's regular Indian / home foods.
+For each food name, return typical per-serving values an adult woman might log.
+Prefer common Indian serving sizes when unclear (e.g. 1 medium roti, 1 bowl dal, 100g paneer).
+Foods:
+${list.map((f, i) => `${i + 1}. ${f}`).join("\n")}
+Return JSON only matching the schema.`;
+      const schema = {
+        type: "object",
+        properties: {
+          foods: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                serving: { type: "string" },
+                kcal: { type: "number" },
+                protein: { type: "number" },
+                carbs: { type: "number" },
+                fat: { type: "number" },
+              },
+              required: ["name", "serving", "kcal", "protein"],
+            },
+          },
+        },
+        required: ["foods"],
+      };
+      /* One request for the whole list — local library after that. (No per-food calls.) */
+      return generate({ prompt, schema, useSearch: false });
+    }
+
+    async function coach(snapshot) {
+      const prompt = `You are a gentle health coach for Sapna (private, adult woman).
+Use ONLY this snapshot. Do not invent exact medical diagnoses. Be practical and kind.
+If period day or late luteal / menstrual phase, include food ideas that may ease cramps (iron, magnesium, hydration, warm meals) and exercise intensity advice.
+Snapshot JSON:
+${JSON.stringify(snapshot)}
+Return JSON matching the schema.`;
+      const schema = {
+        type: "object",
+        properties: {
+          summary: { type: "string" },
+          wins: { type: "array", items: { type: "string" } },
+          watch: { type: "array", items: { type: "string" } },
+          periodTips: { type: "array", items: { type: "string" } },
+          eatNext: { type: "array", items: { type: "string" } },
+          exerciseIdeas: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                why: { type: "string" },
+                when: { type: "string" },
+              },
+              required: ["name", "why", "when"],
+            },
+          },
+        },
+        required: ["summary", "wins", "watch", "periodTips", "eatNext", "exerciseIdeas"],
+      };
+      return generate({ prompt, schema, useSearch: false });
+    }
+
+    async function testKey() {
+      const key = getKey();
+      if (!key) return { ok: false, message: "Paste a Gemini API key first." };
+      try {
+        const url = `${BASE}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: 'Reply with JSON {"ok":true}' }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0 },
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) return { ok: false, message: data?.error?.message || `Gemini ${res.status}` };
+        return { ok: true, message: "Gemini key works (2.5 Flash)." };
+      } catch (e) {
+        return { ok: false, message: e.message || "Could not reach Gemini." };
+      }
+    }
+
+    return { getKey, saveKey, hasKey, enrichFoods, coach, testKey, MODEL };
+  })();
+
+  /* ───────── Coach UI (Path B — on-demand insights) ───────── */
+  const Coach = (() => {
+    function loadCached() {
+      try {
+        return JSON.parse(localStorage.getItem(LS.coach) || "null");
+      } catch {
+        return null;
+      }
+    }
+    function saveCached(payload) {
+      localStorage.setItem(LS.coach, JSON.stringify(payload));
+    }
+
+    function buildSnapshot() {
+      const diet = Diet.snapshot ? Diet.snapshot() : {};
+      const dietDays = Diet.dietLoggedDates ? Object.keys(Diet.dietLoggedDates()).length : 0;
+      const period = Periods.coachSnapshot ? Periods.coachSnapshot() : Periods.snapshot?.() || {};
+      const lifts = Weights.coachSummary ? Weights.coachSummary() : Weights.snapshot?.() || {};
+      const workout = Workout.snapshot ? Workout.snapshot() : {};
+      const streak = {
+        note: "Workout streak lives on Today Progress card; coach uses lift day counts below.",
+      };
+      /* Compact — never send full raw logs */
+      return {
+        today: todayISO(),
+        diet: {
+          targetKcal: diet.targetKcal,
+          targetProtein: diet.targetProtein,
+          eatenKcal: diet.kcal,
+          eatenProtein: diet.protein,
+          leftKcal: diet.left,
+          mealFill: diet.mealFill,
+          loggedDayCount: dietDays,
+          todayPlate: Diet.todayPlate ? Diet.todayPlate() : [],
+        },
+        workoutPlan: {
+          title: workout.title,
+          liftsLogged: workout.liftsLogged,
+          liftsTotal: workout.liftsTotal,
+        },
+        lifts,
+        periods: period,
+        streak,
+      };
+    }
+
+    function renderInto(el, data, meta) {
+      if (!el) return;
+      if (!data) {
+        el.innerHTML = `<p class="hint">Tap <strong>Get insights</strong> once — uses 1 Gemini call. Daily logging stays offline.</p>`;
+        return;
+      }
+      const list = (arr, empty) =>
+        (arr || []).length
+          ? `<ul class="coach-list">${arr.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul>`
+          : `<p class="hint">${escapeHtml(empty)}</p>`;
+      const ideas = (data.exerciseIdeas || [])
+        .map(
+          (ex) => `<li><strong>${escapeHtml(ex.name)}</strong>
+            <span class="meta">${escapeHtml(ex.when || "")} · ${escapeHtml(ex.why || "")}</span></li>`
+        )
+        .join("");
+      el.innerHTML = `
+        <p class="coach-summary">${escapeHtml(data.summary || "")}</p>
+        <div class="coach-cols">
+          <div><h3>Doing great</h3>${list(data.wins, "—")}</div>
+          <div><h3>Watch</h3>${list(data.watch, "—")}</div>
+        </div>
+        <h3>Period comfort foods</h3>
+        ${list(data.periodTips, "Mark cycle days for sharper tips.")}
+        <h3>Eat next</h3>
+        ${list(data.eatNext, "—")}
+        <h3>Exercise ideas <span class="hint-inline">for Admin plan</span></h3>
+        <ul class="coach-list coach-ex">${ideas || "<li class='hint'>—</li>"}</ul>
+        ${meta ? `<p class="coach-meta">${escapeHtml(meta)}</p>` : ""}`;
+    }
+
+    function paint() {
+      const cached = loadCached();
+      renderInto($("coach-body"), cached?.result, cached?.at ? `Saved ${cached.at} · re-run when you want a fresh take` : "");
+      renderInto($("admin-coach-body"), cached?.result, cached?.at ? `From ${cached.at}` : "");
+      const adminEx = $("admin-coach-exercises");
+      if (adminEx) {
+        const ideas = cached?.result?.exerciseIdeas || [];
+        adminEx.innerHTML = ideas.length
+          ? `<ul class="coach-list coach-ex">${ideas
+              .map(
+                (ex) =>
+                  `<li><strong>${escapeHtml(ex.name)}</strong><span class="meta">${escapeHtml(ex.when)} — ${escapeHtml(ex.why)}</span></li>`
+              )
+              .join("")}</ul>`
+          : `<p class="hint">Run Insights on Today first — ideas appear here for planning.</p>`;
+      }
+    }
+
+    async function run({ statusEl } = {}) {
+      if (!Gemini.hasKey()) {
+        setStatus(statusEl, "Add Gemini API key in Admin (one key, phone-only).", "error");
+        return null;
+      }
+      setStatus(statusEl, "Asking Gemini once (compact snapshot)…", "info");
+      try {
+        const snap = buildSnapshot();
+        const result = await Gemini.coach(snap);
+        const payload = { at: new Date().toISOString(), result };
+        saveCached(payload);
+        paint();
+        setStatus(statusEl, "Insights updated — 1 Gemini call used.", "ok");
+        return result;
+      } catch (e) {
+        setStatus(statusEl, e.message || String(e), "error");
+        return null;
+      }
+    }
+
+    function wire() {
+      $("coach-run")?.addEventListener("click", () => run({ statusEl: $("coach-status") }));
+      $("admin-coach-run")?.addEventListener("click", () => run({ statusEl: $("admin-coach-status") }));
+      paint();
+    }
+
+    return { wire, paint, run, loadCached, buildSnapshot };
+  })();
+
   /* ───────── Diet (Healthify-inspired: remaining + meal slots + library) ───────── */
   const Diet = (() => {
     const MEALS = [
@@ -1187,6 +1459,7 @@
     }
 
     function wire() {
+      $("diet-regular-run")?.addEventListener("click", () => bootstrapRegularFoods());
       $("diet-meal-chips")?.addEventListener("click", (e) => {
         const chip = e.target.closest("[data-meal]");
         if (!chip) return;
@@ -1292,6 +1565,73 @@
       renderFoodPick($("diet-search")?.value || "");
     }
 
+
+    function todayPlate() {
+      ensureDay();
+      const out = [];
+      MEALS.forEach(({ id, label }) => {
+        (state.day[id] || []).forEach((item) => {
+          out.push({
+            meal: label,
+            name: item.name,
+            kcal: Math.round((Number(item.kcal) || 0) * (Number(item.servings) || 1)),
+            protein: Math.round((Number(item.protein) || 0) * (Number(item.servings) || 1) * 10) / 10,
+          });
+        });
+      });
+      return out;
+    }
+
+    function importGeminiFoods(foods) {
+      const rows = Array.isArray(foods) ? foods : [];
+      let n = 0;
+      state.customFoods = state.customFoods || [];
+      rows.forEach((f) => {
+        const name = String(f.name || "").trim();
+        const kcal = Number(f.kcal);
+        if (!name || !Number.isFinite(kcal)) return;
+        const serving = String(f.serving || "").trim();
+        const display = serving && !name.toLowerCase().includes(serving.toLowerCase())
+          ? `${name} (${serving})`
+          : name;
+        const id = "gfood-" + display.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 48) + "-" + Math.round(kcal);
+        const existing = state.customFoods.findIndex((x) => x.id === id || x.name === display);
+        const row = {
+          id,
+          name: display,
+          kcal: Math.round(kcal),
+          protein: Number.isFinite(Number(f.protein)) ? Math.round(Number(f.protein) * 10) / 10 : 0,
+          carbs: Number.isFinite(Number(f.carbs)) ? Math.round(Number(f.carbs) * 10) / 10 : null,
+          fat: Number.isFinite(Number(f.fat)) ? Math.round(Number(f.fat) * 10) / 10 : null,
+          tags: ["regular", "gemini"],
+        };
+        if (existing >= 0) state.customFoods[existing] = row;
+        else state.customFoods.push(row);
+        n += 1;
+      });
+      persist();
+      render();
+      return n;
+    }
+
+    async function bootstrapRegularFoods() {
+      const raw = $("diet-regular-list")?.value || "";
+      const st = $("diet-regular-status");
+      if (!Gemini.hasKey()) {
+        setStatus(st, "Add Gemini API key in Admin first.", "error");
+        return;
+      }
+      setStatus(st, "One Gemini call for your whole list…", "info");
+      try {
+        const data = await Gemini.enrichFoods(raw);
+        const n = importGeminiFoods(data.foods || []);
+        setStatus(st, `Added/updated ${n} foods in your library. Log meals offline from now.`, "ok");
+        renderFoodPick($("diet-search")?.value || "");
+      } catch (e) {
+        setStatus(st, e.message || String(e), "error");
+      }
+    }
+
     function getTargetsForAdmin() {
       return targets();
     }
@@ -1323,6 +1663,9 @@
       snapshot,
       dietLoggedDates,
       focusAddForMeal,
+      todayPlate,
+      importGeminiFoods,
+      bootstrapRegularFoods,
     };
   })();
 
@@ -1429,6 +1772,39 @@
         <div class="stat"><label>Today</label><strong>${
           (state.days[todayISO()] || {}).period ? "Period day" : "—"
         }</strong></div>`;
+    }
+
+
+    function coachSnapshot() {
+      const est = estimates();
+      const today = state.days[todayISO()] || {};
+      const starts = periodStarts();
+      const lastStart = starts.length ? starts[starts.length - 1] : null;
+      let dayOfCycle = null;
+      if (lastStart && est.cycleLen) {
+        const a = new Date(lastStart + "T12:00:00");
+        const b = new Date(todayISO() + "T12:00:00");
+        dayOfCycle = Math.max(1, Math.round((b - a) / 86400000) + 1);
+      }
+      let phase = "unknown";
+      if (today.period) phase = "menstrual";
+      else if (dayOfCycle && est.cycleLen) {
+        const d = dayOfCycle;
+        const cl = est.cycleLen;
+        if (d <= 5) phase = "menstrual";
+        else if (d <= 13) phase = "follicular";
+        else if (d <= 16) phase = "ovulatory";
+        else phase = "luteal";
+      }
+      return {
+        isPeriodToday: !!today.period,
+        lastStart,
+        nextEstimate: est.next,
+        cycleLen: est.cycleLen,
+        dayOfCycle,
+        phase,
+        periodDayCount: Object.values(state.days || {}).filter((d) => d.period).length,
+      };
     }
 
     function snapshot() {
@@ -1597,7 +1973,7 @@
       render();
     }
 
-    return { init, render, publishPeriods, publishPayload };
+    return { init, render, publishPeriods, publishPayload, snapshot, coachSnapshot };
   })();
 
   /* ───────── Weight logs ───────── */
@@ -1944,6 +2320,37 @@
       $("log-pull")?.addEventListener("click", () => pullCloud({ quiet: false }));
     }
 
+
+    function coachSummary() {
+      const pool = exerciseEntries()
+        .slice()
+        .sort((a, b) => b.date.localeCompare(a.date) || Number(b.id) - Number(a.id));
+      const since = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString().slice(0, 10);
+      })();
+      const recent = pool.filter((e) => String(e.date).slice(0, 10) >= since);
+      const byEx = {};
+      recent.forEach((e) => {
+        const k = e.exercise || "unknown";
+        if (!byEx[k]) byEx[k] = { exercise: k, sessions: 0, lastWeight: e.weight, lastDate: e.date };
+        byEx[k].sessions += 1;
+        if (String(e.date) >= String(byEx[k].lastDate)) {
+          byEx[k].lastWeight = e.weight;
+          byEx[k].lastDate = e.date;
+        }
+      });
+      const days = new Set(recent.map((e) => String(e.date).slice(0, 10)));
+      return {
+        liftDaysLast30: days.size,
+        entryCountLast30: recent.length,
+        topLifts: Object.values(byEx)
+          .sort((a, b) => b.sessions - a.sessions)
+          .slice(0, 8),
+      };
+    }
+
     function snapshot() {
       const pool = exerciseEntries()
         .slice()
@@ -2127,6 +2534,7 @@
       entryReps,
       allMainEntries: () => exerciseEntries(),
       snapshot,
+      coachSummary,
       publishWeights,
       pullCloud,
       scheduleAutoSync,
@@ -2518,6 +2926,44 @@
       }
     });
 
+
+    $("admin-save-gemini")?.addEventListener("click", async () => {
+      const btn = $("admin-save-gemini");
+      let key = ($("admin-gemini-key")?.value || "").trim();
+      if ((!key || key.startsWith("••")) && Gemini.getKey()) key = Gemini.getKey();
+      if (!key) {
+        setKeyBadge("admin-gemini-badge", "error", "Missing");
+        setStatus($("admin-status"), "Paste a Gemini API key from Google AI Studio.", "error");
+        return;
+      }
+      Gemini.saveKey(key);
+      if (btn) btn.disabled = true;
+      setKeyBadge("admin-gemini-badge", "info", "Checking…");
+      setStatus($("admin-status"), "Testing Gemini…", "info");
+      const result = await Gemini.testKey();
+      if (btn) btn.disabled = false;
+      if (!result.ok) {
+        setKeyBadge("admin-gemini-badge", "error", "Invalid");
+        setStatus($("admin-status"), result.message, "error");
+        return;
+      }
+      if ($("admin-gemini-key")) {
+        $("admin-gemini-key").value = "";
+        $("admin-gemini-key").placeholder = "Key saved — paste to replace";
+      }
+      setKeyBadge("admin-gemini-badge", "ok", "✓ Working");
+      setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
+    });
+    $("admin-clear-gemini")?.addEventListener("click", () => {
+      Gemini.saveKey("");
+      if ($("admin-gemini-key")) {
+        $("admin-gemini-key").value = "";
+        $("admin-gemini-key").placeholder = "AIza…";
+      }
+      setKeyBadge("admin-gemini-badge", null);
+      setStatus($("admin-status"), "Gemini key cleared.", "info");
+    });
+
     $("admin-save-token")?.addEventListener("click", async () => {
       const btn = $("admin-save-token");
       let token = ($("admin-token")?.value || "").trim();
@@ -2623,7 +3069,14 @@
           setKeyBadge("admin-token-badge", null);
         }
       }
-      setStatus($("admin-status"), "Admin ready — test token or post to Pages.", "info");
+      if (Gemini.hasKey()) {
+        setKeyBadge("admin-gemini-badge", "info", "Saved");
+        if ($("admin-gemini-key")) $("admin-gemini-key").placeholder = "Key saved — paste to replace";
+      } else {
+        setKeyBadge("admin-gemini-badge", null);
+      }
+      Coach.paint();
+      setStatus($("admin-status"), "Admin ready — test token / Gemini or post to Pages.", "info");
       const sheet = $("admin-editor")?.querySelector(".admin-sheet");
       if (sheet) sheet.scrollTop = 0;
     };
@@ -2758,6 +3211,7 @@
     await Diet.init();
     await Periods.init();
     await Workout.init();
+    Coach.wire();
     /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
     if (Workout.refreshSummaries) Workout.refreshSummaries();
     else Workout.render();
