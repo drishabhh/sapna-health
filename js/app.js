@@ -268,8 +268,11 @@
       imgs.forEach((img) => io.observe(img));
     }
 
+    let lightboxCloseTimer = 0;
+
     function openGifLightbox({ src, kind, title }) {
       const overlay = $("gif-lightbox");
+      if (lightboxCloseTimer) { clearTimeout(lightboxCloseTimer); lightboxCloseTimer = 0; }
       const img = $("gif-lightbox-img");
       const label = $("gif-lightbox-title");
       if (!overlay) return;
@@ -299,7 +302,9 @@
       if (!overlay || overlay.hidden) return;
       overlay.classList.remove("is-open");
       document.body.classList.remove("gif-lightbox-open");
-      setTimeout(() => {
+      if (lightboxCloseTimer) clearTimeout(lightboxCloseTimer);
+      lightboxCloseTimer = setTimeout(() => {
+        lightboxCloseTimer = 0;
         overlay.hidden = true;
         const img = $("gif-lightbox-img");
         if (img) {
