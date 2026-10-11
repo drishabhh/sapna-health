@@ -469,6 +469,58 @@
       setSheetEditMode(null);
     }
 
+    function blurSheetInputs() {
+      ["log-sheet-kg", "log-sheet-sets", "log-sheet-reps"].forEach((id) => {
+        try {
+          $(id)?.blur();
+        } catch (_) {}
+      });
+      try {
+        const active = document.activeElement;
+        if (active && typeof active.blur === "function" && $("log-sheet")?.contains(active)) active.blur();
+      } catch (_) {}
+    }
+
+    function hideSheetConfirm() {
+      const panel = $("log-sheet-confirm");
+      if (!panel) return;
+      panel.hidden = true;
+      panel.setAttribute("hidden", "");
+    }
+
+    function showSheetConfirm() {
+      const panel = $("log-sheet-confirm");
+      if (!panel) return;
+      blurSheetInputs();
+      panel.hidden = false;
+      panel.removeAttribute("hidden");
+      setTimeout(() => {
+        try {
+          $("log-sheet-confirm-ok")?.focus({ preventScroll: true });
+        } catch (_) {
+          try {
+            $("log-sheet-confirm-ok")?.focus();
+          } catch (__) {}
+        }
+      }, 80);
+    }
+
+    function performSheetDelete() {
+      if (sheetEditingId == null) return;
+      hideSheetConfirm();
+      Weights.removeEntry(sheetEditingId);
+      clearSheetForm();
+      fillSheetTable();
+      refreshCardSummaries();
+      updateSessionSteps();
+      const status = $("log-sheet-status");
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Log deleted.";
+        status.className = "log-sheet-status is-ok";
+      }
+    }
+
     function selectSheetRow(id) {
       const entry = Weights.getEntry(id);
       if (!entry) return;
@@ -573,6 +625,7 @@
       window.scrollTo(0, sheetScrollY);
       sheetExercise = "";
       sheetEditingId = null;
+      hideSheetConfirm();
       refreshCardSummaries();
     }
 
@@ -670,18 +723,18 @@
         $("log-sheet-delete")?.addEventListener("click", (e) => {
           e.preventDefault();
           if (sheetEditingId == null) return;
-          if (!confirm("Delete this log?")) return;
-          Weights.removeEntry(sheetEditingId);
-          clearSheetForm();
-          fillSheetTable();
-          refreshCardSummaries();
-          updateSessionSteps();
-          const status = $("log-sheet-status");
-          if (status) {
-            status.hidden = false;
-            status.textContent = "Log deleted.";
-            status.className = "log-sheet-status is-ok";
-          }
+          showSheetConfirm();
+        });
+        $("log-sheet-confirm-cancel")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          hideSheetConfirm();
+        });
+        $("log-sheet-confirm-ok")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          performSheetDelete();
+        });
+        $("log-sheet-confirm")?.addEventListener("click", (e) => {
+          if (e.target === $("log-sheet-confirm")) hideSheetConfirm();
         });
         $("log-sheet-tbody")?.addEventListener("click", (e) => {
           const row = e.target.closest("tr[data-log-id]");
