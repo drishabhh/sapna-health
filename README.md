@@ -11,12 +11,12 @@ Personal health companion for Sapna — **Diet**, **Periods** (dates syncable), 
 |---------|-------------|
 | Diet | Device (`localStorage`) + optional Admin publish of defaults (`data/diet-defaults.json`) |
 | Periods | Device + optional sync of **dates** to `data/periods.json` (cross-device) |
-| Weight logs | Device + export/import (exercise moves only) |
-| Workout | Links out to Sapna workout Pages; inline exercise weight logs on-device |
+| Weight logs | Device + sync to `data/weights.json` (cross-device, same PAT as Periods) |
+| Workout | Links out to Sapna workout Pages; inline exercise weight logs sync to Health |
 
 ## Admin
 
-Password-gated (hashed). Publish diet defaults and/or period calendar dates via GitHub PAT.
+Password-gated (hashed). Publish diet defaults, period dates, and/or lift logs via GitHub PAT.
 
 ## Stack
 
