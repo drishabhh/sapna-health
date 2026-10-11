@@ -67,10 +67,10 @@
   }
 
   /* ───────── Navigation ───────── */
-  const PANELS = ["workout", "diet", "periods", "logs"];
+  const PANELS = ["today", "workout", "diet", "periods", "logs"];
 
   function showPanel(name) {
-    const id = PANELS.includes(name) ? name : "workout";
+    const id = PANELS.includes(name || "today") ? (name || "today") : "today";
     document.querySelectorAll(".panel").forEach((p) => {
       p.classList.toggle("is-active", p.dataset.panel === id);
     });
@@ -82,6 +82,7 @@
     }
     document.body.dataset.section = id;
     window.scrollTo(0, 0);
+    if (id === "today") Today.render();
     if (id === "workout") Workout.render();
     if (id === "diet") Diet.render();
     if (id === "periods") Periods.render();
@@ -96,9 +97,89 @@
       });
     });
     window.addEventListener("hashchange", () => {
-      showPanel(location.hash.replace(/^#/, "") || "workout");
+      showPanel(location.hash.replace(/^#/, "") || "today");
     });
   }
+
+
+  /* ───────── Today hub (home) ───────── */
+  const Today = (() => {
+    function ringHtml(label, value, target, unit) {
+      const tg = Number(target) || 1;
+      const v = Number(value) || 0;
+      const pct = Math.max(0, Math.min(100, Math.round((v / tg) * 100)));
+      const radius = 34;
+      const circ = 2 * Math.PI * radius;
+      const dash = (pct / 100) * circ;
+      const unitLabel = unit === "g" ? "g" : unit === "kcal" ? " kcal" : "";
+      return `<div class="today-ring">
+        <svg viewBox="0 0 80 80" aria-hidden="true">
+          <circle class="ring-bg" cx="40" cy="40" r="${radius}"></circle>
+          <circle class="ring-fg" cx="40" cy="40" r="${radius}"
+            stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}" transform="rotate(-90 40 40)"></circle>
+        </svg>
+        <div class="ring-copy">
+          <strong>${escapeHtml(String(v))}${unit === "g" ? "g" : ""}</strong>
+          <span>${escapeHtml(label)}</span>
+          <em>of ${escapeHtml(String(target))}${unitLabel}</em>
+        </div>
+      </div>`;
+    }
+
+    function render() {
+      const root = $("today-overview");
+      if (!root) return;
+      const diet = Diet.snapshot ? Diet.snapshot() : { kcal: 0, protein: 0, targetKcal: 1800, targetProtein: 100 };
+      const period = Periods.snapshot ? Periods.snapshot() : { label: "Open calendar", detail: "Mark days privately" };
+      const lifts = Weights.snapshot ? Weights.snapshot() : { recent: [], count: 0 };
+      const workout = Workout.snapshot ? Workout.snapshot() : { title: "Today’s workout", detail: "Open session" };
+
+      const recentHtml = lifts.recent.length
+        ? `<ul class="today-lifts">${lifts.recent
+            .map((e) => {
+              const sr = e.sets != null && e.reps != null ? ` · ${e.sets}×${e.reps}` : "";
+              return `<li><strong>${escapeHtml(e.exercise)}</strong><span>${e.weight} kg${sr}</span></li>`;
+            })
+            .join("")}</ul>`
+        : `<p class="empty-teach">No lifts yet — open Workout, then tap <strong>LOG</strong> on an Exercise move.</p>`;
+
+      root.innerHTML = `
+        <a class="today-card today-card-workout" href="#workout" data-nav="workout">
+          <p class="today-kicker">Workout</p>
+          <h2>${escapeHtml(workout.title)}</h2>
+          <p>${escapeHtml(workout.detail)}</p>
+          <span class="today-cta">Start session</span>
+        </a>
+        <div class="today-card today-card-diet">
+          <p class="today-kicker">Diet</p>
+          <div class="today-rings-row">
+            ${ringHtml("Calories", diet.kcal, diet.targetKcal, "kcal")}
+            ${ringHtml("Protein", diet.protein, diet.targetProtein, "g")}
+          </div>
+          <a class="today-cta" href="#diet" data-nav="diet">Open diary</a>
+        </div>
+        <a class="today-card today-card-periods" href="#periods" data-nav="periods">
+          <p class="today-kicker">Periods</p>
+          <h2>${escapeHtml(period.label)}</h2>
+          <p>${escapeHtml(period.detail)}</p>
+          <span class="today-cta">Open calendar</span>
+        </a>
+        <div class="today-card today-card-logs">
+          <p class="today-kicker">Recent lifts</p>
+          ${recentHtml}
+          <a class="today-cta" href="#logs" data-nav="logs">All logs</a>
+        </div>`;
+
+      root.querySelectorAll("[data-nav]").forEach((a) => {
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          showPanel(a.getAttribute("data-nav"));
+        });
+      });
+    }
+
+    return { render };
+  })();
 
   /* ───────── Workout + LOG sheet (static panel; no remount while typing) ───────── */
   const Workout = (() => {
@@ -175,18 +256,45 @@
       const { stretch, main } = movesByKind();
       if (status) {
         status.textContent = plan.headline
-          ? `${plan.headline} — tap LOG on Exercise moves (saved on this phone).`
-          : "Tap LOG on Exercise moves (saved on this phone).";
+          ? `${plan.headline} — Stretch (view) → tap LOG on lifts.`
+          : "Stretch (view) → tap LOG on lifts.";
       }
       let html = "";
       if (stretch.length) {
-        html += `<div class="move-group"><h2>Stretching</h2>${stretch.map(cardHtml).join("")}</div>`;
+        html += `<div class="move-group session-stretch" id="session-stretch"><h2>1 · Stretching <span class="move-group-tag">view only</span></h2>${stretch.map(cardHtml).join("")}</div>`;
       }
       if (main.length) {
-        html += `<div class="move-group"><h2>Exercise</h2>${main.map(cardHtml).join("")}</div>`;
+        html += `<div class="move-group session-lifts" id="session-lifts"><h2>2 · Exercise <span class="move-group-tag">tap LOG</span></h2>${main.map(cardHtml).join("")}</div>`;
       }
       if (!html) html = `<p class="hint">No moves in today’s plan.</p>`;
       root.innerHTML = html;
+      updateSessionSteps();
+    }
+
+    function updateSessionSteps() {
+      const { stretch, main } = movesByKind();
+      const logged = main.filter((m) => Weights.lastFor(m.name)).length;
+      const anyLog = logged > 0;
+      const allDone = main.length > 0 && logged >= main.length;
+      document.querySelectorAll(".session-step").forEach((el) => {
+        const step = el.getAttribute("data-step");
+        el.classList.remove("is-active", "is-done");
+        if (step === "stretch") {
+          el.classList.add(anyLog || !stretch.length ? "is-done" : "is-active");
+        } else if (step === "lift") {
+          el.classList.add(allDone ? "is-done" : anyLog || !stretch.length ? "is-active" : "");
+        } else if (step === "done") {
+          el.classList.add(allDone ? "is-active is-done" : "");
+        }
+      });
+      const bar = $("session-done-bar");
+      if (bar) {
+        bar.hidden = !allDone;
+        if (allDone) {
+          bar.querySelector("p").innerHTML =
+            `<strong>Session complete.</strong> ${logged}/${main.length} lifts logged on this phone.`;
+        }
+      }
     }
 
     function refreshCardSummaries() {
@@ -345,6 +453,7 @@
             status.className = "log-sheet-status is-ok";
           }
           refreshCardSummaries();
+          updateSessionSteps();
           try {
             $("log-sheet-kg")?.focus({ preventScroll: true });
           } catch (_) {}
@@ -373,7 +482,18 @@
       render();
     }
 
-    return { init, render };
+    function snapshot() {
+      if (!loaded) return { title: "Today’s workout", detail: "Loading plan…" };
+      if (!plan) return { title: "Today’s workout", detail: "Open full workout or try again" };
+      const mains = (plan.sections || []).filter((s) => s.kind !== "stretch" && s.id !== "stretching");
+      const n = mains.reduce((a, s) => a + ((s.moves || []).length), 0);
+      return {
+        title: plan.headline || "Today’s workout",
+        detail: n ? `${n} lifts ready · Stretch first, then LOG` : "Open session when ready",
+      };
+    }
+
+    return { init, render, snapshot };
   })();
 
   function escapeHtml(s) {
@@ -606,12 +726,21 @@
       const { key, cx } = getGoogleCreds();
       const hasKeys = !!(key && cx);
       let gBlock = "";
+      const setupSlot = $("diet-google-setup-slot");
+      const details = $("diet-google-details");
       if (!hasKeys) {
         gBlock = `<div class="food-pick-group is-google">
-          <p class="food-pick-label">Google search <span class="food-pick-hint">setup</span></p>
-          ${setupKeysHtml()}
+          <p class="food-pick-empty">Using your library. Expand <strong>Google search setup</strong> below only if you want web results.</p>
         </div>`;
+        if (setupSlot) setupSlot.innerHTML = setupKeysHtml();
+        /* Keep CSE setup collapsed until she opens it */
+        if (details && !details.dataset.userOpened) details.open = false;
       } else if (q.length >= G_MIN_CHARS) {
+        if (setupSlot && !setupSlot.dataset.ready) {
+          setupSlot.innerHTML = `<p class="hint">Google keys saved on this phone.</p>`;
+          setupSlot.dataset.ready = "1";
+        }
+        if (details) details.open = false;
         let body = "";
         if (googleStatus === "loading") {
           body = `<p class="food-pick-empty">Searching Google…</p>`;
@@ -803,19 +932,29 @@
 
       const totalsRoot = $("diet-totals");
       if (totalsRoot) {
+        const kcalPct = Math.max(0, Math.min(100, Math.round((tot.kcal / (t.kcal || 1)) * 100)));
+        const proPct = Math.max(0, Math.min(100, Math.round((tot.protein / (t.protein || 1)) * 100)));
         const kcalCls = tot.kcal > t.kcal ? "is-over" : "is-ok";
         const proCls = tot.protein >= t.protein * 0.9 ? "is-ok" : "";
         totalsRoot.innerHTML = `
-          <div class="total-card ${kcalCls}"><strong>${tot.kcal}</strong><span>of ${t.kcal} kcal today</span></div>
-          <div class="total-card ${proCls}"><strong>${tot.protein}g</strong><span>of ${t.protein}g protein</span></div>`;
+          <div class="diet-ring-card ${kcalCls}" style="--p:${kcalPct}">
+            <div class="diet-ring-visual" aria-hidden="true"><i></i></div>
+            <div><strong>${tot.kcal}</strong><span>of ${t.kcal} kcal</span></div>
+          </div>
+          <div class="diet-ring-card ${proCls}" style="--p:${proPct}">
+            <div class="diet-ring-visual" aria-hidden="true"><i></i></div>
+            <div><strong>${tot.protein}g</strong><span>of ${t.protein}g protein</span></div>
+          </div>`;
       }
 
       const mealsRoot = $("diet-meals");
       if (mealsRoot) {
         const labels = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" };
+        const active = $("diet-meal")?.value || "breakfast";
         mealsRoot.innerHTML = Object.keys(labels)
           .map((slot) => {
             const items = state.day[slot] || [];
+            const slotKcal = items.reduce((a, item) => a + (Number(item.kcal) || 0) * (Number(item.servings) || 1), 0);
             const lis = items.length
               ? items
                   .map((item, i) => {
@@ -829,12 +968,23 @@
                   </li>`;
                   })
                   .join("")
-              : `<li><span class="meta">Plate is empty — add something above</span></li>`;
-            return `<div class="meal-slot"><h3>${labels[slot]}</h3><ul class="food-list">${lis}</ul></div>`;
+              : `<li class="empty-teach"><strong>Empty ${labels[slot].toLowerCase()}</strong><span class="meta">Search above, then tap a food — totals update instantly.</span></li>`;
+            return `<div class="meal-slot${slot === active ? " is-active-meal" : ""}" data-meal-slot="${slot}">
+              <h3>${labels[slot]} <em>${Math.round(slotKcal)} kcal</em></h3>
+              <ul class="food-list">${lis}</ul>
+            </div>`;
           })
           .join("");
       }
+      $("diet-meal-chips")?.querySelectorAll(".meal-chip").forEach((c) => {
+        const on = c.getAttribute("data-meal") === ($("diet-meal")?.value || "breakfast");
+        c.classList.toggle("is-active", on);
+        c.setAttribute("aria-selected", on ? "true" : "false");
+      });
       renderFoodPick($("diet-search")?.value || "");
+      if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
+        Today.render();
+      }
     }
 
     function wire() {
@@ -845,8 +995,18 @@
         const sel = $("diet-meal");
         if (sel) sel.value = meal;
         $("diet-meal-chips").querySelectorAll(".meal-chip").forEach((c) => {
-          c.classList.toggle("is-active", c === chip);
+          const on = c === chip;
+          c.classList.toggle("is-active", on);
+          c.setAttribute("aria-selected", on ? "true" : "false");
         });
+        document.querySelectorAll("[data-meal-slot]").forEach((slot) => {
+          slot.classList.toggle("is-active-meal", slot.getAttribute("data-meal-slot") === meal);
+        });
+        document.querySelector(`[data-meal-slot="${meal}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+      $("diet-google-details")?.addEventListener("toggle", () => {
+        const d = $("diet-google-details");
+        if (d?.open) d.dataset.userOpened = "1";
       });
       $("diet-search")?.addEventListener("input", (e) => {
         const q = e.target.value;
@@ -972,7 +1132,13 @@
       return targets();
     }
 
-    return { init, render, getTargetsForAdmin, fillGoogleCredInputs, getGoogleCreds, saveGoogleCreds };
+    function snapshot() {
+      const tg = targets();
+      const tot = totals();
+      return { kcal: tot.kcal, protein: tot.protein, targetKcal: tg.kcal, targetProtein: tg.protein };
+    }
+
+    return { init, render, getTargetsForAdmin, fillGoogleCredInputs, getGoogleCreds, saveGoogleCreds, snapshot };
   })();
 
   /* ───────── Periods (local + syncable dates) ───────── */
@@ -1071,10 +1237,26 @@
       const est = estimates();
       const periodDays = Object.values(state.days).filter((d) => d.period).length;
       root.innerHTML = `
-        <div class="stat"><label>Period days logged</label><strong>${periodDays}</strong></div>
+        <div class="stat"><label>Period days</label><strong>${periodDays}</strong></div>
         <div class="stat"><label>Cycle / next</label><strong>${
-          est.cycleLen ? `${est.cycleLen}d · ${est.next}` : "—"
+          est.cycleLen ? `${est.cycleLen}d · ${est.next}` : "Learn cycle"
+        }</strong></div>
+        <div class="stat"><label>Today</label><strong>${
+          (state.days[todayISO()] || {}).period ? "Period day" : "—"
         }</strong></div>`;
+    }
+
+    function snapshot() {
+      const est = estimates();
+      const today = state.days[todayISO()] || {};
+      if (today.period) return { label: "Period day", detail: "Marked for today · private on this phone" };
+      if (est.next) {
+        return {
+          label: `Next ~ ${est.next}`,
+          detail: est.cycleLen ? `Cycle ~ ${est.cycleLen} days` : "Keep marking to learn your cycle",
+        };
+      }
+      return { label: "Track your cycle", detail: "Tap days on the calm calendar" };
     }
 
     function renderSelected() {
@@ -1346,7 +1528,10 @@
       if (progress) {
         const keys = [...map.keys()].sort();
         if (!keys.length) {
-          progress.innerHTML = `<p class="hint">No exercise logs yet — log kg under Exercise moves on Workout.</p>`;
+          progress.innerHTML = `<div class="empty-teach">
+            <strong>No lifts logged yet</strong>
+            <p>Go to <a href="#workout" data-nav="workout">Workout</a>, open an Exercise move, tap <strong>LOG</strong>, enter kg · sets · reps.</p>
+          </div>`;
         } else {
           progress.innerHTML = keys
             .map((name) => {
@@ -1394,11 +1579,31 @@
               </li>`;
               })
               .join("")}</ul>`
-          : `<p class="hint">No history in this group.</p>`;
+          : `<div class="empty-teach"><strong>History is empty</strong><p>Saved LOG entries show up here, newest first. Start from <a href="#workout" data-nav="workout">Workout</a>.</p></div>`;
+      }
+      if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
+        Today.render();
       }
     }
 
     function wire() {
+      document.querySelectorAll("[data-logs-view]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const view = btn.getAttribute("data-logs-view");
+          document.querySelectorAll("[data-logs-view]").forEach((b) => b.classList.toggle("is-active", b === btn));
+          document.querySelectorAll("[data-logs-pane]").forEach((pane) => {
+            pane.hidden = pane.getAttribute("data-logs-pane") !== view;
+          });
+        });
+      });
+      const goNav = (e) => {
+        const a = e.target.closest("[data-nav]");
+        if (!a) return;
+        e.preventDefault();
+        showPanel(a.getAttribute("data-nav"));
+      };
+      $("log-progress")?.addEventListener("click", goNav);
+      $("log-history")?.addEventListener("click", goNav);
       $("log-add")?.addEventListener("click", () => {
         const exercise = $("log-exercise")?.value.trim();
         const weight = Number($("log-weight")?.value);
@@ -1465,19 +1670,33 @@
       });
     }
 
+    function snapshot() {
+      const pool = exerciseEntries()
+        .slice()
+        .sort((a, b) => b.date.localeCompare(a.date) || Number(b.id) - Number(a.id));
+      return {
+        count: pool.length,
+        recent: pool.slice(0, 4).map((e) => ({
+          exercise: e.exercise,
+          weight: e.weight,
+          sets: entrySets(e),
+          reps: entryReps(e),
+          date: e.date,
+        })),
+      };
+    }
+
     function init() {
       // Keep exercise logs only (drop legacy stretch weight logs)
       state.entries = (state.entries || [])
-        .map((e) => ({ ...e, kind: "main" }))
-        .filter((e) => e.kind === "main");
-      // Filter out known stretch names from suggestions path later; strip stretch-like legacy if flagged
-      state.entries = state.entries.filter((e) => e.kind !== "stretch");
+        .map((e) => ({ ...e, kind: e.kind === "stretch" ? "stretch" : "main" }))
+        .filter((e) => e.kind !== "stretch");
       persist();
       wire();
       render();
     }
 
-    return { init, render, suggestFromMoves, addEntry, lastFor, entriesFor, entrySets, entryReps };
+    return { init, render, suggestFromMoves, addEntry, lastFor, entriesFor, entrySets, entryReps, snapshot };
   })();
 
   /* ───────── Admin publish diet defaults ───────── */
@@ -1592,7 +1811,7 @@
     await Diet.init();
     await Periods.init();
     await Workout.init();
-    showPanel(location.hash.replace(/^#/, "") || "workout");
+    showPanel(location.hash.replace(/^#/, "") || "today");
   }
 
   init();
