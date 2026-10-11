@@ -1,8 +1,74 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T11:36:38.190Z",
+  "updatedAt": "2026-10-11T11:45:56.238Z",
   "label": "Sapna lift logs — synced across her phones via Pages.",
   "entries": [
+    {
+      "id": 1791385430950,
+      "exercise": "Chest press flat bench",
+      "weight": 25,
+      "date": "2026-10-07",
+      "sets": null,
+      "reps": null,
+      "rx": "2 15",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791385449972,
+      "exercise": "Chest press flat bench",
+      "weight": 15,
+      "date": "2026-10-07",
+      "sets": null,
+      "reps": null,
+      "rx": "1 23",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791388754230,
+      "exercise": "Chest press flat bench",
+      "weight": 5,
+      "date": "2026-10-07",
+      "sets": 0,
+      "reps": 0,
+      "rx": "0 × 0",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791388773194,
+      "exercise": "Chest press flat bench",
+      "weight": 5,
+      "date": "2026-10-07",
+      "sets": 2,
+      "reps": 12,
+      "rx": "2 × 12",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791718107492,
+      "exercise": "Shoulder press",
+      "weight": 5,
+      "date": "2026-10-11",
+      "sets": 2,
+      "reps": 10,
+      "rx": "2 × 10",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791718116972,
+      "exercise": "Shoulder press",
+      "weight": 0,
+      "date": "2026-10-11",
+      "sets": 0,
+      "reps": 0,
+      "rx": "0 × 0",
+      "note": "",
+      "kind": "main"
+    },
     {
       "id": 1791718597336,
       "exercise": "Shoulder press",
@@ -11,6 +77,17 @@
       "sets": 2,
       "reps": 12,
       "rx": "2 × 12",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791719154887,
+      "exercise": "Shoulder press",
+      "weight": 1111,
+      "date": "2026-10-11",
+      "sets": 222,
+      "reps": 222,
+      "rx": "222 × 222",
       "note": "",
       "kind": "main"
     }
