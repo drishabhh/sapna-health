@@ -22,7 +22,7 @@
   --shadow: 0 18px 50px rgba(40, 24, 16, 0.1);
   /* Fixed bottom nav (~52px links + padding + home indicator) */
   --nav-h: 76px;
-  --nav-clearance: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 2.75rem);
+  --nav-clearance: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 4.5rem);
   --accent: #c9952a;
   --accent-soft: #a67818;
   --accent-muted: rgba(201, 149, 42, 0.16);
@@ -3685,7 +3685,7 @@ body.plan-admin-open { overflow: hidden; }
 :root {
   --page-x: 1rem;
   --nav-h: 76px;
-  --nav-clearance: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 2.75rem);
+  --nav-clearance: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 4.5rem);
 }
 
 .panel,
@@ -3727,14 +3727,23 @@ body.plan-admin-open { overflow: hidden; }
 .panel-today,
 .panel-inner,
 .workout-shell {
-  padding-bottom: 2.5rem;
+  padding-bottom: 3.5rem;
 }
 
 .panel.is-active::after {
   content: "";
   display: block;
-  height: 0.5rem;
-  /* keeps last card from sitting flush against clearance edge */
+  height: calc(var(--nav-clearance) * 0.35);
+  /* keeps last card from sitting under the fixed tab bar */
+}
+
+/* Cards/graphs scroll clear of fixed bottom nav */
+.prog-card,
+.today-card,
+.dash-strip,
+.progress-graph-wrap {
+  scroll-margin-bottom: var(--nav-clearance);
+  scroll-margin-top: calc(3.5rem + env(safe-area-inset-top, 0px));
 }
 
 .move-log-card,
@@ -4137,9 +4146,26 @@ textarea {
 .prog-graph-card[open] .prog-graph-hint::after {
   content: " · hide";
 }
-.progress-graph-wrap { margin: 0.75rem 0 0.25rem; }
+.progress-graph-wrap { margin: 0.75rem 0 1.25rem; }
 @media (max-width: 480px) {
-  .prog-streak-head { margin-bottom: 0.55rem; }
-  .prog-flame { width: 46px; height: 46px; }
-  .prog-day { font-size: 0.68rem; }
+  .prog-streak-head { margin-bottom: 0.45rem; }
+  .prog-flame { width: 44px; height: 44px; font-size: 1.25rem; }
+  .prog-day { font-size: 0.64rem; }
+  .prog-card { padding: 0.8rem 0.85rem 0.9rem; border-radius: 18px; }
+  .prog-month-grid { gap: 0.2rem; }
+  .prog-dow { gap: 0.2rem; margin-bottom: 0.15rem; }
+  .prog-streak-count strong { font-size: clamp(1.75rem, 7vw, 2.2rem); }
+  .prog-week-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+  .prog-week-metrics div { padding: 0.35rem 0.35rem; }
+  .prog-week-metrics strong { font-size: 0.88rem; }
+  .prog-week-metrics em { font-size: 0.58rem; }
+  .today-hero { padding-bottom: 0.15rem; }
+  .today-title { margin: 0; }
+  .today-lede { margin-top: 0.25rem; }
+  /* First viewport: strip + streak should clear tab bar without a clipped tracker peek */
+  .progress-root { margin-bottom: 0.55rem; }
+  .panel-today .today-grid { margin-top: 0.15rem; }
 }
