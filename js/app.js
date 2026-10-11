@@ -6,8 +6,6 @@
     periods: "sapna_health_periods_v1",
     weights: "sapna_health_weights_v1",
     token: "sapna_gh_token",
-    googleKey: "sapna_google_cse_key",
-    googleCx: "sapna_google_cse_cx",
   };
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
@@ -196,8 +194,8 @@
           </button>
           <button type="button" class="dash-pill" data-nav="diet">
             <em>Diet</em>
-            <strong>${kcalPct}%</strong>
-            <span>${Math.round(diet.kcal)} kcal</span>
+            <strong>${diet.over ? `+${Math.round(diet.kcal - diet.targetKcal)}` : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
+            <span>${diet.over ? "kcal over" : "kcal left"}</span>
           </button>
           <button type="button" class="dash-pill" data-nav="periods">
             <em>Cycle</em>
@@ -234,13 +232,16 @@
               <p class="today-kicker">Diet tracker</p>
               <span class="dash-badge">${kcalPct}%</span>
             </div>
-            <div class="today-rings-row">
-              ${ringHtml("Calories", diet.kcal, diet.targetKcal, "kcal")}
-              ${ringHtml("Protein", diet.protein, diet.targetProtein, "g")}
-            </div>
-            ${barHtml("Calories", Math.round(diet.kcal), diet.targetKcal, "jade")}
+            <p class="hf-today-left"><strong>${diet.over ? Math.round(diet.kcal - diet.targetKcal) : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
+              <span>${diet.over ? "kcal over" : "kcal left"}</span></p>
+            <p class="hf-today-meals">${["breakfast","lunch","dinner","snacks"].map((m) => {
+              const on = diet.mealFill && diet.mealFill[m];
+              const lab = m[0].toUpperCase();
+              return `<span class="${on ? "is-on" : ""}">${lab}</span>`;
+            }).join("")}</p>
+            ${barHtml("Eaten", Math.round(diet.kcal), diet.targetKcal, "jade")}
             ${barHtml("Protein g", Math.round(diet.protein), diet.targetProtein, "jade")}
-            <a class="today-cta" href="#diet" data-nav="diet">Open diary</a>
+            <a class="today-cta" href="#diet" data-nav="diet">Log food</a>
           </div>
 
           <a class="today-card today-card-periods dash-card dash-card-${periodTone}" href="#periods" data-nav="periods">
@@ -924,13 +925,14 @@
       .replace(/"/g, "&quot;");
   }
 
-  /* ───────── Diet ───────── */
+  /* ───────── Diet (Healthify-inspired: remaining + meal slots + library) ───────── */
   const Diet = (() => {
-    const GSEARCH_URL = "https://www.googleapis.com/customsearch/v1";
-    const G_DEBOUNCE_MS = 400;
-    const G_MIN_CHARS = 2;
-    const SETUP_CSE = "https://programmablesearchengine.google.com/controlpanel/create";
-    const SETUP_KEY = "https://developers.google.com/custom-search/v1/introduction";
+    const MEALS = [
+      { id: "breakfast", label: "Breakfast" },
+      { id: "lunch", label: "Lunch" },
+      { id: "dinner", label: "Dinner" },
+      { id: "snacks", label: "Snacks" },
+    ];
 
     const emptyDay = () => ({
       date: todayISO(),
@@ -941,17 +943,7 @@
     });
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
-    let state = loadJSON(LS.diet, { targets: null, day: emptyDay(), customFoods: [] });
-    /** @type {Map<string, object>} */
-    const googleItems = new Map();
-    let googleResults = [];
-    let googleStatus = ""; // "" | needkeys | loading | ok | empty | error
-    let googleError = "";
-    let gTimer = null;
-    let gAbort = null;
-    let gReqSeq = 0;
-    let lastGQuery = "";
-    let pendingGoogle = null;
+    let state = loadJSON(LS.diet, { targets: null, day: emptyDay(), customFoods: [], recentFoodIds: [] });
 
     function ensureDay() {
       if (!state.day || state.day.date !== todayISO()) {
@@ -976,45 +968,27 @@
       return allFoods().find((f) => f.id === id) || null;
     }
 
-    function getGoogleCreds() {
-      return {
-        key: (localStorage.getItem(LS.googleKey) || "").trim(),
-        cx: (localStorage.getItem(LS.googleCx) || "").trim(),
-      };
-    }
-
-    function saveGoogleCreds(key, cx) {
-      if (key) localStorage.setItem(LS.googleKey, key.trim());
-      else localStorage.removeItem(LS.googleKey);
-      if (cx) localStorage.setItem(LS.googleCx, cx.trim());
-      else localStorage.removeItem(LS.googleCx);
-    }
-
-    function fillGoogleCredInputs() {
-      const { key, cx } = getGoogleCreds();
-      ["diet-google-key", "admin-google-key"].forEach((id) => {
-        const el = $(id);
-        if (el && document.activeElement !== el) el.value = key;
-      });
-      ["diet-google-cx", "admin-google-cx"].forEach((id) => {
-        const el = $(id);
-        if (el && document.activeElement !== el) el.value = cx;
-      });
-    }
-
     function totals() {
       ensureDay();
-      const slots = ["breakfast", "lunch", "dinner", "snacks"];
       let kcal = 0;
       let protein = 0;
-      slots.forEach((slot) => {
-        (state.day[slot] || []).forEach((item) => {
+      MEALS.forEach(({ id }) => {
+        (state.day[id] || []).forEach((item) => {
           const s = Number(item.servings) || 1;
           kcal += (Number(item.kcal) || 0) * s;
           protein += (Number(item.protein) || 0) * s;
         });
       });
       return { kcal: Math.round(kcal), protein: Math.round(protein * 10) / 10 };
+    }
+
+    function slotKcal(slot) {
+      return Math.round(
+        (state.day[slot] || []).reduce(
+          (a, item) => a + (Number(item.kcal) || 0) * (Number(item.servings) || 1),
+          0
+        )
+      );
     }
 
     function markDietLogged(date) {
@@ -1031,6 +1005,12 @@
       return map;
     }
 
+    function pushRecent(foodId) {
+      if (!foodId) return;
+      const prev = (state.recentFoodIds || []).filter((id) => id !== foodId);
+      state.recentFoodIds = [foodId, ...prev].slice(0, 8);
+    }
+
     function addItem(food, meal, servings) {
       ensureDay();
       const s = Number(servings) || 1;
@@ -1044,6 +1024,7 @@
         protein: Number(food.protein) || 0,
         servings: s,
       });
+      pushRecent(food.id);
       markDietLogged(state.day.date || todayISO());
       persist();
       render();
@@ -1058,96 +1039,28 @@
     }
 
     function localMatches(query) {
-      const q = String(query || "")
-        .toLowerCase()
-        .trim();
+      const q = String(query || "").toLowerCase().trim();
       let list = allFoods();
       if (q) {
         list = list.filter(
-          (f) => f.name.toLowerCase().includes(q) || (f.tags || []).some((t) => String(t).toLowerCase().includes(q))
+          (f) =>
+            f.name.toLowerCase().includes(q) ||
+            (f.tags || []).some((t) => String(t).toLowerCase().includes(q))
         );
       }
-      return list.slice(0, 40);
+      return list.slice(0, 48);
     }
 
-    function parseNutrition(text) {
-      const s = String(text || "");
-      let kcal = null;
-      let protein = null;
-      const kcalM =
-        s.match(/(\d+(?:\.\d+)?)\s*(?:kcal|calories?|cal)\b/i) ||
-        s.match(/\b(?:kcal|calories?)\s*[:=]?\s*(\d+(?:\.\d+)?)/i);
-      if (kcalM) kcal = Number(kcalM[1]);
-      const proM =
-        s.match(/(\d+(?:\.\d+)?)\s*g(?:rams?)?\s*(?:of\s+)?protein\b/i) ||
-        s.match(/\bprotein\s*[:=]?\s*(\d+(?:\.\d+)?)\s*g?\b/i);
-      if (proM) protein = Number(proM[1]);
-      return {
-        kcal: Number.isFinite(kcal) && kcal > 0 ? Math.round(kcal) : null,
-        protein: Number.isFinite(protein) && protein >= 0 ? Math.round(protein * 10) / 10 : null,
-      };
-    }
-
-    function mapGoogleItem(item, idx) {
-      if (!item?.title || !item?.link) return null;
-      const blob = `${item.title} ${item.snippet || ""}`;
-      const nut = parseNutrition(blob);
-      const id = "gcs-" + idx + "-" + String(item.link).slice(-48);
-      return {
-        id,
-        title: item.title,
-        snippet: item.snippet || "",
-        link: item.link,
-        displayLink: item.displayLink || "",
-        kcal: nut.kcal,
-        protein: nut.protein,
-        source: "google",
-      };
+    function recentFoods() {
+      const ids = state.recentFoodIds || [];
+      return ids.map((id) => findFood(id)).filter(Boolean).slice(0, 8);
     }
 
     function foodButtonHtml(f) {
-      return `<button type="button" data-food-id="${escapeHtml(f.id)}" data-food-source="local">
-        ${escapeHtml(f.name)}
-        <em>${f.kcal} kcal · ${f.protein}g protein</em>
+      return `<button type="button" class="hf-food-btn" data-food-id="${escapeHtml(f.id)}">
+        <span class="hf-food-name">${escapeHtml(f.name)}</span>
+        <em>${f.kcal} kcal · ${f.protein}g P</em>
       </button>`;
-    }
-
-    function googleCardHtml(item) {
-      const nutBits = [];
-      if (item.kcal != null) nutBits.push(`${item.kcal} kcal`);
-      if (item.protein != null) nutBits.push(`${item.protein}g protein`);
-      const nutLine = nutBits.length ? nutBits.join(" · ") + " (from snippet)" : "kcal/protein not found — you’ll enter them";
-      return `<article class="gsearch-card" data-gsearch-id="${escapeHtml(item.id)}">
-        <p class="gsearch-title">${escapeHtml(item.title)}</p>
-        <p class="gsearch-snippet">${escapeHtml(item.snippet || "No preview.")}</p>
-        <p class="gsearch-meta">${escapeHtml(item.displayLink || "")} · ${escapeHtml(nutLine)}</p>
-        <div class="gsearch-actions">
-          <a class="btn-diet-ghost gsearch-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer">Open</a>
-          <button type="button" class="btn-diet" data-gsearch-add="${escapeHtml(item.id)}">Add to plate</button>
-        </div>
-      </article>`;
-    }
-
-    function setupKeysHtml() {
-      return `<div class="gsearch-setup">
-        <p>Google search needs a free <strong>API key</strong> + <strong>Search engine ID (cx)</strong> — saved only on this phone.</p>
-        <p class="gsearch-setup-note"><strong>“Search the entire web” is deprecated</strong> — Google no longer lets new engines enable it. Instead, add nutrition/food sites to the engine’s <em>include</em> list (see sites below).</p>
-        <ol>
-          <li>Create a Programmable Search Engine → <a href="${SETUP_CSE}" target="_blank" rel="noopener">control panel</a>.</li>
-          <li>Under Sites to search, <strong>add nutrition/food sites</strong> (use <code>site.com/*</code> patterns), e.g. nutritionix.com, fatsecret.com, nutritionvalue.org, indianhealthyrecipes.com, tarladalal.com, wikipedia.org, openfoodfacts.org.</li>
-          <li>Open the engine → copy <strong>Search engine ID (cx)</strong>.</li>
-          <li>Enable Custom Search API &amp; create an API key → <a href="${SETUP_KEY}" target="_blank" rel="noopener">Google docs</a> (100 free queries/day).</li>
-          <li>Paste key + cx below (or in Admin) and tap Save.</li>
-        </ol>
-        <label class="field">Google API key
-          <input type="password" id="diet-google-key" autocomplete="off" placeholder="AIza…" />
-        </label>
-        <label class="field">Search engine ID (cx)
-          <input type="text" id="diet-google-cx" autocomplete="off" placeholder="abc123:…" />
-        </label>
-        <button type="button" class="btn-diet" id="diet-google-save">Save Google search keys</button>
-        <p class="status" id="diet-google-status" hidden></p>
-      </div>`;
     }
 
     function renderFoodPick(query) {
@@ -1155,212 +1068,54 @@
       if (!root) return;
       const q = String(query || "").trim();
       const local = localMatches(q);
+      const recent = !q ? recentFoods() : [];
+      const recentHtml = recent.length
+        ? `<div class="food-pick-group">
+            <p class="food-pick-label">Recent <span class="food-pick-hint">quick add</span></p>
+            <div class="hf-recent-row">${recent.map(foodButtonHtml).join("")}</div>
+          </div>`
+        : "";
       const localHtml = local.length
-        ? local.map((f) => foodButtonHtml(f)).join("")
-        : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}.</p>`;
-
-      const { key, cx } = getGoogleCreds();
-      const hasKeys = !!(key && cx);
-      let gBlock = "";
-      const setupSlot = $("diet-google-setup-slot");
-      const details = $("diet-google-details");
-      if (!hasKeys) {
-        gBlock = `<div class="food-pick-group is-google">
-          <p class="food-pick-empty">Using your library. Expand <strong>Google search setup</strong> below only if you want web results.</p>
-        </div>`;
-        if (setupSlot) setupSlot.innerHTML = setupKeysHtml();
-        /* Keep CSE setup collapsed until she opens it */
-        if (details && !details.dataset.userOpened) details.open = false;
-      } else if (q.length >= G_MIN_CHARS) {
-        if (setupSlot && !setupSlot.dataset.ready) {
-          setupSlot.innerHTML = `<p class="hint">Google keys saved on this phone.</p>`;
-          setupSlot.dataset.ready = "1";
-        }
-        if (details) details.open = false;
-        let body = "";
-        if (googleStatus === "loading") {
-          body = `<p class="food-pick-empty">Searching Google…</p>`;
-        } else if (googleStatus === "error") {
-          body = `<p class="food-pick-empty">${escapeHtml(googleError || "Google search failed. Check keys / daily quota.")}</p>`;
-        } else if (googleStatus === "empty" || (googleStatus === "ok" && !googleResults.length)) {
-          body = `<p class="food-pick-empty">No Google results for “${escapeHtml(q)}”.</p>`;
-        } else if (googleResults.length) {
-          body = googleResults.map(googleCardHtml).join("");
-        } else {
-          body = `<p class="food-pick-empty">Keep typing to search Google…</p>`;
-        }
-        gBlock = `<div class="food-pick-group is-google">
-          <p class="food-pick-label">Google <span class="food-pick-hint">web results</span></p>
-          ${body}
-        </div>`;
-      } else {
-        gBlock = `<div class="food-pick-group is-google">
-          <p class="food-pick-label">Google <span class="food-pick-hint">web results</span></p>
-          <p class="food-pick-empty">Type 2+ letters to search Google (keys saved on this phone).</p>
-        </div>`;
-      }
-
-      root.innerHTML = `<div class="food-pick-group">
-        <p class="food-pick-label">Your library <span class="food-pick-hint">Indian / home</span></p>
+        ? local.map(foodButtonHtml).join("")
+        : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}. Try Custom food below.</p>`;
+      const mealLabel = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
+      root.innerHTML = `${recentHtml}<div class="food-pick-group">
+        <p class="food-pick-label">Food library <span class="food-pick-hint">→ ${escapeHtml(mealLabel)}</span></p>
         ${localHtml}
-      </div>${gBlock}`;
-      if (!hasKeys) fillGoogleCredInputs();
+      </div>`;
     }
 
-    async function runGoogleSearch(query) {
-      const q = String(query || "").trim();
-      if (q.length < G_MIN_CHARS) return;
-      const { key, cx } = getGoogleCreds();
-      if (!key || !cx) {
-        googleStatus = "needkeys";
-        renderFoodPick(q);
-        return;
+    function focusAddForMeal(meal) {
+      const sel = $("diet-meal");
+      if (sel) sel.value = meal;
+      $("diet-meal-chips")?.querySelectorAll(".meal-chip").forEach((c) => {
+        const on = c.getAttribute("data-meal") === meal;
+        c.classList.toggle("is-active", on);
+        c.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      const panel = $("diet-add-card");
+      if (panel) {
+        panel.hidden = false;
+        panel.classList.add("is-open");
       }
-      if (gAbort) {
-        try {
-          gAbort.abort();
-        } catch (_) {}
+      const hint = $("diet-add-meal-hint");
+      if (hint) {
+        const label = MEALS.find((m) => m.id === meal)?.label || meal;
+        hint.textContent = `Adding to ${label}`;
       }
-      const seq = ++gReqSeq;
-      gAbort = new AbortController();
-      googleStatus = "loading";
-      googleError = "";
-      renderFoodPick(q);
+      renderFoodPick($("diet-search")?.value || "");
       try {
-        const params = new URLSearchParams({
-          key,
-          cx,
-          q,
-          num: "8",
-        });
-        const res = await fetch(`${GSEARCH_URL}?${params}`, {
-          signal: gAbort.signal,
-          headers: { Accept: "application/json" },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (seq !== gReqSeq) return;
-        if (!res.ok) {
-          const msg = data?.error?.message || `Google API ${res.status}`;
-          throw new Error(msg);
-        }
-        const mapped = [];
-        googleItems.clear();
-        (data.items || []).forEach((raw, i) => {
-          const item = mapGoogleItem(raw, i);
-          if (!item) return;
-          mapped.push(item);
-          googleItems.set(item.id, item);
-        });
-        googleResults = mapped;
-        lastGQuery = q;
-        googleStatus = googleResults.length ? "ok" : "empty";
-        renderFoodPick(q);
-      } catch (e) {
-        if (e?.name === "AbortError") return;
-        if (seq !== gReqSeq) return;
-        googleResults = [];
-        googleStatus = "error";
-        googleError = e?.message || "Google search failed.";
-        renderFoodPick(q);
-      }
-    }
-
-    function scheduleGoogleSearch(query) {
-      const q = String(query || "").trim();
-      if (gTimer) clearTimeout(gTimer);
-      if (q.length < G_MIN_CHARS) {
-        if (gAbort) {
-          try {
-            gAbort.abort();
-          } catch (_) {}
-        }
-        googleResults = [];
-        googleStatus = "";
-        lastGQuery = "";
-        renderFoodPick(q);
-        return;
-      }
-      const { key, cx } = getGoogleCreds();
-      if (!key || !cx) {
-        googleStatus = "needkeys";
-        renderFoodPick(q);
-        return;
-      }
-      if (q === lastGQuery && (googleStatus === "ok" || googleStatus === "empty" || googleStatus === "error")) {
-        renderFoodPick(q);
-        return;
-      }
-      googleStatus = "loading";
-      renderFoodPick(q);
-      gTimer = setTimeout(() => runGoogleSearch(q), G_DEBOUNCE_MS);
-    }
-
-    function openGoogleAddSheet(item) {
-      pendingGoogle = item;
-      const sheet = $("gsearch-add-sheet");
-      if (!sheet) return;
-      $("gsearch-add-title").textContent = item.title || "Add from Google";
-      $("gsearch-add-snippet").textContent = item.snippet || "";
-      $("gsearch-add-link").href = item.link || "#";
-      $("gsearch-add-name").value = item.title || "";
-      $("gsearch-add-kcal").value = item.kcal != null ? String(item.kcal) : "";
-      $("gsearch-add-protein").value = item.protein != null ? String(item.protein) : "";
-      const st = $("gsearch-add-status");
-      if (st) {
-        st.hidden = true;
-        st.textContent = "";
-      }
-      sheet.hidden = false;
-      sheet.classList.add("is-open");
-      document.body.classList.add("modal-open");
-      setTimeout(() => {
-        try {
-          (item.kcal != null ? $("gsearch-add-protein") : $("gsearch-add-kcal"))?.focus({ preventScroll: true });
-        } catch (_) {}
-      }, 60);
-    }
-
-    function closeGoogleAddSheet() {
-      const sheet = $("gsearch-add-sheet");
-      if (!sheet) return;
-      sheet.hidden = true;
-      sheet.classList.remove("is-open");
-      document.body.classList.remove("modal-open");
-      pendingGoogle = null;
-    }
-
-    function addGoogleToPlate() {
-      const name = ($("gsearch-add-name")?.value || "").trim();
-      const kcal = Number($("gsearch-add-kcal")?.value);
-      const protein = Number($("gsearch-add-protein")?.value);
-      const st = $("gsearch-add-status");
-      if (!name || !Number.isFinite(kcal)) {
-        if (st) {
-          st.hidden = false;
-          st.textContent = "Name and kcal are required.";
-          st.className = "status is-error";
-        }
-        return;
-      }
-      const food = {
-        id: "gweb-" + Date.now(),
-        name,
-        kcal,
-        protein: Number.isFinite(protein) ? protein : 0,
-        tags: ["google"],
-        source: "google",
-      };
-      const meal = $("diet-meal")?.value || "breakfast";
-      const servings = $("diet-servings")?.value || 1;
-      addItem(food, meal, servings);
-      setStatus($("diet-status"), `Added ${name} from Google`, "ok");
-      closeGoogleAddSheet();
+        $("diet-search")?.focus({ preventScroll: true });
+      } catch (_) {}
+      panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
     function render() {
       ensureDay();
       const t = targets();
       const tot = totals();
+      const left = Math.max(0, Math.round(t.kcal - tot.kcal));
+      const over = tot.kcal > t.kcal;
       const kcalEl = $("diet-target-kcal");
       const proEl = $("diet-target-protein");
       if (kcalEl && document.activeElement !== kcalEl) kcalEl.value = t.kcal;
@@ -1370,48 +1125,56 @@
       if (totalsRoot) {
         const kcalPct = Math.max(0, Math.min(100, Math.round((tot.kcal / (t.kcal || 1)) * 100)));
         const proPct = Math.max(0, Math.min(100, Math.round((tot.protein / (t.protein || 1)) * 100)));
-        const kcalCls = tot.kcal > t.kcal ? "is-over" : "is-ok";
-        const proCls = tot.protein >= t.protein * 0.9 ? "is-ok" : "";
         totalsRoot.innerHTML = `
-          <div class="diet-ring-card ${kcalCls}" style="--p:${kcalPct}">
-            <div class="diet-ring-visual" aria-hidden="true"><i></i></div>
-            <div><strong>${tot.kcal}</strong><span>of ${t.kcal} kcal</span></div>
-          </div>
-          <div class="diet-ring-card ${proCls}" style="--p:${proPct}">
-            <div class="diet-ring-visual" aria-hidden="true"><i></i></div>
-            <div><strong>${tot.protein}g</strong><span>of ${t.protein}g protein</span></div>
+          <div class="hf-remain-card ${over ? "is-over" : ""}">
+            <p class="hf-remain-kicker">${over ? "Over target" : "Calories left"}</p>
+            <p class="hf-remain-num"><strong>${over ? tot.kcal - t.kcal : left}</strong>
+              <span>${over ? "kcal over" : "kcal"}</span></p>
+            <div class="hf-remain-meta">
+              <span><b>${tot.kcal}</b> eaten</span>
+              <span><b>${t.kcal}</b> goal</span>
+              <span><b>${tot.protein}g</b> / ${t.protein}g protein</span>
+            </div>
+            <div class="hf-remain-bars" aria-hidden="true">
+              <div class="hf-bar"><i style="width:${kcalPct}%"></i></div>
+              <div class="hf-bar hf-bar-pro"><i style="width:${proPct}%"></i></div>
+            </div>
           </div>`;
       }
 
       const mealsRoot = $("diet-meals");
       if (mealsRoot) {
-        const labels = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snacks: "Snacks" };
         const active = $("diet-meal")?.value || "breakfast";
-        mealsRoot.innerHTML = Object.keys(labels)
-          .map((slot) => {
-            const items = state.day[slot] || [];
-            const slotKcal = items.reduce((a, item) => a + (Number(item.kcal) || 0) * (Number(item.servings) || 1), 0);
-            const lis = items.length
-              ? items
-                  .map((item, i) => {
-                    const s = Number(item.servings) || 1;
-                    return `<li>
+        mealsRoot.innerHTML = MEALS.map(({ id, label }) => {
+          const items = state.day[id] || [];
+          const sk = slotKcal(id);
+          const lis = items.length
+            ? items
+                .map((item, i) => {
+                  const s = Number(item.servings) || 1;
+                  return `<li>
                     <div>
                       <div>${escapeHtml(item.name)}${s !== 1 ? ` × ${s}` : ""}</div>
                       <div class="meta">${Math.round(item.kcal * s)} kcal · ${Math.round(item.protein * s * 10) / 10}g</div>
                     </div>
-                    <button type="button" data-remove="${slot}:${i}" aria-label="Remove">✕</button>
+                    <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
                   </li>`;
-                  })
-                  .join("")
-              : `<li class="empty-teach"><strong>Empty ${labels[slot].toLowerCase()}</strong><span class="meta">Search above, then tap a food — totals update instantly.</span></li>`;
-            return `<div class="meal-slot${slot === active ? " is-active-meal" : ""}" data-meal-slot="${slot}">
-              <h3>${labels[slot]} <em>${Math.round(slotKcal)} kcal</em></h3>
-              <ul class="food-list">${lis}</ul>
-            </div>`;
-          })
-          .join("");
+                })
+                .join("")
+            : `<li class="hf-meal-empty">Nothing logged — tap <strong>+ Add</strong></li>`;
+          return `<section class="hf-meal-card meal-slot${id === active ? " is-active-meal" : ""}" data-meal-slot="${id}">
+            <header class="hf-meal-head">
+              <div>
+                <h3>${label}</h3>
+                <p class="hf-meal-kcal">${sk} kcal · ${items.length} item${items.length === 1 ? "" : "s"}</p>
+              </div>
+              <button type="button" class="hf-add-btn" data-add-meal="${id}">+ Add</button>
+            </header>
+            <ul class="food-list">${lis}</ul>
+          </section>`;
+        }).join("");
       }
+
       $("diet-meal-chips")?.querySelectorAll(".meal-chip").forEach((c) => {
         const on = c.getAttribute("data-meal") === ($("diet-meal")?.value || "breakfast");
         c.classList.toggle("is-active", on);
@@ -1427,51 +1190,16 @@
       $("diet-meal-chips")?.addEventListener("click", (e) => {
         const chip = e.target.closest("[data-meal]");
         if (!chip) return;
-        const meal = chip.getAttribute("data-meal");
-        const sel = $("diet-meal");
-        if (sel) sel.value = meal;
-        $("diet-meal-chips").querySelectorAll(".meal-chip").forEach((c) => {
-          const on = c === chip;
-          c.classList.toggle("is-active", on);
-          c.setAttribute("aria-selected", on ? "true" : "false");
+        focusAddForMeal(chip.getAttribute("data-meal"));
+        document.querySelector(`[data-meal-slot="${chip.getAttribute("data-meal")}"]`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
         });
-        document.querySelectorAll("[data-meal-slot]").forEach((slot) => {
-          slot.classList.toggle("is-active-meal", slot.getAttribute("data-meal-slot") === meal);
-        });
-        document.querySelector(`[data-meal-slot="${meal}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-      });
-      $("diet-google-details")?.addEventListener("toggle", () => {
-        const d = $("diet-google-details");
-        if (d?.open) d.dataset.userOpened = "1";
       });
       $("diet-search")?.addEventListener("input", (e) => {
-        const q = e.target.value;
-        renderFoodPick(q);
-        scheduleGoogleSearch(q);
+        renderFoodPick(e.target.value);
       });
       $("diet-food-pick")?.addEventListener("click", (e) => {
-        if (e.target.closest("a.gsearch-link")) return;
-        const saveKeys = e.target.closest("#diet-google-save");
-        if (saveKeys) {
-          const key = $("diet-google-key")?.value.trim() || "";
-          const cx = $("diet-google-cx")?.value.trim() || "";
-          if (!key || !cx) {
-            setStatus($("diet-google-status"), "Paste both API key and Search engine ID (cx).", "error");
-            return;
-          }
-          saveGoogleCreds(key, cx);
-          fillGoogleCredInputs();
-          setStatus($("diet-google-status"), "Saved on this phone.", "ok");
-          const q = $("diet-search")?.value || "";
-          scheduleGoogleSearch(q);
-          return;
-        }
-        const gAdd = e.target.closest("[data-gsearch-add]");
-        if (gAdd) {
-          const item = googleItems.get(gAdd.getAttribute("data-gsearch-add"));
-          if (item) openGoogleAddSheet(item);
-          return;
-        }
         const btn = e.target.closest("[data-food-id]");
         if (!btn) return;
         const food = findFood(btn.getAttribute("data-food-id"));
@@ -1483,17 +1211,8 @@
         const servings = $("diet-servings")?.value || 1;
         addItem(food, meal, servings);
         setStatus($("diet-status"), `Added ${food.name}`, "ok");
-      });
-      $("gsearch-add-close")?.addEventListener("click", (e) => {
-        e.preventDefault();
-        closeGoogleAddSheet();
-      });
-      $("gsearch-add-sheet")?.addEventListener("click", (e) => {
-        if (e.target.id === "gsearch-add-sheet") closeGoogleAddSheet();
-      });
-      $("gsearch-add-form")?.addEventListener("submit", (e) => {
-        e.preventDefault();
-        addGoogleToPlate();
+        if ($("diet-search")) $("diet-search").value = "";
+        renderFoodPick("");
       });
       $("diet-add-custom")?.addEventListener("click", () => {
         const name = $("diet-custom-name")?.value.trim();
@@ -1534,6 +1253,11 @@
         setStatus($("diet-status"), "Today cleared.", "info");
       });
       $("diet-meals")?.addEventListener("click", (e) => {
+        const add = e.target.closest("[data-add-meal]");
+        if (add) {
+          focusAddForMeal(add.getAttribute("data-add-meal"));
+          return;
+        }
         const btn = e.target.closest("[data-remove]");
         if (!btn) return;
         const [meal, idx] = btn.getAttribute("data-remove").split(":");
@@ -1542,10 +1266,15 @@
     }
 
     async function init() {
+      /* Drop legacy Google CSE keys if present */
+      try {
+        localStorage.removeItem("sapna_google_cse_key");
+        localStorage.removeItem("sapna_google_cse_cx");
+      } catch (_) {}
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261008crazy"),
-          fetch("./data/diet-defaults.json?v=20261008crazy"),
+          fetch("./data/foods.json?v=20261011hf"),
+          fetch("./data/diet-defaults.json?v=20261011hf"),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();
@@ -1559,7 +1288,6 @@
         console.warn(e);
       }
       wire();
-      fillGoogleCredInputs();
       render();
       renderFoodPick($("diet-search")?.value || "");
     }
@@ -1571,18 +1299,30 @@
     function snapshot() {
       const tg = targets();
       const tot = totals();
-      return { kcal: tot.kcal, protein: tot.protein, targetKcal: tg.kcal, targetProtein: tg.protein };
+      const left = Math.max(0, Math.round(tg.kcal - tot.kcal));
+      ensureDay();
+      const mealFill = {};
+      MEALS.forEach(({ id }) => {
+        mealFill[id] = (state.day[id] || []).length > 0;
+      });
+      return {
+        kcal: tot.kcal,
+        protein: tot.protein,
+        targetKcal: tg.kcal,
+        targetProtein: tg.protein,
+        left,
+        over: tot.kcal > tg.kcal,
+        mealFill,
+      };
     }
 
     return {
       init,
       render,
       getTargetsForAdmin,
-      fillGoogleCredInputs,
-      getGoogleCreds,
-      saveGoogleCreds,
       snapshot,
       dietLoggedDates,
+      focusAddForMeal,
     };
   })();
 
@@ -2738,22 +2478,6 @@
     }
   }
 
-  async function validateGoogleCreds(key, cx) {
-    if (!key || !cx) return { ok: false, message: "Paste both Google API key and cx." };
-    try {
-      const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(key)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent("apple calories")}&num=1`;
-      const res = await fetch(url);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = data?.error?.message || `Google ${res.status}`;
-        return { ok: false, message: msg };
-      }
-      return { ok: true, message: "Google search keys work." };
-    } catch (err) {
-      return { ok: false, message: err.message || "Could not reach Google." };
-    }
-  }
-
   function forceAdminOverlay(el) {
     if (!el) return;
     el.hidden = false;
@@ -2825,40 +2549,6 @@
       setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
     });
 
-    $("admin-save-google")?.addEventListener("click", async () => {
-      const btn = $("admin-save-google");
-      let key = ($("admin-google-key")?.value || "").trim();
-      let cx = ($("admin-google-cx")?.value || "").trim();
-      const saved = Diet.getGoogleCreds();
-      if ((!key || key.startsWith("••")) && saved.key) key = saved.key;
-      if (!cx && saved.cx) cx = saved.cx;
-      if (!key || !cx) {
-        setKeyBadge("admin-google-badge", "error", "Missing");
-        setStatus($("admin-status"), "Paste both Google API key and Search engine ID (cx).", "error");
-        return;
-      }
-      if (btn) btn.disabled = true;
-      setKeyBadge("admin-google-badge", "info", "Checking…");
-      setStatus($("admin-status"), "Testing Google search keys…", "info");
-      const result = await validateGoogleCreds(key, cx);
-      if (btn) btn.disabled = false;
-      if (!result.ok) {
-        setKeyBadge("admin-google-badge", "error", "Invalid");
-        setStatus($("admin-status"), result.message, "error");
-        return;
-      }
-      Diet.saveGoogleCreds(key, cx);
-      Diet.fillGoogleCredInputs();
-      setKeyBadge("admin-google-badge", "ok", "✓ Working");
-      setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
-    });
-
-    $("admin-clear-google")?.addEventListener("click", () => {
-      Diet.saveGoogleCreds("", "");
-      Diet.fillGoogleCredInputs();
-      setKeyBadge("admin-google-badge", null);
-      setStatus($("admin-status"), "Google keys cleared.", "info");
-    });
 
     $("admin-publish")?.addEventListener("click", async () => {
       const token = resolveAdminToken();
@@ -2933,11 +2623,7 @@
           setKeyBadge("admin-token-badge", null);
         }
       }
-      Diet.fillGoogleCredInputs();
-      const g = Diet.getGoogleCreds();
-      if (g.key && g.cx) setKeyBadge("admin-google-badge", "info", "Saved");
-      else setKeyBadge("admin-google-badge", null);
-      setStatus($("admin-status"), "Admin ready — test a key or post to Pages.", "info");
+      setStatus($("admin-status"), "Admin ready — test token or post to Pages.", "info");
       const sheet = $("admin-editor")?.querySelector(".admin-sheet");
       if (sheet) sheet.scrollTop = 0;
     };
