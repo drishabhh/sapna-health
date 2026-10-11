@@ -1,5 +1,6 @@
 {
-  "updatedAt": "2026-10-11T13:19:35.074Z",
+  "updatedAt": "2026-10-11T13:40:27.281Z",
+  "planDate": "2026-10-11",
   "headline": "Chest triceps",
   "support": "Stretch · lift · log",
   "restNote": {
@@ -34,6 +35,13 @@
           "name": "Leg swings",
           "rx": "10 reps",
           "gif": "media/leg-swings.gif",
+          "demo": "img"
+        },
+        {
+          "id": "baby-sit-mv3vesnb-nmq0",
+          "name": "Baby sit",
+          "rx": "10 reps",
+          "gif": "media/custom-baby-sit-mv3vcrf6.gif",
           "demo": "img"
         }
       ]
