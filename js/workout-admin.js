@@ -668,9 +668,11 @@ window.SapnaPlanAdmin = (() => {
           { name: tile.getAttribute("data-add-name"), path: tile.getAttribute("data-add-gif") },
           tile.getAttribute("data-add-kind")
         );
-        tile.classList.add("is-added");
-        setTimeout(() => tile.classList.remove("is-added"), 400);
-        renderBrowseFooter();
+        // After each add, return to body-part picker so the next move is one tap away.
+        browse.bodyPart = "";
+        browse.equipment = "";
+        browse.query = "";
+        renderBrowse();
         return;
       }
       if (e.target.id === "plan-browse-done" || e.target.closest("#plan-browse-done")) {
