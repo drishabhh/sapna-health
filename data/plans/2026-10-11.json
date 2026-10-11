@@ -1,6 +1,6 @@
 {
-  "updatedAt": "2026-10-11T13:17:17.686Z",
-  "headline": "Aaj ka workout",
+  "updatedAt": "2026-10-11T13:19:35.074Z",
+  "headline": "Chest triceps",
   "support": "Stretch · lift · log",
   "restNote": {
     "title": "Rest & water",
@@ -71,6 +71,13 @@
           "name": "Dumbbell Lying Triceps Extension",
           "rx": "2 × 12",
           "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/triceps/dumbbell-lying-triceps-extension.gif",
+          "demo": "img"
+        },
+        {
+          "id": "walk-elliptical-cross-trainer-mv3unrtu-ob4c",
+          "name": "Walk Elliptical Cross Trainer",
+          "rx": "2 × 12",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/cardio/walk-elliptical-cross-trainer.gif",
           "demo": "img"
         }
       ]
