@@ -188,6 +188,7 @@
     let plan = null;
     let loaded = false;
     let sheetExercise = "";
+    let sheetEditingId = null;
     let sheetScrollY = 0;
 
     function sectionKind(section) {
@@ -421,9 +422,10 @@
         if (step === "stretch") {
           el.classList.add(anyLog || !stretch.length ? "is-done" : "is-active");
         } else if (step === "lift") {
-          el.classList.add(allDone ? "is-done" : anyLog || !stretch.length ? "is-active" : "");
-        } else if (step === "done") {
-          el.classList.add(allDone ? "is-active is-done" : "");
+          if (allDone) el.classList.add("is-done");
+          else if (anyLog || !stretch.length) el.classList.add("is-active");
+        } else if (step === "done" && allDone) {
+          el.classList.add("is-active", "is-done");
         }
       });
       const bar = $("session-done-bar");
@@ -444,6 +446,48 @@
       });
     }
 
+    function setSheetEditMode(id) {
+      sheetEditingId = id == null ? null : id;
+      const banner = $("log-sheet-edit-banner");
+      const save = $("log-sheet-save");
+      const del = $("log-sheet-delete");
+      const cancel = $("log-sheet-cancel");
+      const editing = sheetEditingId != null;
+      if (banner) banner.hidden = !editing;
+      if (save) save.textContent = editing ? "Update" : "Save entry";
+      if (del) del.hidden = !editing;
+      if (cancel) cancel.hidden = !editing;
+      document.querySelectorAll("#log-sheet-tbody tr").forEach((tr) => {
+        tr.classList.toggle("is-selected", String(tr.getAttribute("data-log-id")) === String(sheetEditingId || ""));
+      });
+    }
+
+    function clearSheetForm() {
+      if ($("log-sheet-kg")) $("log-sheet-kg").value = "";
+      if ($("log-sheet-sets")) $("log-sheet-sets").value = "";
+      if ($("log-sheet-reps")) $("log-sheet-reps").value = "";
+      setSheetEditMode(null);
+    }
+
+    function selectSheetRow(id) {
+      const entry = Weights.getEntry(id);
+      if (!entry) return;
+      if ($("log-sheet-kg")) $("log-sheet-kg").value = String(entry.weight ?? "");
+      if ($("log-sheet-sets")) $("log-sheet-sets").value = String(Weights.entrySets(entry) ?? "");
+      if ($("log-sheet-reps")) $("log-sheet-reps").value = String(Weights.entryReps(entry) ?? "");
+      setSheetEditMode(entry.id);
+      fillSheetTable();
+      const status = $("log-sheet-status");
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Selected — change values & Update, or Delete.";
+        status.className = "log-sheet-status is-ok";
+      }
+      try {
+        $("log-sheet-kg")?.focus({ preventScroll: true });
+      } catch (_) {}
+    }
+
     function fillSheetTable() {
       const tbody = $("log-sheet-tbody");
       const empty = $("log-sheet-empty");
@@ -453,7 +497,8 @@
         .map((e) => {
           const s = Weights.entrySets(e);
           const r = Weights.entryReps(e);
-          return `<tr>
+          const selected = sheetEditingId != null && String(sheetEditingId) === String(e.id);
+          return `<tr data-log-id="${escapeHtml(String(e.id))}" class="log-sheet-row${selected ? " is-selected" : ""}" role="button" tabindex="0" aria-label="Edit log ${escapeHtml(e.date)}">
             <td>${escapeHtml(e.date)}</td>
             <td>${escapeHtml(String(e.weight))}</td>
             <td>${Number.isFinite(s) ? s : "—"}</td>
@@ -493,9 +538,7 @@
         status.hidden = true;
         status.textContent = "";
       }
-      if ($("log-sheet-kg")) $("log-sheet-kg").value = "";
-      if ($("log-sheet-sets")) $("log-sheet-sets").value = "";
-      if ($("log-sheet-reps")) $("log-sheet-reps").value = "";
+      clearSheetForm();
       sheetScrollY = window.scrollY || 0;
       overlay.hidden = false;
       overlay.classList.add("is-open");
@@ -529,6 +572,7 @@
       document.body.style.top = "";
       window.scrollTo(0, sheetScrollY);
       sheetExercise = "";
+      sheetEditingId = null;
       refreshCardSummaries();
     }
 
@@ -574,28 +618,82 @@
             }
             return;
           }
-          Weights.addEntry({
-            exercise: sheetExercise,
-            weight: kg,
-            sets,
-            reps,
-            kind: "main",
-            date: todayISO(),
-          });
-          fillSheetTable();
-          if ($("log-sheet-kg")) $("log-sheet-kg").value = "";
-          if ($("log-sheet-sets")) $("log-sheet-sets").value = "";
-          if ($("log-sheet-reps")) $("log-sheet-reps").value = "";
-          if (status) {
-            status.hidden = false;
-            status.textContent = `Saved ${kg} kg · ${sets}×${reps}.`;
-            status.className = "log-sheet-status is-ok";
+          if (sheetEditingId != null) {
+            const ok = Weights.updateEntry(sheetEditingId, { weight: kg, sets, reps });
+            if (!ok) {
+              if (status) {
+                status.hidden = false;
+                status.textContent = "Could not update that log.";
+                status.className = "log-sheet-status is-error";
+              }
+              return;
+            }
+            if (status) {
+              status.hidden = false;
+              status.textContent = `Updated · ${kg} kg · ${sets}×${reps}`;
+              status.className = "log-sheet-status is-ok";
+            }
+          } else {
+            Weights.addEntry({
+              exercise: sheetExercise,
+              weight: kg,
+              sets,
+              reps,
+              kind: "main",
+              date: todayISO(),
+            });
+            if (status) {
+              status.hidden = false;
+              status.textContent = `Saved ${kg} kg · ${sets}×${reps}.`;
+              status.className = "log-sheet-status is-ok";
+            }
           }
+          clearSheetForm();
+          fillSheetTable();
           refreshCardSummaries();
           updateSessionSteps();
           try {
             $("log-sheet-kg")?.focus({ preventScroll: true });
           } catch (_) {}
+        });
+        $("log-sheet-cancel")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          clearSheetForm();
+          fillSheetTable();
+          const status = $("log-sheet-status");
+          if (status) {
+            status.hidden = false;
+            status.textContent = "Ready for a new entry.";
+            status.className = "log-sheet-status is-ok";
+          }
+        });
+        $("log-sheet-delete")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          if (sheetEditingId == null) return;
+          if (!confirm("Delete this log?")) return;
+          Weights.removeEntry(sheetEditingId);
+          clearSheetForm();
+          fillSheetTable();
+          refreshCardSummaries();
+          updateSessionSteps();
+          const status = $("log-sheet-status");
+          if (status) {
+            status.hidden = false;
+            status.textContent = "Log deleted.";
+            status.className = "log-sheet-status is-ok";
+          }
+        });
+        $("log-sheet-tbody")?.addEventListener("click", (e) => {
+          const row = e.target.closest("tr[data-log-id]");
+          if (!row) return;
+          selectSheetRow(row.getAttribute("data-log-id"));
+        });
+        $("log-sheet-tbody")?.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          const row = e.target.closest("tr[data-log-id]");
+          if (!row) return;
+          e.preventDefault();
+          selectSheetRow(row.getAttribute("data-log-id"));
         });
         const onVv = () => syncSheetViewport();
         if (window.visualViewport) {
@@ -1544,12 +1642,15 @@
 
   /* ───────── Weight logs ───────── */
   const Weights = (() => {
-    let state = loadJSON(LS.weights, { entries: [] });
+    let state = loadJSON(LS.weights, { entries: [], deletedIds: [] });
+    if (!Array.isArray(state.entries)) state.entries = [];
+    if (!Array.isArray(state.deletedIds)) state.deletedIds = [];
     /** @type {{name:string, kind:string}[]} */
     let suggestions = [];
     let tab = "main"; // exercise logs only
 
     function persist() {
+      state.deletedIds = Array.isArray(state.deletedIds) ? state.deletedIds.map(String) : [];
       saveJSON(LS.weights, state);
     }
 
@@ -1643,6 +1744,50 @@
       /* Prefer soft card refresh; Workout.render skips remount while sheet is open */
       refreshWorkoutUi();
       scheduleAutoSync();
+    }
+
+    function getEntry(id) {
+      const key = String(id);
+      return state.entries.find((e) => String(e.id) === key) || null;
+    }
+
+    function updateEntry(id, { weight, sets, reps, note, date } = {}) {
+      const key = String(id);
+      const idx = state.entries.findIndex((e) => String(e.id) === key);
+      if (idx < 0) return false;
+      const cur = state.entries[idx];
+      const s = sets != null && sets !== "" ? Number(sets) : entrySets(cur);
+      const r = reps != null && reps !== "" ? Number(reps) : entryReps(cur);
+      const w = weight != null && weight !== "" ? Number(weight) : Number(cur.weight);
+      if (!Number.isFinite(w) || !Number.isFinite(s) || !Number.isFinite(r)) return false;
+      state.entries[idx] = {
+        ...cur,
+        weight: w,
+        sets: s,
+        reps: r,
+        rx: `${s} × ${r}`,
+        note: note != null ? note : cur.note || "",
+        date: date || cur.date || todayISO(),
+        kind: "main",
+      };
+      persist();
+      refreshWorkoutUi();
+      scheduleAutoSync();
+      return true;
+    }
+
+    function removeEntry(id) {
+      const key = String(id);
+      const before = state.entries.length;
+      state.entries = state.entries.filter((e) => String(e.id) !== key);
+      if (state.entries.length === before) return false;
+      const deleted = new Set((state.deletedIds || []).map(String));
+      deleted.add(key);
+      state.deletedIds = [...deleted];
+      persist();
+      refreshWorkoutUi();
+      scheduleAutoSync();
+      return true;
     }
 
     function exerciseEntries() {
@@ -1796,12 +1941,10 @@
       $("log-history")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-del-log]");
         if (!btn) return;
-        const id = Number(btn.getAttribute("data-del-log"));
-        state.entries = state.entries.filter((x) => x.id !== id);
-        persist();
+        const id = btn.getAttribute("data-del-log");
+        if (!id) return;
+        removeEntry(id);
         render();
-        refreshWorkoutUi();
-        scheduleAutoSync();
       });
       $("log-export")?.addEventListener("click", () => {
         downloadJSON(`sapna-weight-logs-${todayISO()}.json`, {
@@ -1853,13 +1996,21 @@
 
     function mergeCloud(cloud) {
       if (!cloud || !Array.isArray(cloud.entries)) return 0;
-      const byId = new Map((state.entries || []).map((e) => [String(e.id), e]));
+      const deleted = new Set([
+        ...(state.deletedIds || []).map(String),
+        ...(Array.isArray(cloud.deletedIds) ? cloud.deletedIds.map(String) : []),
+      ]);
+      const byId = new Map(
+        (state.entries || [])
+          .filter((e) => e && e.id != null && !deleted.has(String(e.id)))
+          .map((e) => [String(e.id), e])
+      );
       let added = 0;
       cloud.entries.forEach((e) => {
         if (!e || e.id == null) return;
         if ((e.kind || "main") === "stretch") return;
         const key = String(e.id);
-        if (byId.has(key)) return;
+        if (deleted.has(key) || byId.has(key)) return;
         byId.set(key, {
           id: e.id,
           exercise: e.exercise || "Move",
@@ -1873,29 +2024,40 @@
         });
         added += 1;
       });
-      if (added) {
-        state.entries = [...byId.values()];
+      const nextEntries = [...byId.values()];
+      const nextDeleted = [...deleted];
+      if (
+        added ||
+        nextEntries.length !== (state.entries || []).length ||
+        nextDeleted.length !== (state.deletedIds || []).length
+      ) {
+        state.entries = nextEntries;
+        state.deletedIds = nextDeleted;
         persist();
       }
       return added;
     }
 
     function publishPayload() {
+      const deleted = new Set((state.deletedIds || []).map(String));
       return {
         version: 1,
         updatedAt: new Date().toISOString(),
         label: "Sapna lift logs — synced across her phones via Pages.",
-        entries: exerciseEntries().map((e) => ({
-          id: e.id,
-          exercise: e.exercise,
-          weight: e.weight,
-          date: e.date,
-          sets: e.sets ?? null,
-          reps: e.reps ?? null,
-          rx: e.rx || "",
-          note: e.note || "",
-          kind: "main",
-        })),
+        entries: exerciseEntries()
+          .filter((e) => e && e.id != null && !deleted.has(String(e.id)))
+          .map((e) => ({
+            id: e.id,
+            exercise: e.exercise,
+            weight: e.weight,
+            date: e.date,
+            sets: e.sets ?? null,
+            reps: e.reps ?? null,
+            rx: e.rx || "",
+            note: e.note || "",
+            kind: "main",
+          })),
+        deletedIds: [...deleted],
       };
     }
 
@@ -1990,6 +2152,9 @@
       render,
       suggestFromMoves,
       addEntry,
+      getEntry,
+      updateEntry,
+      removeEntry,
       lastFor,
       entriesFor,
       entrySets,
@@ -2032,10 +2197,12 @@
   }
 
   function wireAdmin() {
+    /* Admin FAB uses head onclick=sapnaAdminOpen — do not double-bind here */
     $("admin-close")?.addEventListener("click", () => {
       const ed = $("admin-editor");
       if (ed) {
         ed.hidden = true;
+        ed.setAttribute("hidden", "");
         ed.classList.remove("is-open");
         ed.style.cssText = "";
       }
