@@ -1273,6 +1273,9 @@
       renderCal();
       renderStats();
       renderSelected();
+      if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
+        Today.render();
+      }
     }
 
     function wire() {
