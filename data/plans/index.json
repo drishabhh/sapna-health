@@ -1,7 +1,14 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-06T17:11:38.887Z",
+  "updatedAt": "2026-10-11T13:17:17.686Z",
   "plans": [
+    {
+      "date": "2026-10-11",
+      "headline": "Aaj ka workout",
+      "moveCount": 7,
+      "path": "data/plans/2026-10-11.json",
+      "updatedAt": "2026-10-11T13:17:17.686Z"
+    },
     {
       "date": "2026-10-10",
       "headline": "Aaj ka workout",
