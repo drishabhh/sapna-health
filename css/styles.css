@@ -4478,3 +4478,18 @@ textarea {
   min-height: 7rem;
   resize: vertical;
 }
+
+.coach-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  color: #1f7a48;
+  background: rgba(47, 158, 98, 0.14);
+  border: 1px solid rgba(47, 158, 98, 0.28);
+}

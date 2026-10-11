@@ -1073,8 +1073,11 @@ Return JSON matching the schema.`;
     return { getKey, saveKey, hasKey, enrichFoods, coach, testKey, MODEL };
   })();
 
-  /* ───────── Coach UI (Path B — on-demand insights) ───────── */
+  /* ───────── Coach UI (Path B — overnight file + on-demand) ───────── */
   const Coach = (() => {
+    const INSIGHTS_URL = "./data/insights/latest.json";
+    let remote = null;
+
     function loadCached() {
       try {
         return JSON.parse(localStorage.getItem(LS.coach) || "null");
@@ -1122,7 +1125,7 @@ Return JSON matching the schema.`;
     function renderInto(el, data, meta) {
       if (!el) return;
       if (!data) {
-        el.innerHTML = `<p class="hint">Tap <strong>Get insights</strong> once — uses 1 Gemini call. Daily logging stays offline.</p>`;
+        el.innerHTML = `<p class="hint">Overnight insights appear after the <strong>4:00 IST</strong> GitHub job — or tap <strong>Get insights</strong> now (1 Gemini call).</p>`;
         return;
       }
       const list = (arr, empty) =>
@@ -1150,13 +1153,50 @@ Return JSON matching the schema.`;
         ${meta ? `<p class="coach-meta">${escapeHtml(meta)}</p>` : ""}`;
     }
 
+    function activePayload() {
+      const local = loadCached();
+      const remoteAt = remote?.generatedAt ? Date.parse(remote.generatedAt) : 0;
+      const localAt = local?.at ? Date.parse(local.at) : 0;
+      /* Prefer newer of overnight file vs manual phone refresh */
+      if (local && localAt > remoteAt) {
+        return {
+          result: local.result,
+          meta: `Manual refresh ${local.at}${local.source ? " · " + local.source : ""} · overnight still at 4:00 IST`,
+          badge: "Manual",
+          source: "manual",
+        };
+      }
+      if (remote?.result) {
+        const src = remote.source === "placeholder" ? "Setup" : "Overnight · 4:00 IST";
+        return {
+          result: remote.result,
+          meta: remote.forDate
+            ? `For ${remote.forDate} (${remote.timezone || "Asia/Kolkata"}) · ${remote.schedule || "4:00 IST"}`
+            : remote.generatedAt || "",
+          badge: src,
+          source: remote.source || "scheduled",
+        };
+      }
+      if (local?.result) {
+        return {
+          result: local.result,
+          meta: local.at ? `Saved ${local.at}` : "",
+          badge: "Manual",
+          source: "manual",
+        };
+      }
+      return null;
+    }
+
     function paint() {
-      const cached = loadCached();
-      renderInto($("coach-body"), cached?.result, cached?.at ? `Saved ${cached.at} · re-run when you want a fresh take` : "");
-      renderInto($("admin-coach-body"), cached?.result, cached?.at ? `From ${cached.at}` : "");
+      const active = activePayload();
+      const badge = $("coach-badge");
+      if (badge) badge.textContent = active?.badge || "Overnight · 4:00 IST";
+      renderInto($("coach-body"), active?.result || null, active?.meta || "");
+      renderInto($("admin-coach-body"), active?.result || null, active?.meta || "");
       const adminEx = $("admin-coach-exercises");
       if (adminEx) {
-        const ideas = cached?.result?.exerciseIdeas || [];
+        const ideas = active?.result?.exerciseIdeas || [];
         adminEx.innerHTML = ideas.length
           ? `<ul class="coach-list coach-ex">${ideas
               .map(
@@ -1164,23 +1204,38 @@ Return JSON matching the schema.`;
                   `<li><strong>${escapeHtml(ex.name)}</strong><span class="meta">${escapeHtml(ex.when)} — ${escapeHtml(ex.why)}</span></li>`
               )
               .join("")}</ul>`
-          : `<p class="hint">Run Insights on Today first — ideas appear here for planning.</p>`;
+          : `<p class="hint">Overnight job or Get insights fills ideas here for her plan.</p>`;
+      }
+    }
+
+    async function loadOvernight() {
+      try {
+        const res = await fetch(`${INSIGHTS_URL}?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) return null;
+        remote = await res.json();
+        return remote;
+      } catch {
+        return null;
       }
     }
 
     async function run({ statusEl } = {}) {
       if (!Gemini.hasKey()) {
-        setStatus(statusEl, "Add Gemini API key in Admin (one key, phone-only).", "error");
+        setStatus(
+          statusEl,
+          "Phone key optional — overnight uses GitHub secret GEMINI_API_KEY. Add Admin Gemini key to refresh now.",
+          "error"
+        );
         return null;
       }
       setStatus(statusEl, "Asking Gemini once (compact snapshot)…", "info");
       try {
         const snap = buildSnapshot();
         const result = await Gemini.coach(snap);
-        const payload = { at: new Date().toISOString(), result };
+        const payload = { at: new Date().toISOString(), result, source: "manual" };
         saveCached(payload);
         paint();
-        setStatus(statusEl, "Insights updated — 1 Gemini call used.", "ok");
+        setStatus(statusEl, "Manual insights updated — 1 Gemini call. Overnight still runs at 4:00 IST.", "ok");
         return result;
       } catch (e) {
         setStatus(statusEl, e.message || String(e), "error");
@@ -1188,13 +1243,15 @@ Return JSON matching the schema.`;
       }
     }
 
-    function wire() {
+    async function wire() {
       $("coach-run")?.addEventListener("click", () => run({ statusEl: $("coach-status") }));
       $("admin-coach-run")?.addEventListener("click", () => run({ statusEl: $("admin-coach-status") }));
       paint();
+      await loadOvernight();
+      paint();
     }
 
-    return { wire, paint, run, loadCached, buildSnapshot };
+    return { wire, paint, run, loadCached, buildSnapshot, loadOvernight };
   })();
 
   /* ───────── Diet (Healthify-inspired: remaining + meal slots + library) ───────── */

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-11T22:30:00.000Z",
+  "forDate": "2026-10-12",
+  "timezone": "Asia/Kolkata",
+  "schedule": "04:00 Asia/Kolkata (cron 30 22 * * * UTC)",
+  "source": "placeholder",
+  "model": "gemini-2.5-flash",
+  "snapshotSummary": {
+    "liftDaysLast30": 0,
+    "periodPhase": "unknown",
+    "planTitle": "Waiting for first overnight run"
+  },
+  "result": {
+    "summary": "Overnight Insights will appear here after the 4:00 IST GitHub Action runs (add GEMINI_API_KEY in repo secrets). Until then, tap Get insights on this phone anytime.",
+    "wins": [
+      "Keep logging lifts and period days — the overnight coach reads those from Pages."
+    ],
+    "watch": [
+      "Add GEMINI_API_KEY under GitHub → Settings → Secrets so the 4am job can run."
+    ],
+    "periodTips": [
+      "Warm meals, iron-rich foods, and gentle movement often help on period days — personalize after the first scheduled run."
+    ],
+    "eatNext": [
+      "Use Diet → My regular foods once, then log meals offline from your library."
+    ],
+    "exerciseIdeas": [
+      {
+        "name": "Easy stretch + walk",
+        "why": "Placeholder until overnight Gemini runs with her real logs.",
+        "when": "Recovery / period days"
+      }
+    ]
+  }
+}

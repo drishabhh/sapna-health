@@ -1,0 +1,50 @@
+# Overnight Insights for Sapna — 04:00 Asia/Kolkata
+#
+# Cron is UTC: 30 22 * * *  →  04:00 IST the next calendar morning
+# (IST = UTC+5:30; 22:30 UTC + 5h30 = 04:00 IST).
+#
+# Secret required (do NOT commit the key):
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+#   Name: GEMINI_API_KEY
+#   Value: AI Studio / Gemini API key
+#
+# Manual test: Actions → Daily Insights (4am IST) → Run workflow
+
+name: Daily Insights (4am IST)
+
+on:
+  schedule:
+    - cron: "30 22 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  insights:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Generate overnight insights
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node scripts/daily-insights.mjs
+
+      - name: Commit insights JSON
+        run: |
+          git config user.name "sapna-insights-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/insights/
+          if git diff --staged --quiet; then
+            echo "No insights changes to commit."
+          else
+            git commit -m "chore: overnight insights $(date -u +%Y-%m-%d)"
+            git push
+          fi

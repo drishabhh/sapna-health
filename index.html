@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011gem1"></script>
+  <script src="./js/admin-auth.js?v=20261011ins1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011gem1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011ins1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -165,9 +165,9 @@
     <section class="coach-card" id="coach-card" aria-label="Sapna insights">
       <div class="coach-card-head">
         <div>
-          <p class="today-kicker">Insights</p>
+          <p class="today-kicker">Insights <span class="coach-badge" id="coach-badge">Overnight · 4:00 IST</span></p>
           <h2 class="coach-title">What’s working</h2>
-          <p class="hint">One Gemini look at diet · lifts · cycle — not every tap.</p>
+          <p class="hint">Fresh each morning at 4:00 IST from GitHub · tap below only for a manual refresh.</p>
         </div>
         <button type="button" class="btn-primary" id="coach-run">Get insights</button>
       </div>
@@ -558,7 +558,7 @@
           <span class="key-badge" id="admin-gemini-badge" hidden></span>
         </div>
         <input type="password" id="admin-gemini-key" class="admin-key-input" autocomplete="off" placeholder="AIza…" />
-        <p class="hint">Free AI Studio key · only 2 uses: food list bootstrap + Insights. Saved on this phone.</p>
+        <p class="hint">Phone key for food list + manual Insights. Overnight 4:00 IST uses GitHub secret <code>GEMINI_API_KEY</code> (Settings → Secrets) — never commit the key.</p>
         <div class="actions">
           <button type="button" class="btn-primary" id="admin-save-gemini">Save &amp; test Gemini</button>
           <button type="button" class="btn-ghost" id="admin-clear-gemini">Clear</button>
@@ -570,7 +570,7 @@
           <h3 class="admin-subhead">Cycle-aware exercise ideas</h3>
           <button type="button" class="btn-ghost" id="admin-coach-run">Refresh insights</button>
         </div>
-        <p class="hint">From Sapna’s diet · lifts · cycle snapshot — add matching moves to her plan cart.</p>
+        <p class="hint">From overnight Insights (4:00 IST) or manual refresh — add matching moves to her plan cart.</p>
         <div id="admin-coach-exercises"></div>
         <div id="admin-coach-body" class="coach-body coach-body-admin" hidden></div>
         <p class="status" id="admin-coach-status" hidden></p>
@@ -723,7 +723,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011gem1"></script>
-  <script src="./js/app.js?v=20261011gem1"></script>
+  <script src="./js/workout-admin.js?v=20261011ins1"></script>
+  <script src="./js/app.js?v=20261011ins1"></script>
 </body>
 </html>
