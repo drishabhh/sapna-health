@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011fix"></script>
+  <script src="./js/admin-auth.js?v=20261011prog"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011fix" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011prog" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -156,9 +156,13 @@
       <h1 class="today-title">Today</h1>
       <p class="today-lede" id="today-date-line">Workout · diet · cycle</p>
     </div>
+    <div class="today-strip-wrap" id="today-strip" aria-label="Today at a glance"></div>
+    <!-- Progress streak sits high; week graph below tracker cards so first viewport isn’t clipped -->
+    <div class="progress-root" id="progress-root" aria-label="Workout streak"></div>
     <div class="today-grid" id="today-overview" aria-live="polite">
       <p class="hint">Loading today’s snapshot…</p>
     </div>
+    <div class="progress-root progress-graph-wrap" id="progress-graph-root" aria-label="Progress graph"></div>
   </section>
 
   <!-- WORKOUT SESSION -->
@@ -715,7 +719,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011fix"></script>
-  <script src="./js/app.js?v=20261011fix"></script>
+  <script src="./js/workout-admin.js?v=20261011prog"></script>
+  <script src="./js/app.js?v=20261011prog"></script>
 </body>
 </html>

@@ -185,7 +185,9 @@
         : `<p class="empty-teach">No lifts logged yet — finish a session and tap <strong>LOG</strong>.</p>`;
 
       const periodTone = period.isPeriod ? "rose" : "soft";
-      root.innerHTML = `
+      const strip = $("today-strip");
+      if (strip) {
+        strip.innerHTML = `
         <div class="dash-strip" aria-label="Today at a glance">
           <button type="button" class="dash-pill" data-nav="workout">
             <em>Workout</em>
@@ -202,8 +204,15 @@
             <strong>${period.isPeriod ? "Day" : period.short || "—"}</strong>
             <span>${escapeHtml(period.label)}</span>
           </button>
-        </div>
-
+        </div>`;
+        strip.querySelectorAll("[data-nav]").forEach((a) => {
+          a.addEventListener("click", (e) => {
+            e.preventDefault();
+            showPanel(a.getAttribute("data-nav"));
+          });
+        });
+      }
+      root.innerHTML = `
         <a class="today-card today-card-workout dash-card" href="#workout" data-nav="workout">
           <div class="dash-card-top">
             <p class="today-kicker">Workout tracker</p>
@@ -260,6 +269,7 @@
           showPanel(a.getAttribute("data-nav"));
         });
       });
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
     }
 
     return { render };
@@ -1007,6 +1017,20 @@
       return { kcal: Math.round(kcal), protein: Math.round(protein * 10) / 10 };
     }
 
+    function markDietLogged(date) {
+      const key = date || todayISO();
+      state.loggedDates = state.loggedDates || {};
+      state.loggedDates[key] = true;
+    }
+
+    function dietLoggedDates() {
+      const map = { ...(state.loggedDates || {}) };
+      ensureDay();
+      const tot = totals();
+      if ((tot.kcal || 0) > 0 || (tot.protein || 0) > 0) map[state.day.date || todayISO()] = true;
+      return map;
+    }
+
     function addItem(food, meal, servings) {
       ensureDay();
       const s = Number(servings) || 1;
@@ -1020,8 +1044,10 @@
         protein: Number(food.protein) || 0,
         servings: s,
       });
+      markDietLogged(state.day.date || todayISO());
       persist();
       render();
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
     }
 
     function removeItem(meal, index) {
@@ -1548,7 +1574,16 @@
       return { kcal: tot.kcal, protein: tot.protein, targetKcal: tg.kcal, targetProtein: tg.protein };
     }
 
-    return { init, render, getTargetsForAdmin, fillGoogleCredInputs, getGoogleCreds, saveGoogleCreds, snapshot };
+    return {
+      init,
+      render,
+      getTargetsForAdmin,
+      fillGoogleCredInputs,
+      getGoogleCreds,
+      saveGoogleCreds,
+      snapshot,
+      dietLoggedDates,
+    };
   })();
 
   /* ───────── Periods (local + syncable dates) ───────── */
@@ -1907,6 +1942,12 @@
       if (typeof Workout === "undefined") return;
       if (Workout.render) Workout.render();
       if (Workout.refreshSummaries) Workout.refreshSummaries();
+      if (typeof Progress !== "undefined" && Progress.render && document.body.dataset.section === "today") {
+        Progress.render();
+      }
+      if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
+        /* Today.render also refreshes Progress — avoid double heavy DOM if only lifts changed */
+      }
     }
 
     function addEntry({ exercise, weight, rx = "", sets, reps, note = "", kind, date }) {
@@ -2344,11 +2385,283 @@
       entriesFor,
       entrySets,
       entryReps,
+      allMainEntries: () => exerciseEntries(),
       snapshot,
       publishWeights,
       pullCloud,
       scheduleAutoSync,
     };
+  })();
+
+  /* ───────── Progress (streak + week graph on Today) ───────── */
+  const Progress = (() => {
+    let selectedWeekKey = "";
+    let wired = false;
+
+    function localDayISO(d = new Date()) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function parseDay(iso) {
+      const [y, m, d] = String(iso).split("-").map(Number);
+      return new Date(y, (m || 1) - 1, d || 1);
+    }
+
+    function addDays(iso, n) {
+      const d = parseDay(iso);
+      d.setDate(d.getDate() + n);
+      return localDayISO(d);
+    }
+
+    function mondayOf(iso) {
+      const d = parseDay(iso);
+      const day = d.getDay(); // 0 Sun
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return localDayISO(d);
+    }
+
+    function liftEntries() {
+      try {
+        return Weights.allMainEntries ? Weights.allMainEntries() : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function liftDaySet() {
+      const set = new Set();
+      liftEntries().forEach((e) => {
+        if (e?.date) set.add(String(e.date).slice(0, 10));
+      });
+      return set;
+    }
+
+    function dailyStreak(daySet) {
+      let cursor = localDayISO();
+      if (!daySet.has(cursor)) {
+        const yday = addDays(cursor, -1);
+        if (!daySet.has(yday)) return 0;
+        cursor = yday;
+      }
+      let n = 0;
+      while (daySet.has(cursor)) {
+        n += 1;
+        cursor = addDays(cursor, -1);
+      }
+      return n;
+    }
+
+    function weekKeyStreak(daySet) {
+      /* consecutive Mon–Sun weeks with ≥1 lift day */
+      let weekStart = mondayOf(localDayISO());
+      const thisWeekHas = [...daySet].some((d) => mondayOf(d) === weekStart);
+      if (!thisWeekHas) {
+        const prev = addDays(weekStart, -7);
+        const prevHas = [...daySet].some((d) => mondayOf(d) === prev);
+        if (!prevHas) return 0;
+        weekStart = prev;
+      }
+      let n = 0;
+      while (true) {
+        const has = [...daySet].some((d) => mondayOf(d) === weekStart);
+        if (!has) break;
+        n += 1;
+        weekStart = addDays(weekStart, -7);
+      }
+      return n;
+    }
+
+    function monthCells(daySet) {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const first = new Date(y, m, 1);
+      const startPad = (first.getDay() + 6) % 7; // Mon-first
+      const daysInMonth = new Date(y, m + 1, 0).getDate();
+      const cells = [];
+      for (let i = 0; i < startPad; i++) cells.push({ empty: true });
+      for (let d = 1; d <= daysInMonth; d++) {
+        const iso = localDayISO(new Date(y, m, d));
+        const count = liftEntries().filter((e) => String(e.date).slice(0, 10) === iso).length;
+        cells.push({
+          empty: false,
+          date: iso,
+          day: d,
+          active: daySet.has(iso),
+          multi: count >= 2,
+          isToday: iso === localDayISO(),
+        });
+      }
+      return {
+        label: now.toLocaleDateString(undefined, { month: "long", year: "numeric" }),
+        cells,
+      };
+    }
+
+    function weekSeries(weeks = 12) {
+      const entries = liftEntries();
+      const endMonday = mondayOf(localDayISO());
+      const series = [];
+      for (let i = weeks - 1; i >= 0; i--) {
+        const start = addDays(endMonday, -7 * i);
+        const end = addDays(start, 6);
+        const inWeek = entries.filter((e) => {
+          const d = String(e.date || "").slice(0, 10);
+          return d >= start && d <= end;
+        });
+        const days = new Set(inWeek.map((e) => String(e.date).slice(0, 10)));
+        let sets = 0;
+        let volume = 0;
+        inWeek.forEach((e) => {
+          const s = Weights.entrySets(e);
+          const r = Weights.entryReps(e);
+          const w = Number(e.weight) || 0;
+          if (Number.isFinite(s)) sets += s;
+          if (Number.isFinite(s) && Number.isFinite(r)) volume += w * s * r;
+        });
+        series.push({
+          key: start,
+          start,
+          end,
+          label: parseDay(start).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+          sessions: days.size,
+          lifts: inWeek.length,
+          sets,
+          volume: Math.round(volume),
+        });
+      }
+      return series;
+    }
+
+    function dietStreak() {
+      const map = Diet.dietLoggedDates ? Diet.dietLoggedDates() : {};
+      const set = new Set(Object.keys(map).filter((k) => map[k]));
+      return dailyStreak(set);
+    }
+
+    function chartSvg(series, selectedKey) {
+      const w = 320;
+      const h = 96;
+      const pad = { t: 10, r: 8, b: 22, l: 8 };
+      const maxV = Math.max(1, ...series.map((s) => s.sessions));
+      const bw = (w - pad.l - pad.r) / series.length;
+      const bars = series
+        .map((s, i) => {
+          const bh = ((s.sessions / maxV) * (h - pad.t - pad.b)) || 0;
+          const x = pad.l + i * bw + bw * 0.18;
+          const y = h - pad.b - bh;
+          const barW = bw * 0.64;
+          const on = s.key === selectedKey;
+          return `<g class="prog-bar ${on ? "is-on" : ""}" data-week="${escapeHtml(s.key)}">
+            <rect class="prog-bar-hit" x="${(pad.l + i * bw).toFixed(1)}" y="${pad.t}" width="${bw.toFixed(1)}" height="${(h - pad.t - pad.b).toFixed(1)}" />
+            <rect class="prog-bar-fill" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(bh, s.sessions ? 3 : 0).toFixed(1)}" rx="4" />
+            <text class="prog-bar-label" x="${(pad.l + i * bw + bw / 2).toFixed(1)}" y="${h - 8}" text-anchor="middle">${escapeHtml(String(parseDay(s.start).getDate()))}</text>
+          </g>`;
+        })
+        .join("");
+      const linePts = series
+        .map((s, i) => {
+          const bh = (s.sessions / maxV) * (h - pad.t - pad.b);
+          const x = pad.l + i * bw + bw / 2;
+          const y = h - pad.b - bh;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(" ");
+      return `<svg class="prog-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Sessions logged per week">
+        <polyline class="prog-line" points="${linePts}" fill="none" />
+        ${bars}
+      </svg>`;
+    }
+
+    function summaryHtml(week) {
+      if (!week) return `<p class="hint">Tap a week on the graph.</p>`;
+      const range = `${week.label} – ${parseDay(week.end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+      return `<div class="prog-week-summary">
+        <p class="prog-week-range">${escapeHtml(range)}</p>
+        <div class="prog-week-metrics">
+          <div><em>Sessions</em><strong>${week.sessions}</strong></div>
+          <div><em>Lifts logged</em><strong>${week.lifts}</strong></div>
+          <div><em>Sets</em><strong>${week.sets}</strong></div>
+          <div><em>Volume</em><strong>${week.volume ? week.volume + " kg·rep" : "—"}</strong></div>
+        </div>
+      </div>`;
+    }
+
+    function render() {
+      const streakRoot = $("progress-root");
+      const graphRoot = $("progress-graph-root");
+      if (!streakRoot && !graphRoot) return;
+      const daySet = liftDaySet();
+      const streakDays = dailyStreak(daySet);
+      const streakWeeks = weekKeyStreak(daySet);
+      const month = monthCells(daySet);
+      const series = weekSeries(12);
+      if (!selectedWeekKey || !series.some((s) => s.key === selectedWeekKey)) {
+        selectedWeekKey = series[series.length - 1]?.key || "";
+      }
+      const selected = series.find((s) => s.key === selectedWeekKey) || series[series.length - 1];
+      const dietN = dietStreak();
+
+      if (streakRoot) {
+        streakRoot.innerHTML = `
+        <section class="prog-card prog-streak-card">
+          <div class="prog-streak-head">
+            <div class="prog-flame" aria-hidden="true">✦</div>
+            <div>
+              <p class="prog-kicker">Workout streak</p>
+              <p class="prog-streak-count"><strong>${streakDays}</strong> <span>day${streakDays === 1 ? "" : "s"}</span></p>
+              <p class="prog-streak-sub">${streakWeeks ? `${streakWeeks} week${streakWeeks === 1 ? "" : "s"} with a lift` : "Log a lift to start"} · ${dietN ? `Diet ${dietN}d` : "Diet —"}</p>
+            </div>
+          </div>
+          <p class="prog-month-label">${escapeHtml(month.label)}</p>
+          <div class="prog-dow" aria-hidden="true"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span></div>
+          <div class="prog-month-grid">
+            ${month.cells
+              .map((c) => {
+                if (c.empty) return `<span class="prog-day is-empty"></span>`;
+                return `<span class="prog-day ${c.active ? "is-active" : ""} ${c.multi ? "is-multi" : ""} ${c.isToday ? "is-today" : ""}" title="${escapeHtml(c.date)}">${c.day}</span>`;
+              })
+              .join("")}
+          </div>
+        </section>`;
+      }
+
+      if (graphRoot) {
+        graphRoot.innerHTML = `
+        <section class="prog-card prog-graph-card" id="prog-graph-details">
+          <div class="prog-graph-head">
+            <div>
+              <p class="prog-kicker">Progress</p>
+              <h2 class="prog-graph-title">Sessions · 12 weeks</h2>
+            </div>
+            <p class="prog-graph-hint">Tap a week</p>
+          </div>
+          <div class="prog-graph-body">
+            ${chartSvg(series, selectedWeekKey)}
+            <div id="prog-week-detail">${summaryHtml(selected)}</div>
+          </div>
+        </section>`;
+      }
+      wire();
+    }
+
+    function wire() {
+      const graphRoot = $("progress-graph-root");
+      if (!graphRoot) return;
+      graphRoot.querySelectorAll("[data-week]").forEach((g) => {
+        g.addEventListener("click", () => {
+          selectedWeekKey = g.getAttribute("data-week") || "";
+          render();
+          $("prog-week-detail")?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      });
+    }
+
+    return { render };
   })();
 
   /* ───────── Admin publish diet defaults ───────── */
