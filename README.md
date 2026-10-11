@@ -25,13 +25,14 @@ Browser can’t wake at 4am. GitHub Actions runs once daily:
 
 | | |
 |--|--|
-| Workflow | `.github/workflows/daily-insights.yml` |
+| Workflow template | `scripts/daily-insights.workflow.yml` → copy to `.github/workflows/daily-insights.yml` (needs a token/UI with **workflow** scope) |
 | Schedule | **04:00 Asia/Kolkata** → cron `30 22 * * *` UTC (22:30 UTC = 4:00 IST next morning) |
 | Secret | `GEMINI_API_KEY` — **Settings → Secrets and variables → Actions → New repository secret** (do not commit) |
+| Script | `node scripts/daily-insights.mjs` |
 | Output | `data/insights/latest.json` (+ dated `YYYY-MM-DD.json`) |
 | Site | Today loads overnight file on open; **Get insights** = optional manual refresh (phone Gemini key) |
 
-Manual test: **Actions → Daily Insights (4am IST) → Run workflow**.
+**Enable once:** In GitHub, add file `.github/workflows/daily-insights.yml` with the contents of `scripts/daily-insights.workflow.yml` (web UI or a PAT that includes the `workflow` scope). Then **Actions → Daily Insights (4am IST) → Run workflow** to test.
 
 Quota: **one scheduled Gemini call per day** (+ rare manual / food-list bootstrap).
 
