@@ -6,7 +6,7 @@
  * One Gemini call → data/insights/latest.json (+ optional dated copy).
  *
  * Requires env: GEMINI_API_KEY
- * Optional: GEMINI_MODEL (default gemini-3.8-flash)
+ * Optional: GEMINI_MODEL (single override). Else tries MODEL_CANDIDATES in order.
  */
 import fs from "fs";
 import path from "path";
@@ -14,8 +14,12 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const API = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const MODEL_CANDIDATES = [
+  process.env.GEMINI_MODEL || "gemini-3.8-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-flash-latest",
+  "gemini-2.0-flash",
+].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
 const TZ = "Asia/Kolkata";
 
@@ -198,6 +202,14 @@ const COACH_SCHEMA = {
   required: ["summary", "wins", "watch", "periodTips", "eatNext", "exerciseIdeas"],
 };
 
+function isModelUnavailableError(msg, status) {
+  const m = String(msg || "").toLowerCase();
+  if (status === 404) return true;
+  return /no longer available|not found|is not supported|unsupported|unknown model|invalid model|not available to new users/.test(
+    m
+  );
+}
+
 async function callGemini(snapshot) {
   const key = (process.env.GEMINI_API_KEY || "").trim();
   if (!key) {
@@ -211,31 +223,44 @@ Snapshot JSON:
 ${JSON.stringify(snapshot)}
 Return JSON matching the schema.`;
 
-  const res = await fetch(`${API}?key=${encodeURIComponent(key)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.3,
-        responseMimeType: "application/json",
-        responseSchema: COACH_SCHEMA,
-      },
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(data?.error?.message || `Gemini ${res.status}`);
+  let lastError;
+  for (const model of MODEL_CANDIDATES) {
+    const api = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+    const res = await fetch(`${api}?key=${encodeURIComponent(key)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json",
+          responseSchema: COACH_SCHEMA,
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.message || `Gemini ${res.status}`;
+      lastError = new Error(msg);
+      console.warn(`Model ${model} failed:`, msg);
+      if (isModelUnavailableError(msg, res.status)) continue;
+      throw lastError;
+    }
+    const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+    if (!text.trim()) {
+      lastError = new Error("Gemini returned empty content");
+      continue;
+    }
+    try {
+      const parsed = JSON.parse(text);
+      return { result: parsed, model };
+    } catch {
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) return { result: JSON.parse(m[0]), model };
+      lastError = new Error("Could not parse Gemini JSON");
+    }
   }
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-  if (!text.trim()) throw new Error("Gemini returned empty content");
-  try {
-    return JSON.parse(text);
-  } catch {
-    const m = text.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
-    throw new Error("Could not parse Gemini JSON");
-  }
+  throw lastError || new Error("No Gemini model available");
 }
 
 async function main() {
@@ -254,7 +279,7 @@ async function main() {
     )
   );
 
-  const result = await callGemini(snapshot);
+  const { result, model: usedModel } = await callGemini(snapshot);
   const outDir = path.join(ROOT, "data", "insights");
   fs.mkdirSync(outDir, { recursive: true });
 
@@ -265,7 +290,7 @@ async function main() {
     timezone: TZ,
     schedule: "04:00 Asia/Kolkata (cron 30 22 * * * UTC)",
     source: "github-actions",
-    model: MODEL,
+    model: usedModel,
     snapshotSummary: {
       liftDaysLast30: snapshot.lifts.liftDaysLast30,
       periodPhase: snapshot.periods.phase,

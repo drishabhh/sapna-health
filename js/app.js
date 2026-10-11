@@ -929,7 +929,14 @@
 
   /* ───────── Gemini (only 2 call types — food bootstrap + coach) ───────── */
   const Gemini = (() => {
-    const MODEL = "gemini-3.8-flash";
+    /* Prefer current free Flash; walk chain if a model is retired (resume-builder style try-next). */
+    const MODEL_CANDIDATES = [
+      "gemini-3.8-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
+      "gemini-2.0-flash",
+    ];
+    const LS_MODEL = "sapna_gemini_model";
     const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
     function getKey() {
@@ -944,9 +951,31 @@
       return !!getKey();
     }
 
-    async function generate({ prompt, schema, useSearch }) {
-      const key = getKey();
-      if (!key) throw new Error("Add a Gemini API key in Admin first.");
+    function preferredModels() {
+      const saved = (localStorage.getItem(LS_MODEL) || "").trim();
+      const list = [...MODEL_CANDIDATES];
+      if (saved && !list.includes(saved)) list.unshift(saved);
+      else if (saved) {
+        return [saved, ...list.filter((m) => m !== saved)];
+      }
+      return list;
+    }
+
+    function rememberModel(model) {
+      try {
+        if (model) localStorage.setItem(LS_MODEL, model);
+      } catch (_) {}
+    }
+
+    function isModelUnavailableError(msg, status) {
+      const m = String(msg || "").toLowerCase();
+      if (status === 404) return true;
+      return /no longer available|not found|is not supported|unsupported|unknown model|invalid model|not available to new users/.test(
+        m
+      );
+    }
+
+    async function generateWithModel(model, { prompt, schema, useSearch, key }) {
       const body = {
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
@@ -956,7 +985,7 @@
       };
       if (schema) body.generationConfig.responseSchema = schema;
       if (useSearch) body.tools = [{ googleSearch: {} }];
-      const url = `${BASE}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+      const url = `${BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -965,17 +994,45 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data?.error?.message || `Gemini ${res.status}`;
-        throw new Error(msg);
+        const err = new Error(msg);
+        err.status = res.status;
+        err.model = model;
+        throw err;
       }
-      const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-      if (!text.trim()) throw new Error("Gemini returned an empty answer.");
+      const textOut = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+      if (!textOut.trim()) {
+        const err = new Error("Gemini returned an empty answer.");
+        err.model = model;
+        throw err;
+      }
       try {
-        return JSON.parse(text);
+        return { json: JSON.parse(textOut), model };
       } catch {
-        const m = text.match(/\{[\s\S]*\}/);
-        if (m) return JSON.parse(m[0]);
-        throw new Error("Could not parse Gemini JSON.");
+        const m = textOut.match(/\{[\s\S]*\}/);
+        if (m) return { json: JSON.parse(m[0]), model };
+        const err = new Error("Could not parse Gemini JSON.");
+        err.model = model;
+        throw err;
       }
+    }
+
+    async function generate({ prompt, schema, useSearch }) {
+      const key = getKey();
+      if (!key) throw new Error("Add a Gemini API key in Admin first.");
+      const models = preferredModels();
+      let lastError;
+      for (const model of models) {
+        try {
+          const { json, model: used } = await generateWithModel(model, { prompt, schema, useSearch, key });
+          rememberModel(used);
+          return json;
+        } catch (e) {
+          lastError = e;
+          if (isModelUnavailableError(e?.message, e?.status)) continue;
+          throw e;
+        }
+      }
+      throw lastError instanceof Error ? lastError : new Error(String(lastError));
     }
 
     async function enrichFoods(rawList) {
@@ -1052,25 +1109,38 @@ Return JSON matching the schema.`;
     async function testKey() {
       const key = getKey();
       if (!key) return { ok: false, message: "Paste a Gemini API key first." };
-      try {
-        const url = `${BASE}/${MODEL}:generateContent?key=${encodeURIComponent(key)}`;
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: 'Reply with JSON {"ok":true}' }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0 },
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return { ok: false, message: data?.error?.message || `Gemini ${res.status}` };
-        return { ok: true, message: "Gemini key works (3.8 Flash)." };
-      } catch (e) {
-        return { ok: false, message: e.message || "Could not reach Gemini." };
+      const models = preferredModels();
+      let lastMsg = "";
+      for (const model of models) {
+        try {
+          const url = `${BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`;
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: 'Reply with JSON {"ok":true}' }] }],
+              generationConfig: { responseMimeType: "application/json", temperature: 0 },
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const msg = data?.error?.message || `Gemini ${res.status}`;
+            lastMsg = msg;
+            if (isModelUnavailableError(msg, res.status)) continue;
+            return { ok: false, message: msg };
+          }
+          rememberModel(model);
+          return { ok: true, message: `Gemini key works (${model}).` };
+        } catch (e) {
+          lastMsg = e.message || "Could not reach Gemini.";
+          if (isModelUnavailableError(lastMsg, e?.status)) continue;
+          return { ok: false, message: lastMsg };
+        }
       }
+      return { ok: false, message: lastMsg || "No Gemini model available for this key." };
     }
 
-    return { getKey, saveKey, hasKey, enrichFoods, coach, testKey, MODEL };
+    return { getKey, saveKey, hasKey, enrichFoods, coach, testKey, preferredModels };
   })();
 
   /* ───────── Gemini key panels (Admin + Insights + Diet — same phone LS) ───────── */
