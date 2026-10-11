@@ -1,7 +1,14 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T13:19:35.074Z",
+  "updatedAt": "2026-10-11T13:39:14.590Z",
   "plans": [
+    {
+      "date": "2026-10-12",
+      "headline": "Back bicep",
+      "moveCount": 3,
+      "path": "data/plans/2026-10-12.json",
+      "updatedAt": "2026-10-11T13:39:14.590Z"
+    },
     {
       "date": "2026-10-11",
       "headline": "Chest triceps",
