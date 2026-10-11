@@ -12,7 +12,7 @@
     "planTitle": "Waiting for first overnight run"
   },
   "result": {
-    "summary": "Overnight Insights will appear here after the 4:00 IST GitHub Action runs (add GEMINI_API_KEY in repo secrets). Until then, tap Get insights on this phone anytime.",
+    "summary": "Overnight Insights will appear here after the 4:00 IST GitHub Action runs (add GEMINI_API_KEY in repo secrets). Until then, tap AI coach on this phone (Gemini → Puter Grok).",
     "wins": [
       "Keep logging lifts and period days — the overnight coach reads those from Pages."
     ],

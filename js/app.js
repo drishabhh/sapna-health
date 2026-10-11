@@ -1564,7 +1564,7 @@ ${JSON.stringify(example, null, 2)}`;
                   `<li><strong>${escapeHtml(ex.name)}</strong><span class="meta">${escapeHtml(ex.when)} — ${escapeHtml(ex.why)}</span></li>`
               )
               .join("")}</ul>`
-          : `<p class="hint">Overnight job or Get insights fills ideas here for her plan.</p>`;
+          : `<p class="hint">Overnight job or AI coach fills ideas here for her plan.</p>`;
       }
     }
 
