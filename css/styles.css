@@ -2695,3 +2695,28 @@ body.gif-lightbox-open {
     transition: none !important;
   }
 }
+
+/* Lift log sync card */
+.logs-sync-card {
+  margin: 0 0 1.15rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 20px;
+  border: 1px solid var(--accent-line);
+  background: linear-gradient(145deg, rgba(31, 156, 148, 0.12), rgba(255, 252, 248, 0.92));
+}
+
+.logs-sync-card h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.logs-sync-card .hint {
+  margin: 0 0 0.75rem;
+}
+
+.logs-sync-card .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

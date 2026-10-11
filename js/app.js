@@ -12,6 +12,7 @@
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
   const PERIODS_PATH = "data/periods.json";
+  const WEIGHTS_PATH = "data/weights.json";
 
   const $ = (id) => document.getElementById(id);
   const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -1625,6 +1626,7 @@
       persist();
       /* Prefer soft card refresh; Workout.render skips remount while sheet is open */
       if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+      scheduleAutoSync();
     }
 
     function exerciseEntries() {
@@ -1772,7 +1774,7 @@
         if ($("log-reps")) $("log-reps").value = "";
         $("log-note").value = "";
         render();
-        setStatus($("log-status"), "Logged on this phone.", "ok");
+        setStatus($("log-status"), localStorage.getItem(LS.token) ? "Logged — syncing to other phones…" : "Logged on this phone. Add PAT under Sync to upload.", "ok");
       });
       $("log-filter")?.addEventListener("change", render);
       $("log-history")?.addEventListener("click", (e) => {
@@ -1783,6 +1785,7 @@
         persist();
         render();
         Workout.render();
+        scheduleAutoSync();
       });
       $("log-export")?.addEventListener("click", () => {
         downloadJSON(`sapna-weight-logs-${todayISO()}.json`, {
@@ -1803,11 +1806,17 @@
           render();
           Workout.render();
           setStatus($("log-status"), "Import complete.", "ok");
+          scheduleAutoSync();
         } catch {
           setStatus($("log-status"), "Could not import.", "error");
         }
         e.target.value = "";
       });
+      $("log-sync")?.addEventListener("click", () => {
+        const raw = $("log-token")?.value.trim();
+        publishWeights($("log-sync-status"), raw || undefined);
+      });
+      $("log-pull")?.addEventListener("click", () => pullCloud({ quiet: false }));
     }
 
     function snapshot() {
@@ -1826,17 +1835,152 @@
       };
     }
 
-    function init() {
+    function mergeCloud(cloud) {
+      if (!cloud || !Array.isArray(cloud.entries)) return 0;
+      const byId = new Map((state.entries || []).map((e) => [String(e.id), e]));
+      let added = 0;
+      cloud.entries.forEach((e) => {
+        if (!e || e.id == null) return;
+        if ((e.kind || "main") === "stretch") return;
+        const key = String(e.id);
+        if (byId.has(key)) return;
+        byId.set(key, {
+          id: e.id,
+          exercise: e.exercise || "Move",
+          weight: Number(e.weight),
+          date: e.date || todayISO(),
+          sets: e.sets != null ? Number(e.sets) : null,
+          reps: e.reps != null ? Number(e.reps) : null,
+          rx: e.rx || "",
+          note: e.note || "",
+          kind: "main",
+        });
+        added += 1;
+      });
+      if (added) {
+        state.entries = [...byId.values()];
+        persist();
+      }
+      return added;
+    }
+
+    function publishPayload() {
+      return {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        label: "Sapna lift logs — synced across her phones via Pages.",
+        entries: exerciseEntries().map((e) => ({
+          id: e.id,
+          exercise: e.exercise,
+          weight: e.weight,
+          date: e.date,
+          sets: e.sets ?? null,
+          reps: e.reps ?? null,
+          rx: e.rx || "",
+          note: e.note || "",
+          kind: "main",
+        })),
+      };
+    }
+
+    async function publishWeights(statusEl, tokenOverride) {
+      const token = tokenOverride || localStorage.getItem(LS.token) || $("log-token")?.value.trim() || $("admin-token")?.value.trim();
+      if (!token) {
+        setStatus(statusEl, "Add a GitHub PAT (repo scope) — same as Periods / Admin.", "error");
+        return false;
+      }
+      if (tokenOverride || $("log-token")?.value.trim()) {
+        localStorage.setItem(LS.token, token);
+      }
+      setStatus(statusEl, "Syncing lift logs…", "info");
+      try {
+        /* Pull first so we don't clobber other phone's newer entries */
+        await pullCloud({ quiet: true });
+        const payload = publishPayload();
+        await githubPutFile(
+          WEIGHTS_PATH,
+          b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
+          `Update lift logs (${todayISO()})`,
+          token
+        );
+        setStatus(
+          statusEl,
+          `Synced ${payload.entries.length} logs. Other phones see them after Pages refresh (~30–60s) or Refresh from cloud.`,
+          "ok"
+        );
+        render();
+        if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+        if (typeof Today !== "undefined" && Today.render) Today.render();
+        return true;
+      } catch (err) {
+        setStatus(statusEl, err.message || String(err), "error");
+        return false;
+      }
+    }
+
+    async function pullCloud({ quiet } = {}) {
+      try {
+        const res = await fetch(`./${WEIGHTS_PATH}?t=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) {
+          if (!quiet) setStatus($("log-sync-status"), "No cloud logs yet — Sync now from a phone that has entries.", "info");
+          return 0;
+        }
+        const added = mergeCloud(await res.json());
+        if (!quiet) {
+          setStatus(
+            $("log-sync-status"),
+            added ? `Pulled ${added} new log${added === 1 ? "" : "s"} from cloud.` : "Already up to date with cloud.",
+            "ok"
+          );
+          render();
+          if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+          if (typeof Today !== "undefined" && Today.render) Today.render();
+        }
+        return added;
+      } catch (err) {
+        if (!quiet) setStatus($("log-sync-status"), err.message || String(err), "error");
+        return 0;
+      }
+    }
+
+    let autoSyncTimer = 0;
+    function scheduleAutoSync() {
+      if (!localStorage.getItem(LS.token)) return;
+      if (autoSyncTimer) clearTimeout(autoSyncTimer);
+      autoSyncTimer = setTimeout(() => {
+        autoSyncTimer = 0;
+        publishWeights($("log-sync-status") || $("log-status"));
+      }, 1400);
+    }
+
+    async function init() {
       // Keep exercise logs only (drop legacy stretch weight logs)
       state.entries = (state.entries || [])
         .map((e) => ({ ...e, kind: e.kind === "stretch" ? "stretch" : "main" }))
         .filter((e) => e.kind !== "stretch");
       persist();
       wire();
+      if ($("log-token") && localStorage.getItem(LS.token)) {
+        $("log-token").placeholder = "Token saved — paste to replace";
+      }
+      await pullCloud({ quiet: true });
       render();
     }
 
-    return { init, render, suggestFromMoves, addEntry, lastFor, entriesFor, entrySets, entryReps, snapshot };
+    return {
+      init,
+      render,
+      suggestFromMoves,
+      addEntry,
+      lastFor,
+      entriesFor,
+      entrySets,
+      entryReps,
+      snapshot,
+      publishWeights,
+      pullCloud,
+      scheduleAutoSync,
+    };
   })();
 
   /* ───────── Admin publish diet defaults ───────── */
@@ -1917,7 +2061,7 @@
           kcal: Number($("admin-kcal").value) || 1800,
           protein: Number($("admin-protein").value) || 100,
         },
-        note: "Published defaults for Sapna Health. Period/weight logs are never included.",
+        note: "Published defaults for Sapna Health. Period/weight logs are synced separately.",
       };
       setStatus($("admin-status"), "Publishing…", "info");
       try {
@@ -1931,6 +2075,12 @@
       } catch (err) {
         setStatus($("admin-status"), err.message || String(err), "error");
       }
+    });
+    $("admin-publish-periods")?.addEventListener("click", () => {
+      Periods.publishPeriods($("admin-status"), $("admin-token")?.value.trim() || undefined);
+    });
+    $("admin-publish-weights")?.addEventListener("click", () => {
+      Weights.publishWeights($("admin-status"), $("admin-token")?.value.trim() || undefined);
     });
     window.__sapnaOpenHealthAdmin = () => {
       const t = Diet.getTargetsForAdmin();
@@ -1947,7 +2097,7 @@
   async function init() {
     wireNav();
     wireAdmin();
-    Weights.init();
+    await Weights.init();
     await Diet.init();
     await Periods.init();
     await Workout.init();

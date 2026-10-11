@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011gif2"></script>
+  <script src="./js/admin-auth.js?v=20261011wsync"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011gif2" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011wsync" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -278,6 +278,19 @@
         <p>By lift or newest first — Stretching never logs weight.</p>
       </header>
 
+      <div class="logs-sync-card" id="logs-sync-card">
+        <h2>Sync across phones</h2>
+        <p class="hint">Lift logs save on this phone first. Tap <strong>Sync now</strong> to upload so her other phone can see them (same GitHub PAT as Periods / Admin). Opens pull cloud logs automatically too.</p>
+        <label class="field">GitHub PAT (repo scope)
+          <input type="password" id="log-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
+        </label>
+        <div class="actions sticky-day-actions">
+          <button type="button" class="btn-primary" id="log-sync">Sync now</button>
+          <button type="button" class="btn-ghost" id="log-pull">Refresh from cloud</button>
+        </div>
+        <p class="status" id="log-sync-status" hidden></p>
+      </div>
+
       <div class="logs-view-tabs" role="tablist" aria-label="Log view">
         <button type="button" class="logs-tab is-active" data-logs-view="exercise">By exercise</button>
         <button type="button" class="logs-tab" data-logs-view="history">Newest</button>
@@ -369,7 +382,7 @@
         <h2 id="admin-title">Publish defaults</h2>
         <button type="button" class="btn-ghost" id="admin-close">Close</button>
       </header>
-      <p class="hint">Diet defaults → <code>data/diet-defaults.json</code>. Period dates → <code>data/periods.json</code> (wellness calendar). Weight logs stay on-device. Google keys stay on this phone only.</p>
+      <p class="hint">Diet defaults → <code>data/diet-defaults.json</code>. Period dates → <code>data/periods.json</code>. Lift logs → <code>data/weights.json</code> (cross-phone). Google keys stay on this phone only.</p>
       <div class="field-row">
         <label class="field">Default kcal
           <input type="number" id="admin-kcal" min="800" step="50" />
@@ -385,6 +398,7 @@
         <button type="button" class="btn-ghost" id="admin-save-token">Save token</button>
         <button type="button" class="btn-primary" id="admin-publish">Post diet defaults</button>
         <button type="button" class="btn-ghost" id="admin-publish-periods">Post period dates</button>
+        <button type="button" class="btn-ghost" id="admin-publish-weights">Post lift logs</button>
       </div>
       <hr class="admin-sep" />
       <h3 class="admin-subhead">Google Diet search</h3>
@@ -485,6 +499,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261011gif2"></script>
+  <script src="./js/app.js?v=20261011wsync"></script>
 </body>
 </html>
