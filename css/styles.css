@@ -4134,18 +4134,7 @@ textarea {
   max-width: 100%;
 }
 
-.prog-graph-card > summary {
-  list-style: none;
-  cursor: pointer;
-}
-.prog-graph-card > summary::-webkit-details-marker { display: none; }
 .prog-graph-body { margin-top: 0.35rem; }
-.prog-graph-card:not([open]) .prog-graph-hint::after {
-  content: " · show";
-}
-.prog-graph-card[open] .prog-graph-hint::after {
-  content: " · hide";
-}
 .progress-graph-wrap { margin: 0.75rem 0 1.25rem; }
 @media (max-width: 480px) {
   .prog-streak-head { margin-bottom: 0.45rem; }
