@@ -1,0 +1,43 @@
+{
+  "updatedAt": "2026-10-11T13:39:14.590Z",
+  "planDate": "2026-10-12",
+  "headline": "Back bicep",
+  "support": "Stretch · lift · log",
+  "restNote": {
+    "title": "Rest & water",
+    "body": "Rest 1–1.5 min between sets. Drink water — not cold; warm or room temp, sip by sip.",
+    "bodyHtml": "<strong>Rest 1–1</strong>.5 min between sets. Drink water — not cold; warm or room temp, sip by sip."
+  },
+  "sections": [
+    {
+      "id": "stretching",
+      "eyebrow": "Warm-up",
+      "title": "Stretching",
+      "subtitle": "Easy and controlled",
+      "kind": "stretch",
+      "moves": [
+        {
+          "id": "back-pec-stretch-mv3vaw1x-xil0",
+          "name": "Back Pec Stretch",
+          "rx": "10 reps",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/back-pec-stretch.gif",
+          "demo": "img"
+        },
+        {
+          "id": "baby-sit-mv3vcwl7-cx6q",
+          "name": "Baby sit",
+          "rx": "10 reps",
+          "gif": "media/custom-baby-sit-mv3vcrf6.gif",
+          "demo": "img"
+        },
+        {
+          "id": "baby-sit-mv3vd50h-iij7",
+          "name": "Baby sit",
+          "rx": "10 reps",
+          "gif": "media/custom-baby-sit-mv3vcrf6.gif",
+          "demo": "img"
+        }
+      ]
+    }
+  ]
+}
