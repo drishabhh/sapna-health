@@ -3364,3 +3364,41 @@ body.plan-admin-open { overflow: hidden; }
 }
 .plan-history-item strong { display: block; font-size: 0.95rem; }
 .plan-history-item span { display: block; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
+.plan-builder-meta {
+  margin: 0 0 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #8a6414;
+}
+.plan-source-tabs { margin-bottom: 0.5rem; }
+.plan-history-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.plan-tile-custom {
+  border-style: dashed;
+  background: rgba(201, 149, 42, 0.08);
+  min-height: 148px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.25rem;
+}
+.plan-tile-plus {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 72px;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #8a6414;
+  line-height: 1;
+}
+#plan-custom .field select,
+#plan-meta .field input {
+  width: 100%;
+  min-height: 44px;
+  font-size: 16px;
+}

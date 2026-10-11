@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011cart2"></script>
+  <script src="./js/admin-auth.js?v=20261011plans"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011cart2" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011plans" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -451,16 +451,17 @@
       <p class="status admin-status-sticky" id="admin-status" hidden></p>
 
       <section class="admin-block plan-launch">
-        <h3 class="admin-subhead">Today’s workout plan</h3>
-        <p class="hint">Tap tiles to fill a cart, then Publish.</p>
+        <h3 class="admin-subhead">Workout plans</h3>
+        <p class="hint">Edit today’s plan, or create a dated plan. Tap tiles into the cart, then Publish.</p>
         <div class="actions plan-launch-actions">
-          <button type="button" class="btn-primary" id="plan-create-today">Create plan for today</button>
-          <button type="button" class="btn-ghost" id="plan-create-new">Start a new plan</button>
+          <button type="button" class="btn-primary" id="plan-edit-current">Edit current plan</button>
+          <button type="button" class="btn-ghost" id="plan-create-new">Create new plan</button>
         </div>
       </section>
 
       <div id="plan-builder" class="plan-builder" hidden>
         <section class="admin-block plan-cart-block">
+          <p class="plan-builder-meta" id="plan-builder-meta" hidden></p>
           <div class="admin-block-head">
             <h3 class="admin-subhead">Cart (<span data-cart-count>0</span>)</h3>
             <button type="button" class="btn-ghost" id="plan-browse-open">Browse moves</button>
@@ -556,6 +557,26 @@
     </div>
   </div>
 
+  <!-- New plan: name + date -->
+  <div class="overlay admin-overlay plan-overlay" id="plan-meta" hidden>
+    <div class="sheet admin-sheet" role="dialog" aria-modal="true" aria-labelledby="plan-meta-title">
+      <header class="sheet-head">
+        <h2 id="plan-meta-title">Create new plan</h2>
+        <button type="button" class="btn-ghost" id="plan-meta-close">Close</button>
+      </header>
+      <label class="field">Plan name
+        <input type="text" id="plan-meta-name" placeholder="e.g. Upper body" autocomplete="off" />
+      </label>
+      <label class="field">Plan date
+        <input type="date" id="plan-meta-date" />
+      </label>
+      <p class="hint">Defaults to tomorrow. Publish saves under Previous plans for that day; if the date is today, Workout “today” updates too.</p>
+      <div class="actions">
+        <button type="button" class="btn-primary" id="plan-meta-continue">Continue to moves</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Minimal move browser (tiles → cart) -->
   <div class="overlay admin-overlay plan-overlay" id="plan-browse" hidden>
     <div class="sheet admin-sheet admin-sheet-tall plan-browse-sheet" role="dialog" aria-modal="true" aria-labelledby="plan-browse-title">
@@ -566,6 +587,39 @@
       </header>
       <div id="plan-browse-body" class="plan-browse-body"></div>
       <footer class="plan-browse-footer" id="plan-browse-footer"></footer>
+    </div>
+  </div>
+
+  <!-- Custom GIF / stretch not in library -->
+  <div class="overlay admin-overlay plan-overlay" id="plan-custom" hidden>
+    <div class="sheet admin-sheet" role="dialog" aria-modal="true" aria-labelledby="plan-custom-title">
+      <header class="sheet-head">
+        <h2 id="plan-custom-title">Add custom move</h2>
+        <button type="button" class="btn-ghost" id="plan-custom-close">Close</button>
+      </header>
+      <label class="field">Name
+        <input type="text" id="custom-name" placeholder="Move name" autocomplete="off" />
+      </label>
+      <label class="field">Type
+        <select id="custom-kind">
+          <option value="stretching">Stretching</option>
+          <option value="exercises">Exercise</option>
+        </select>
+      </label>
+      <label class="field">Body part
+        <select id="custom-body"></select>
+      </label>
+      <label class="field">GIF link (optional)
+        <input type="url" id="custom-url" placeholder="https://…/move.gif" autocomplete="off" />
+      </label>
+      <label class="field">Or upload GIF
+        <input type="file" id="custom-file" accept="image/gif,image/*,.gif" />
+      </label>
+      <p class="hint">Saved into the GIF library for that body part (needs GitHub PAT). Also adds to this cart.</p>
+      <p class="admin-status" id="custom-status" hidden></p>
+      <div class="actions">
+        <button type="button" class="btn-primary" id="custom-save">Save &amp; add to cart</button>
+      </div>
     </div>
   </div>
 
@@ -665,7 +719,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011cart2"></script>
-  <script src="./js/app.js?v=20261011cart2"></script>
+  <script src="./js/workout-admin.js?v=20261011plans"></script>
+  <script src="./js/app.js?v=20261011plans"></script>
 </body>
 </html>
