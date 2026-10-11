@@ -70,8 +70,9 @@ body[data-section="today"] {
   --accent-soft: #a05f28;
   --accent-muted: rgba(196, 122, 58, 0.14);
   --accent-line: rgba(196, 122, 58, 0.38);
-  --aurora-a: rgba(255, 190, 120, 0.32);
-  --aurora-b: rgba(120, 200, 170, 0.18);
+  --aurora-a: rgba(255, 190, 120, 0.28);
+  /* Warm only — cool green aurora was fringing under the sticky bar on iOS */
+  --aurora-b: rgba(255, 210, 160, 0.18);
   --bg: #f7f2eb;
 }
 
@@ -99,7 +100,7 @@ body {
   background: var(--bg);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 1.25rem);
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 1.75rem);
 }
 
 .atmosphere {
