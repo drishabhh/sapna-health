@@ -2094,9 +2094,107 @@
     };
   }
 
+  /* ───────── First-visit token setup (one PAT for everything) ───────── */
+  const TokenSetup = (() => {
+    const SS_LATER = "sapna_token_setup_later";
+
+    function hasToken() {
+      return !!(localStorage.getItem(LS.token) || "").trim();
+    }
+
+    function applyPlaceholders() {
+      ["log-token", "period-token", "admin-token"].forEach((id) => {
+        const el = $(id);
+        if (el && hasToken()) el.placeholder = "Token saved — paste to replace";
+      });
+    }
+
+    function close() {
+      const overlay = $("token-setup");
+      if (!overlay) return;
+      overlay.hidden = true;
+      overlay.classList.remove("is-open");
+      overlay.style.cssText = "";
+      document.body.classList.remove("modal-open", "token-setup-open");
+    }
+
+    function open() {
+      const overlay = $("token-setup");
+      if (!overlay) return;
+      overlay.hidden = false;
+      overlay.classList.add("is-open");
+      overlay.style.cssText = "display:flex !important;";
+      document.body.classList.add("modal-open", "token-setup-open");
+      const input = $("token-setup-input");
+      if (input) {
+        input.value = "";
+        setTimeout(() => {
+          try {
+            input.focus({ preventScroll: true });
+          } catch (_) {}
+        }, 80);
+      }
+      setStatus($("token-setup-status"), "");
+    }
+
+    function save() {
+      const raw = ($("token-setup-input")?.value || "").trim();
+      if (!raw) {
+        setStatus($("token-setup-status"), "Paste your GitHub token first.", "error");
+        return false;
+      }
+      if (raw.length < 20) {
+        setStatus($("token-setup-status"), "That doesn’t look like a GitHub token. Check and try again.", "error");
+        return false;
+      }
+      localStorage.setItem(LS.token, raw);
+      try {
+        sessionStorage.removeItem(SS_LATER);
+      } catch (_) {}
+      applyPlaceholders();
+      setStatus($("token-setup-status"), "Saved on this phone — sync & publish ready.", "ok");
+      setTimeout(close, 450);
+      return true;
+    }
+
+    function later() {
+      try {
+        sessionStorage.setItem(SS_LATER, "1");
+      } catch (_) {}
+      close();
+    }
+
+    function wire() {
+      $("token-setup-save")?.addEventListener("click", () => save());
+      $("token-setup-later")?.addEventListener("click", () => later());
+      $("token-setup-input")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          save();
+        }
+      });
+    }
+
+    function promptIfNeeded() {
+      wire();
+      applyPlaceholders();
+      if (hasToken()) return;
+      let skipped = false;
+      try {
+        skipped = sessionStorage.getItem(SS_LATER) === "1";
+      } catch (_) {}
+      if (skipped) return;
+      open();
+    }
+
+    return { promptIfNeeded, applyPlaceholders, hasToken };
+  })();
+
   async function init() {
     wireNav();
     wireAdmin();
+    /* Ask for PAT first on a fresh phone — powers logs, periods, Admin */
+    TokenSetup.promptIfNeeded();
     await Weights.init();
     await Diet.init();
     await Periods.init();

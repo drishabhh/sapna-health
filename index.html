@@ -80,11 +80,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011wsync"></script>
+  <script src="./js/admin-auth.js?v=20261011token"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011wsync" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011token" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -357,6 +357,24 @@
     <a href="#logs" data-nav="logs"><span class="nav-ico">L</span>Logs</a>
   </nav>
 
+  <!-- First-visit GitHub token setup (saved for Logs / Periods / Admin sync) -->
+  <div class="overlay token-setup-overlay" id="token-setup" hidden>
+    <div class="sheet token-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="token-setup-title">
+      <p class="brand token-setup-brand">Sapna</p>
+      <h2 id="token-setup-title">Connect this phone</h2>
+      <p class="hint">Paste a GitHub token once. Sapna uses it for <strong>lift logs</strong>, <strong>period sync</strong>, and <strong>Admin publish</strong> across her phones. Saved only in this browser.</p>
+      <label class="field">GitHub PAT (repo scope)
+        <input type="password" id="token-setup-input" autocomplete="off" placeholder="ghp_…" enterkeyhint="done" />
+      </label>
+      <p class="hint token-setup-help">Create at GitHub → Settings → Developer settings → Personal access tokens. Enable <code>repo</code>.</p>
+      <div class="actions">
+        <button type="button" class="btn-primary" id="token-setup-save">Save &amp; continue</button>
+        <button type="button" class="btn-ghost" id="token-setup-later">Later</button>
+      </div>
+      <p class="status" id="token-setup-status" hidden></p>
+    </div>
+  </div>
+
   <!-- Admin gate -->
   <div class="overlay" id="admin-gate" hidden>
     <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="gate-title">
@@ -499,6 +517,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261011wsync"></script>
+  <script src="./js/app.js?v=20261011token"></script>
 </body>
 </html>
