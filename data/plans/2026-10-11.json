@@ -1,0 +1,79 @@
+{
+  "updatedAt": "2026-10-11T13:17:17.686Z",
+  "headline": "Aaj ka workout",
+  "support": "Stretch · lift · log",
+  "restNote": {
+    "title": "Rest & water",
+    "body": "Rest 1–1.5 min between sets. Drink water — not cold; warm or room temp, sip by sip.",
+    "bodyHtml": "<strong>Rest 1–1</strong>.5 min between sets. Drink water — not cold; warm or room temp, sip by sip."
+  },
+  "sections": [
+    {
+      "id": "stretching",
+      "eyebrow": "Warm-up",
+      "title": "Stretching",
+      "subtitle": "Easy and controlled",
+      "kind": "stretch",
+      "moves": [
+        {
+          "id": "arm-circles-mv3ugec4-6qsn",
+          "name": "Arm circles",
+          "rx": "10 reps",
+          "gif": "media/arm-circles.gif",
+          "demo": "img"
+        },
+        {
+          "id": "dynamic-chest-stretch-male-mv3ue8d9-mvdi",
+          "name": "Dynamic Chest Stretch Male",
+          "rx": "10 reps",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/dynamic-chest-stretch-male.gif",
+          "demo": "img"
+        },
+        {
+          "id": "leg-swings-mv3uh9gu-5xxr",
+          "name": "Leg swings",
+          "rx": "10 reps",
+          "gif": "media/leg-swings.gif",
+          "demo": "img"
+        }
+      ]
+    },
+    {
+      "id": "exercise",
+      "eyebrow": "Main session",
+      "title": "Exercise",
+      "subtitle": "Follow the prescriptions",
+      "kind": "main",
+      "moves": [
+        {
+          "id": "chest-press-flat-bench-mv3uhymu-xgr4",
+          "name": "Chest press flat bench",
+          "rx": "2 × 12",
+          "gif": "media/chest-press.gif",
+          "demo": "img"
+        },
+        {
+          "id": "dumbbell-incline-bench-press-mv3uijpk-xpp1",
+          "name": "Dumbbell Incline Bench Press",
+          "rx": "2 × 12",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/dumbbell-incline-bench-press.gif",
+          "demo": "img"
+        },
+        {
+          "id": "dumbbell-pullover-on-exercise-ball-mv3uixg1-ig6e",
+          "name": "Dumbbell Pullover On Exercise Ball",
+          "rx": "2 × 12",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/dumbbell-pullover-on-exercise-ball.gif",
+          "demo": "img"
+        },
+        {
+          "id": "dumbbell-lying-triceps-extension-mv3ukpzv-udeb",
+          "name": "Dumbbell Lying Triceps Extension",
+          "rx": "2 × 12",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/triceps/dumbbell-lying-triceps-extension.gif",
+          "demo": "img"
+        }
+      ]
+    }
+  ]
+}
