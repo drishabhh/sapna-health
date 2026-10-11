@@ -8,11 +8,14 @@
     token: "sapna_gh_token",
     gemini: "sapna_gemini_key",
     coach: "sapna_coach_last_v1",
+    profile: "sapna_profile",
   };
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
+  const PROFILE_PATH = "data/profile.json";
+  const PROFILE_ASSET_V = "20261011prof1";
 
   const $ = (id) => document.getElementById(id);
   const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -1171,6 +1174,7 @@ Return JSON only matching the schema.`;
       const prompt = `You are a gentle health coach for Sapna (private, adult woman).
 Use ONLY this snapshot. Do not invent exact medical diagnoses. Be practical and kind.
 If period day or late luteal / menstrual phase, include food ideas that may ease cramps (iron, magnesium, hydration, warm meals) and exercise intensity advice.
+Respect diet styles, allergies, calorie/protein targets, and any safety notes in snapshot.profile (injuries, pregnancy, conditions) when suggesting food and exercise — keep intensity conservative if safety flags exist.
 Snapshot JSON:
 ${JSON.stringify(snapshot)}
 Return JSON matching the schema.`;
@@ -1695,6 +1699,7 @@ ${JSON.stringify(example, null, 2)}`;
         note: "Workout streak lives on Today Progress card; coach uses lift day counts below.",
       };
       /* Compact — never send full raw logs */
+      const profile = typeof Profile !== "undefined" && Profile.coachSnippet ? Profile.coachSnippet() : null;
       return {
         today: todayISO(),
         diet: {
@@ -1715,6 +1720,7 @@ ${JSON.stringify(example, null, 2)}`;
         lifts,
         periods: period,
         streak,
+        profile,
       };
     }
 
@@ -2589,6 +2595,7 @@ ${JSON.stringify(example, null, 2)}`;
         };
         persist();
         render();
+        if (typeof Profile !== "undefined" && Profile.paintSummaries) Profile.paintSummaries();
         setStatus($("diet-status"), "Targets saved on this phone.", "ok");
       });
       $("diet-clear-day")?.addEventListener("click", () => {
@@ -2619,8 +2626,8 @@ ${JSON.stringify(example, null, 2)}`;
       } catch (_) {}
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261011pkg1"),
-          fetch("./data/diet-defaults.json?v=20261011pkg1"),
+          fetch(`./data/foods.json?v=${PROFILE_ASSET_V}`),
+          fetch(`./data/diet-defaults.json?v=${PROFILE_ASSET_V}`),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();
@@ -2713,6 +2720,17 @@ ${JSON.stringify(example, null, 2)}`;
       return targets();
     }
 
+    function applyTargets(next) {
+      if (!next || !Number.isFinite(Number(next.kcal))) return targets();
+      state.targets = {
+        kcal: Math.round(Number(next.kcal)),
+        protein: Math.round(Number(next.protein) || 100),
+      };
+      persist();
+      render();
+      return state.targets;
+    }
+
     function snapshot() {
       const tg = targets();
       const tot = totals();
@@ -2737,12 +2755,555 @@ ${JSON.stringify(example, null, 2)}`;
       init,
       render,
       getTargetsForAdmin,
+      applyTargets,
       snapshot,
       dietLoggedDates,
       focusAddForMeal,
       todayPlate,
       importGeminiFoods,
       bootstrapRegularFoods,
+    };
+  })();
+
+  /* ───────── Profile / onboarding (device-first) ───────── */
+  const Profile = (() => {
+    const SS_SKIP = "sapna_profile_skip_session";
+    const STEPS = ["About you", "Goals", "Activity", "Diet prefs", "Health notes", "Your targets"];
+    const ACTIVITY_MUL = { sedentary: 1.2, light: 1.375, active: 1.55, very: 1.725 };
+    const empty = () => ({
+      version: 1,
+      completedAt: null,
+      skippedAt: null,
+      age: null,
+      dob: null,
+      sex: null,
+      weightKg: null,
+      heightCm: null,
+      goal: null,
+      targetWeightKg: null,
+      paceKgPerWeek: null,
+      activity: null,
+      workoutDays: null,
+      workoutType: null,
+      dietStyles: [],
+      allergies: [],
+      allergiesNote: "",
+      mealsPerDay: null,
+      ifNote: "",
+      conditions: [],
+      conditionsOther: "",
+      injuries: "",
+      pregnancy: null,
+      syncBasics: false,
+      derived: null,
+    });
+
+    let state = loadJSON(LS.profile, empty());
+    let step = 0;
+    let wired = false;
+
+    function persist() {
+      saveJSON(LS.profile, state);
+    }
+
+    function numOrNull(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function ageFromState(s) {
+      if (s.dob) {
+        const d = new Date(s.dob + "T12:00:00");
+        if (!Number.isNaN(d.getTime())) {
+          const now = new Date();
+          let age = now.getFullYear() - d.getFullYear();
+          const m = now.getMonth() - d.getMonth();
+          if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age -= 1;
+          if (age >= 13 && age <= 100) return age;
+        }
+      }
+      return numOrNull(s.age);
+    }
+
+    function bmiLabel(bmi) {
+      if (bmi == null) return "";
+      if (bmi < 18.5) return "Underweight range (info only)";
+      if (bmi < 25) return "Healthy range (info only)";
+      if (bmi < 30) return "Overweight range (info only)";
+      return "Higher BMI range (info only)";
+    }
+
+    function derive(s) {
+      const weight = numOrNull(s.weightKg);
+      const height = numOrNull(s.heightCm);
+      const age = ageFromState(s);
+      if (weight == null || height == null || height <= 0) {
+        return { bmi: null, bmr: null, tdee: null, targetKcal: null, targetProtein: null, bmiLabel: "", ready: false };
+      }
+      const hM = height / 100;
+      const bmi = Math.round((weight / (hM * hM)) * 10) / 10;
+      let bmr = null;
+      if (age != null) {
+        /* Mifflin–St Jeor; default female curve for Sapna when sex unknown */
+        const base = 10 * weight + 6.25 * height - 5 * age;
+        if (s.sex === "male") bmr = base + 5;
+        else bmr = base - 161;
+        bmr = Math.round(bmr);
+      }
+      const mul = ACTIVITY_MUL[s.activity] || 1.375;
+      const tdee = bmr != null ? Math.round(bmr * mul) : null;
+      let delta = 0;
+      const pace = numOrNull(s.paceKgPerWeek);
+      if (pace != null && pace !== 0) {
+        /* ~7700 kcal per kg body mass */
+        delta = Math.round((pace * 7700) / 7);
+        if (s.goal === "lose" && pace > 0) delta = -Math.abs(delta);
+        else if (s.goal === "muscle" && pace > 0) delta = Math.abs(delta);
+        else if (s.goal === "lose") delta = -Math.abs(delta);
+        else if (s.goal === "muscle") delta = Math.abs(delta);
+      } else if (s.goal === "lose") {
+        delta = -385; /* ~0.35 kg/week gentle */
+      } else if (s.goal === "muscle") {
+        delta = 200;
+      }
+      let targetKcal = tdee != null ? tdee + delta : null;
+      if (targetKcal != null) targetKcal = Math.max(1200, Math.min(4000, Math.round(targetKcal / 10) * 10));
+      let proMul = 1.4;
+      if (s.goal === "lose") proMul = 1.6;
+      if (s.goal === "muscle") proMul = 1.8;
+      if (s.goal === "fitness") proMul = 1.5;
+      const targetProtein = Math.max(50, Math.min(220, Math.round(weight * proMul)));
+      return {
+        bmi,
+        bmr,
+        tdee,
+        targetKcal,
+        targetProtein,
+        bmiLabel: bmiLabel(bmi),
+        ready: targetKcal != null,
+      };
+    }
+
+    function hasBiometrics(s) {
+      return numOrNull(s.weightKg) != null && numOrNull(s.heightCm) != null;
+    }
+
+    function isComplete(s) {
+      return !!(s && (s.completedAt || hasBiometrics(s)));
+    }
+
+    function needsNudge() {
+      if (isComplete(state)) return false;
+      try {
+        if (sessionStorage.getItem(SS_SKIP) === "1") return false;
+      } catch (_) {}
+      return true;
+    }
+
+    function chipValues(group) {
+      return [...document.querySelectorAll(`.profile-chips[data-chip-group="${group}"] .profile-chip.is-active`)].map(
+        (b) => b.getAttribute("data-value")
+      );
+    }
+
+    function setChips(group, values, single) {
+      const set = new Set(Array.isArray(values) ? values : values ? [values] : []);
+      document.querySelectorAll(`.profile-chips[data-chip-group="${group}"] .profile-chip`).forEach((btn) => {
+        const v = btn.getAttribute("data-value");
+        btn.classList.toggle("is-active", set.has(v));
+        btn.setAttribute("aria-pressed", set.has(v) ? "true" : "false");
+      });
+      if (single && set.size > 1) {
+        /* keep first only — should not happen */
+      }
+    }
+
+    function readFormInto(s) {
+      const next = { ...s };
+      next.age = numOrNull($("pf-age")?.value);
+      next.dob = ($("pf-dob")?.value || "").trim() || null;
+      next.sex = chipValues("sex")[0] || null;
+      next.weightKg = numOrNull($("pf-weight")?.value);
+      next.heightCm = numOrNull($("pf-height")?.value);
+      next.goal = chipValues("goal")[0] || null;
+      next.targetWeightKg = numOrNull($("pf-target-weight")?.value);
+      const paceRaw = ($("pf-pace")?.value || "").trim();
+      next.paceKgPerWeek = paceRaw === "" ? null : numOrNull(paceRaw);
+      next.activity = chipValues("activity")[0] || null;
+      next.workoutDays = numOrNull($("pf-workout-days")?.value);
+      next.workoutType = chipValues("workoutType")[0] || null;
+      let styles = chipValues("dietStyles");
+      if (styles.includes("none") && styles.length > 1) styles = styles.filter((x) => x !== "none");
+      next.dietStyles = styles;
+      next.allergies = chipValues("allergies");
+      next.allergiesNote = ($("pf-allergies-note")?.value || "").trim();
+      next.mealsPerDay = numOrNull($("pf-meals")?.value);
+      next.ifNote = ($("pf-if-note")?.value || "").trim();
+      let conditions = chipValues("conditions");
+      if (conditions.includes("none") && conditions.length > 1) conditions = conditions.filter((x) => x !== "none");
+      next.conditions = conditions;
+      next.conditionsOther = ($("pf-conditions-other")?.value || "").trim();
+      next.injuries = ($("pf-injuries")?.value || "").trim();
+      next.pregnancy = chipValues("pregnancy")[0] || null;
+      next.syncBasics = !!$("pf-sync-basics")?.checked;
+      next.derived = derive(next);
+      return next;
+    }
+
+    function fillForm(s) {
+      if ($("pf-age")) $("pf-age").value = s.age != null ? s.age : "";
+      if ($("pf-dob")) $("pf-dob").value = s.dob || "";
+      if ($("pf-weight")) $("pf-weight").value = s.weightKg != null ? s.weightKg : "";
+      if ($("pf-height")) $("pf-height").value = s.heightCm != null ? s.heightCm : "";
+      if ($("pf-target-weight")) $("pf-target-weight").value = s.targetWeightKg != null ? s.targetWeightKg : "";
+      if ($("pf-pace")) $("pf-pace").value = s.paceKgPerWeek != null ? String(s.paceKgPerWeek) : "";
+      if ($("pf-workout-days")) $("pf-workout-days").value = s.workoutDays != null ? s.workoutDays : "";
+      if ($("pf-allergies-note")) $("pf-allergies-note").value = s.allergiesNote || "";
+      if ($("pf-meals")) $("pf-meals").value = s.mealsPerDay != null ? s.mealsPerDay : "";
+      if ($("pf-if-note")) $("pf-if-note").value = s.ifNote || "";
+      if ($("pf-conditions-other")) $("pf-conditions-other").value = s.conditionsOther || "";
+      if ($("pf-injuries")) $("pf-injuries").value = s.injuries || "";
+      if ($("pf-sync-basics")) $("pf-sync-basics").checked = !!s.syncBasics;
+      setChips("sex", s.sex, true);
+      setChips("goal", s.goal, true);
+      setChips("activity", s.activity, true);
+      setChips("workoutType", s.workoutType, true);
+      setChips("dietStyles", s.dietStyles || []);
+      setChips("allergies", s.allergies || []);
+      setChips("conditions", s.conditions || []);
+      setChips("pregnancy", s.pregnancy, true);
+      updateLiveMetrics();
+    }
+
+    function updateLiveMetrics() {
+      const draft = readFormInto(state);
+      const d = draft.derived || {};
+      const el = $("profile-live-metrics");
+      if (el) {
+        if (d.bmi != null) {
+          el.innerHTML = `<strong>BMI ${d.bmi}</strong> · ${escapeHtml(d.bmiLabel || "info only")}${
+            d.bmr != null ? ` · BMR ~${d.bmr} kcal` : " · add age for BMR"
+          }`;
+        } else {
+          el.textContent = "Add weight & height to preview BMI.";
+        }
+      }
+      const card = $("profile-summary-card");
+      if (card) {
+        if (d.ready) {
+          card.innerHTML = `
+            <p class="profile-summary-kicker">Suggested daily targets</p>
+            <p class="profile-summary-nums"><strong>${d.targetKcal}</strong> kcal · <strong>${d.targetProtein}g</strong> protein</p>
+            <ul class="profile-summary-list">
+              <li>BMI ${d.bmi} — ${escapeHtml(d.bmiLabel)}</li>
+              <li>BMR ~${d.bmr} · TDEE ~${d.tdee} kcal</li>
+              <li>Goal: ${escapeHtml(draft.goal || "not set")} · Activity: ${escapeHtml(draft.activity || "light default")}</li>
+            </ul>
+            <p class="hint">Saving applies these to Diet rings. You can tweak numbers anytime.</p>`;
+        } else if (d.bmi != null) {
+          card.innerHTML = `<p class="hint">BMI ${d.bmi}. Add <strong>age</strong> (or birthday) so we can estimate BMR → calories.</p>`;
+        } else {
+          card.innerHTML = `<p class="hint">Fill height &amp; weight (and age/sex if you can) to see targets.</p>`;
+        }
+      }
+    }
+
+    function showStep(n) {
+      step = Math.max(0, Math.min(STEPS.length - 1, n));
+      document.querySelectorAll(".profile-step").forEach((sec) => {
+        const i = Number(sec.getAttribute("data-profile-step"));
+        const on = i === step;
+        sec.hidden = !on;
+        sec.classList.toggle("is-active", on);
+      });
+      const label = $("profile-step-label");
+      if (label) label.textContent = `${STEPS[step]} · ${step + 1}/${STEPS.length}`;
+      const prog = $("profile-progress");
+      if (prog) {
+        prog.innerHTML = STEPS.map((_, i) => `<span class="profile-dot${i === step ? " is-on" : i < step ? " is-done" : ""}"></span>`).join("");
+      }
+      const back = $("profile-back");
+      const next = $("profile-next");
+      const save = $("profile-save");
+      const skip = $("profile-skip-step");
+      if (back) back.hidden = step === 0;
+      if (next) next.hidden = step >= STEPS.length - 1;
+      if (save) save.hidden = step < STEPS.length - 1;
+      if (skip) skip.hidden = step >= STEPS.length - 1;
+      if (step === STEPS.length - 1) updateLiveMetrics();
+      const sheet = $("profile-sheet")?.querySelector(".profile-sheet");
+      if (sheet) sheet.scrollTop = 0;
+    }
+
+    function close() {
+      const overlay = $("profile-sheet");
+      if (!overlay) return;
+      overlay.hidden = true;
+      overlay.classList.remove("is-open");
+      overlay.style.cssText = "";
+      document.body.classList.remove("modal-open", "profile-sheet-open");
+    }
+
+    function open(opts) {
+      const overlay = $("profile-sheet");
+      if (!overlay) return;
+      fillForm(state);
+      showStep(opts?.step != null ? opts.step : isComplete(state) ? 0 : 0);
+      overlay.hidden = false;
+      overlay.classList.add("is-open");
+      overlay.style.cssText = "display:flex !important;";
+      document.body.classList.add("modal-open", "profile-sheet-open");
+      setStatus($("profile-status"), "");
+      updateLiveMetrics();
+    }
+
+    function applyToDiet() {
+      const d = state.derived || derive(state);
+      state.derived = d;
+      if (d.ready && Diet.applyTargets) {
+        Diet.applyTargets({ kcal: d.targetKcal, protein: d.targetProtein });
+      }
+    }
+
+    function publicBasics(s) {
+      return {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        age: ageFromState(s),
+        sex: s.sex === "prefer_not" ? null : s.sex,
+        weightKg: s.weightKg,
+        heightCm: s.heightCm,
+        goal: s.goal,
+        targetWeightKg: s.targetWeightKg,
+        paceKgPerWeek: s.paceKgPerWeek,
+        activity: s.activity,
+        workoutDays: s.workoutDays,
+        workoutType: s.workoutType,
+        dietStyles: s.dietStyles || [],
+        allergies: s.allergies || [],
+        allergiesNote: s.allergiesNote || "",
+        mealsPerDay: s.mealsPerDay,
+        ifNote: s.ifNote || "",
+        derived: s.derived,
+        /* medical intentionally omitted */
+      };
+    }
+
+    async function maybePublishBasics() {
+      if (!state.syncBasics) return { ok: true, skipped: true };
+      const token = (localStorage.getItem(LS.token) || "").trim();
+      if (!token) {
+        return { ok: false, message: "Saved on phone. Add a GitHub token to sync basics." };
+      }
+      try {
+        const payload = publicBasics(state);
+        await githubPutFile(
+          PROFILE_PATH,
+          b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
+          `Update profile basics (${todayISO()})`,
+          token
+        );
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, message: e.message || "Could not sync basics." };
+      }
+    }
+
+    async function save() {
+      state = readFormInto(state);
+      state.derived = derive(state);
+      state.completedAt = new Date().toISOString();
+      state.skippedAt = null;
+      persist();
+      applyToDiet();
+      paintSummaries();
+      try {
+        sessionStorage.removeItem(SS_SKIP);
+      } catch (_) {}
+      const pub = await maybePublishBasics();
+      if (pub.ok && !pub.skipped) {
+        setStatus($("profile-status"), "Saved — Diet targets updated · basics synced.", "ok");
+      } else if (!pub.ok) {
+        setStatus($("profile-status"), `Saved on this phone. Sync: ${pub.message}`, "info");
+      } else {
+        setStatus($("profile-status"), "Saved on this phone — Diet targets updated.", "ok");
+      }
+      setTimeout(close, 700);
+    }
+
+    function skipSession() {
+      try {
+        sessionStorage.setItem(SS_SKIP, "1");
+      } catch (_) {}
+      state.skippedAt = new Date().toISOString();
+      persist();
+      paintSummaries();
+      close();
+    }
+
+    function paintSummaries() {
+      const nudgeToday = $("today-profile-nudge");
+      const nudgeDiet = $("diet-profile-nudge");
+      const showNudge = needsNudge();
+      if (nudgeToday) nudgeToday.hidden = !showNudge;
+      if (nudgeDiet) nudgeDiet.hidden = !showNudge;
+
+      const d = state.derived || derive(state);
+      const sum = $("diet-profile-summary");
+      if (sum) {
+        if (d.bmi != null || d.targetKcal != null) {
+          sum.hidden = false;
+          sum.innerHTML = `
+            <div class="diet-profile-summary-inner">
+              <p class="hf-diet-eyebrow">From your profile</p>
+              <p class="diet-profile-summary-line">
+                ${d.bmi != null ? `<span><strong>BMI ${d.bmi}</strong></span>` : ""}
+                ${d.tdee != null ? `<span>TDEE ~${d.tdee}</span>` : ""}
+                ${d.targetKcal != null ? `<span><strong>${d.targetKcal}</strong> kcal goal</span>` : ""}
+                ${d.targetProtein != null ? `<span><strong>${d.targetProtein}g</strong> protein</span>` : ""}
+              </p>
+              <button type="button" class="btn-diet-ghost" data-profile-open>Edit profile</button>
+            </div>`;
+        } else {
+          sum.hidden = true;
+          sum.innerHTML = "";
+        }
+      }
+      const hint = $("diet-targets-from-profile");
+      if (hint && d.ready) {
+        hint.innerHTML = `Suggested from profile (BMI ${d.bmi}, TDEE ~${d.tdee}). Override below anytime.`;
+      }
+    }
+
+    function coachSnippet() {
+      const d = state.derived || derive(state);
+      const safety = [];
+      (state.conditions || []).forEach((c) => {
+        if (c && c !== "none") safety.push(c);
+      });
+      if (state.conditionsOther) safety.push(state.conditionsOther);
+      return {
+        goal: state.goal,
+        activity: state.activity,
+        workoutDays: state.workoutDays,
+        workoutType: state.workoutType,
+        dietStyles: state.dietStyles || [],
+        allergies: [...(state.allergies || []), state.allergiesNote].filter(Boolean),
+        mealsPerDay: state.mealsPerDay,
+        ifNote: state.ifNote || "",
+        targets: d.ready ? { kcal: d.targetKcal, protein: d.targetProtein, bmi: d.bmi, tdee: d.tdee } : null,
+        /* Safety for coach intensity — device-local only, never published */
+        safety: {
+          conditions: safety,
+          injuries: state.injuries || "",
+          pregnancy: state.pregnancy && state.pregnancy !== "prefer_not" ? state.pregnancy : null,
+        },
+      };
+    }
+
+    function wireChips() {
+      document.querySelectorAll(".profile-chips").forEach((group) => {
+        group.addEventListener("click", (e) => {
+          const btn = e.target.closest(".profile-chip");
+          if (!btn || !group.contains(btn)) return;
+          const single = group.getAttribute("data-single") === "1";
+          const v = btn.getAttribute("data-value");
+          if (single) {
+            group.querySelectorAll(".profile-chip").forEach((b) => {
+              const on = b === btn;
+              b.classList.toggle("is-active", on);
+              b.setAttribute("aria-pressed", on ? "true" : "false");
+            });
+          } else {
+            if (v === "none" || v === "prefer_not") {
+              group.querySelectorAll(".profile-chip").forEach((b) => {
+                const on = b === btn;
+                b.classList.toggle("is-active", on);
+                b.setAttribute("aria-pressed", on ? "true" : "false");
+              });
+            } else {
+              group.querySelector(`.profile-chip[data-value="none"]`)?.classList.remove("is-active");
+              btn.classList.toggle("is-active");
+              btn.setAttribute("aria-pressed", btn.classList.contains("is-active") ? "true" : "false");
+            }
+          }
+          updateLiveMetrics();
+        });
+      });
+    }
+
+    function wire() {
+      if (wired) return;
+      wired = true;
+      wireChips();
+      ["pf-age", "pf-dob", "pf-weight", "pf-height", "pf-pace", "pf-target-weight"].forEach((id) => {
+        $(id)?.addEventListener("input", () => updateLiveMetrics());
+        $(id)?.addEventListener("change", () => updateLiveMetrics());
+      });
+      $("profile-close")?.addEventListener("click", () => close());
+      $("profile-back")?.addEventListener("click", () => {
+        state = readFormInto(state);
+        showStep(step - 1);
+      });
+      $("profile-next")?.addEventListener("click", () => {
+        state = readFormInto(state);
+        showStep(step + 1);
+      });
+      $("profile-skip-step")?.addEventListener("click", () => {
+        state = readFormInto(state);
+        if (step >= STEPS.length - 1) skipSession();
+        else showStep(step + 1);
+      });
+      $("profile-save")?.addEventListener("click", () => {
+        save();
+      });
+      document.addEventListener("click", (e) => {
+        const openBtn = e.target.closest("[data-profile-open]");
+        if (openBtn) {
+          e.preventDefault();
+          open();
+          return;
+        }
+        const skipBtn = e.target.closest("[data-profile-skip]");
+        if (skipBtn) {
+          e.preventDefault();
+          skipSession();
+        }
+      });
+      $("profile-sheet")?.addEventListener("click", (e) => {
+        if (e.target === $("profile-sheet")) close();
+      });
+    }
+
+    function tokenSheetOpen() {
+      const t = $("token-setup");
+      return t && !t.hidden && t.classList.contains("is-open");
+    }
+
+    function promptIfNeeded() {
+      wire();
+      paintSummaries();
+      if (!needsNudge()) return;
+      const tryOpen = () => {
+        if (tokenSheetOpen()) {
+          setTimeout(tryOpen, 600);
+          return;
+        }
+        /* Soft nudge banners only — sheet opens on Get started, not forced */
+        paintSummaries();
+      };
+      setTimeout(tryOpen, 400);
+    }
+
+    return {
+      init: promptIfNeeded,
+      open,
+      close,
+      paintSummaries,
+      coachSnippet,
+      derive,
+      getState: () => state,
+      isComplete: () => isComplete(state),
     };
   })();
 
@@ -4248,6 +4809,7 @@ ${JSON.stringify(example, null, 2)}`;
     await Workout.init();
     GeminiKeyUI.wire();
     Coach.wire();
+    Profile.init();
     /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
     if (Workout.refreshSummaries) Workout.refreshSummaries();
     else Workout.render();

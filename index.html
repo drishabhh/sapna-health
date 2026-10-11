@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011pkg1"></script>
+  <script src="./js/admin-auth.js?v=20261011prof1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011pkg1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011prof1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -155,6 +155,19 @@
       <p class="today-greet" id="today-greet-line">Good day</p>
       <h1 class="today-title">Today</h1>
       <p class="today-lede" id="today-date-line">Workout · diet · cycle</p>
+      <div class="profile-entry-row">
+        <button type="button" class="btn-ghost profile-open-btn" data-profile-open>Your profile</button>
+      </div>
+    </div>
+    <div class="profile-nudge" id="today-profile-nudge" hidden>
+      <div class="profile-nudge-copy">
+        <p class="today-kicker">Personalize Sapna</p>
+        <p class="profile-nudge-title">A few soft questions — calories, diet tips, and safer workouts.</p>
+      </div>
+      <div class="profile-nudge-actions">
+        <button type="button" class="btn-primary" data-profile-open>Get started</button>
+        <button type="button" class="btn-ghost" data-profile-skip>Skip for now</button>
+      </div>
     </div>
     <div class="today-strip-wrap" id="today-strip" aria-label="Today at a glance"></div>
     <!-- Progress streak sits high; week graph below tracker cards so first viewport isn’t clipped -->
@@ -226,8 +239,22 @@
       <p class="hf-diet-eyebrow">Diet diary</p>
       <h1 class="diet-title">Today’s plate</h1>
       <p class="diet-lede">Calories left · log by meal · library only.</p>
+      <div class="profile-entry-row">
+        <button type="button" class="btn-diet-ghost profile-open-btn" data-profile-open>Your profile</button>
+      </div>
+    </div>
+    <div class="profile-nudge profile-nudge-diet" id="diet-profile-nudge" hidden>
+      <div class="profile-nudge-copy">
+        <p class="hf-diet-eyebrow">Personalize</p>
+        <p class="profile-nudge-title">Set height &amp; weight once — we’ll suggest your daily calorie &amp; protein goals.</p>
+      </div>
+      <div class="profile-nudge-actions">
+        <button type="button" class="btn-diet" data-profile-open>Get started</button>
+        <button type="button" class="btn-diet-ghost" data-profile-skip>Skip for now</button>
+      </div>
     </div>
     <div class="panel-inner diet-inner">
+      <div class="diet-profile-summary" id="diet-profile-summary" hidden></div>
       <div class="diet-rings hf-diet-totals" id="diet-totals" aria-label="Calories remaining"></div>
 
       <div class="diet-meals-wrap hf-meals" id="diet-meals" aria-label="Meals"></div>
@@ -367,6 +394,7 @@
           <h2>Daily targets</h2>
           <span class="diet-chip">editable</span>
         </summary>
+        <p class="hint" id="diet-targets-from-profile">Set from <strong>Your profile</strong>, or type overrides below.</p>
         <div class="field-row">
           <label class="field">Calories (kcal)
             <input type="number" id="diet-target-kcal" min="800" max="5000" step="50" />
@@ -377,6 +405,7 @@
         </div>
         <div class="actions">
           <button type="button" class="btn-diet" id="diet-save-targets">Save targets</button>
+          <button type="button" class="btn-diet-ghost" data-profile-open>Edit profile</button>
           <button type="button" class="btn-diet-ghost" id="diet-clear-day">Clear today</button>
         </div>
       </details>
@@ -519,6 +548,178 @@
     <a href="#periods" data-nav="periods"><span class="nav-ico">P</span>Periods</a>
     <a href="#logs" data-nav="logs"><span class="nav-ico">L</span>Logs</a>
   </nav>
+
+  <!-- Profile / onboarding intake (device-first; medical stays private) -->
+  <div class="overlay profile-overlay" id="profile-sheet" hidden>
+    <div class="sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-sheet-title">
+      <header class="sheet-head profile-sheet-head">
+        <div>
+          <p class="profile-sheet-brand">Sapna</p>
+          <h2 id="profile-sheet-title">Your profile</h2>
+          <p class="hint profile-step-label" id="profile-step-label">About you</p>
+        </div>
+        <button type="button" class="btn-ghost" id="profile-close" aria-label="Close profile">Close</button>
+      </header>
+      <div class="profile-progress" id="profile-progress" aria-hidden="true"></div>
+      <p class="hint profile-sheet-lede">Soft check-in — skip anything. Used for calorie goals, diet tips, and workout safety. Health notes stay on this phone.</p>
+
+      <form id="profile-form" class="profile-form" novalidate>
+        <!-- 1 · Demographics -->
+        <section class="profile-step is-active" data-profile-step="0" aria-label="About you">
+          <div class="field-row">
+            <label class="field">Age
+              <input type="number" id="pf-age" min="13" max="100" step="1" inputmode="numeric" placeholder="e.g. 28" />
+            </label>
+            <label class="field">Or birthday
+              <input type="date" id="pf-dob" />
+            </label>
+          </div>
+          <p class="profile-field-label">Biological sex <span class="hint-inline">(for BMR estimate)</span></p>
+          <div class="profile-chips" role="group" aria-label="Biological sex" data-chip-group="sex" data-single="1">
+            <button type="button" class="profile-chip" data-value="female">Female</button>
+            <button type="button" class="profile-chip" data-value="male">Male</button>
+            <button type="button" class="profile-chip" data-value="prefer_not">Prefer not to say</button>
+          </div>
+          <div class="field-row">
+            <label class="field">Weight (kg)
+              <input type="number" id="pf-weight" min="30" max="250" step="0.1" inputmode="decimal" placeholder="e.g. 62" />
+            </label>
+            <label class="field">Height (cm)
+              <input type="number" id="pf-height" min="120" max="220" step="0.5" inputmode="decimal" placeholder="e.g. 162" />
+            </label>
+          </div>
+          <p class="profile-live-metrics" id="profile-live-metrics" aria-live="polite"></p>
+        </section>
+
+        <!-- 2 · Goals -->
+        <section class="profile-step" data-profile-step="1" hidden aria-label="Goals">
+          <p class="profile-field-label">Primary goal</p>
+          <div class="profile-chips" role="group" aria-label="Primary goal" data-chip-group="goal" data-single="1">
+            <button type="button" class="profile-chip" data-value="lose">Lose weight</button>
+            <button type="button" class="profile-chip" data-value="maintain">Maintain</button>
+            <button type="button" class="profile-chip" data-value="muscle">Build muscle</button>
+            <button type="button" class="profile-chip" data-value="fitness">Improve fitness</button>
+          </div>
+          <div class="field-row">
+            <label class="field">Target weight (kg)
+              <input type="number" id="pf-target-weight" min="30" max="250" step="0.1" inputmode="decimal" placeholder="optional" />
+            </label>
+            <label class="field">Pace (kg / week)
+              <select id="pf-pace">
+                <option value="">Prefer not to say</option>
+                <option value="0.25">Gentle 0.25 kg</option>
+                <option value="0.5">Steady 0.5 kg</option>
+                <option value="1">Faster 1 kg</option>
+                <option value="-0.25">Gentle gain 0.25 kg</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <!-- 3 · Activity -->
+        <section class="profile-step" data-profile-step="2" hidden aria-label="Activity">
+          <p class="profile-field-label">Daily activity</p>
+          <div class="profile-chips" role="group" aria-label="Daily activity" data-chip-group="activity" data-single="1">
+            <button type="button" class="profile-chip" data-value="sedentary">Sedentary</button>
+            <button type="button" class="profile-chip" data-value="light">Lightly active</button>
+            <button type="button" class="profile-chip" data-value="active">Active</button>
+            <button type="button" class="profile-chip" data-value="very">Very active</button>
+          </div>
+          <div class="field-row">
+            <label class="field">Workout days / week
+              <input type="number" id="pf-workout-days" min="0" max="7" step="1" inputmode="numeric" placeholder="e.g. 3" />
+            </label>
+          </div>
+          <p class="profile-field-label">Primary workout type</p>
+          <div class="profile-chips" role="group" aria-label="Workout type" data-chip-group="workoutType" data-single="1">
+            <button type="button" class="profile-chip" data-value="resistance">Resistance</button>
+            <button type="button" class="profile-chip" data-value="cardio">Cardio</button>
+            <button type="button" class="profile-chip" data-value="hiit">HIIT</button>
+            <button type="button" class="profile-chip" data-value="mixed">Mixed</button>
+          </div>
+        </section>
+
+        <!-- 4 · Diet -->
+        <section class="profile-step" data-profile-step="3" hidden aria-label="Diet preferences">
+          <p class="profile-field-label">Diet style <span class="hint-inline">(pick any that fit)</span></p>
+          <div class="profile-chips" role="group" aria-label="Diet style" data-chip-group="dietStyles">
+            <button type="button" class="profile-chip" data-value="vegetarian">Vegetarian</button>
+            <button type="button" class="profile-chip" data-value="vegan">Vegan</button>
+            <button type="button" class="profile-chip" data-value="keto">Keto</button>
+            <button type="button" class="profile-chip" data-value="paleo">Paleo</button>
+            <button type="button" class="profile-chip" data-value="halal">Halal</button>
+            <button type="button" class="profile-chip" data-value="none">No preference</button>
+          </div>
+          <p class="profile-field-label">Allergies / intolerances</p>
+          <div class="profile-chips" role="group" aria-label="Allergies" data-chip-group="allergies">
+            <button type="button" class="profile-chip" data-value="lactose">Lactose</button>
+            <button type="button" class="profile-chip" data-value="gluten">Gluten</button>
+            <button type="button" class="profile-chip" data-value="nuts">Nuts</button>
+            <button type="button" class="profile-chip" data-value="soy">Soy</button>
+            <button type="button" class="profile-chip" data-value="eggs">Eggs</button>
+            <button type="button" class="profile-chip" data-value="shellfish">Shellfish</button>
+          </div>
+          <label class="field">Other allergies
+            <input type="text" id="pf-allergies-note" placeholder="e.g. sesame — or leave blank" autocomplete="off" />
+          </label>
+          <div class="field-row">
+            <label class="field">Meals / day
+              <input type="number" id="pf-meals" min="1" max="8" step="1" inputmode="numeric" placeholder="e.g. 3" />
+            </label>
+            <label class="field">IF / timing note
+              <input type="text" id="pf-if-note" placeholder="e.g. 16:8 optional" autocomplete="off" />
+            </label>
+          </div>
+        </section>
+
+        <!-- 5 · Health & safety (device-private) -->
+        <section class="profile-step" data-profile-step="4" hidden aria-label="Health and safety">
+          <p class="profile-privacy">Private on this phone — not synced unless you opt in below.</p>
+          <p class="profile-field-label">Conditions</p>
+          <div class="profile-chips" role="group" aria-label="Conditions" data-chip-group="conditions">
+            <button type="button" class="profile-chip" data-value="diabetes">Diabetes</button>
+            <button type="button" class="profile-chip" data-value="hypertension">Hypertension</button>
+            <button type="button" class="profile-chip" data-value="heart">Heart</button>
+            <button type="button" class="profile-chip" data-value="joint">Joint</button>
+            <button type="button" class="profile-chip" data-value="none">None of these</button>
+          </div>
+          <label class="field">Other / notes
+            <input type="text" id="pf-conditions-other" placeholder="optional free text" autocomplete="off" />
+          </label>
+          <label class="field">Injuries / limitations
+            <textarea id="pf-injuries" rows="2" placeholder="e.g. left knee — avoid deep squats"></textarea>
+          </label>
+          <p class="profile-field-label">Pregnancy / postpartum</p>
+          <div class="profile-chips" role="group" aria-label="Pregnancy status" data-chip-group="pregnancy" data-single="1">
+            <button type="button" class="profile-chip" data-value="none">Not applicable</button>
+            <button type="button" class="profile-chip" data-value="pregnant">Pregnant</button>
+            <button type="button" class="profile-chip" data-value="postpartum">Postpartum</button>
+            <button type="button" class="profile-chip" data-value="prefer_not">Prefer not to say</button>
+          </div>
+          <label class="check-row profile-sync-opt">
+            <input type="checkbox" id="pf-sync-basics" />
+            <span>Also sync <strong>basics</strong> (weight, goals, diet prefs — not medical) to GitHub for other phones</span>
+          </label>
+        </section>
+
+        <!-- 6 · Summary -->
+        <section class="profile-step" data-profile-step="5" hidden aria-label="Your targets">
+          <div class="profile-summary-card" id="profile-summary-card">
+            <p class="hint">Fill height &amp; weight (and age/sex if you can) to see targets.</p>
+          </div>
+          <p class="hint">BMI is informational only — not a diagnosis. You can edit anytime from Today or Diet.</p>
+        </section>
+      </form>
+
+      <div class="profile-sheet-actions">
+        <button type="button" class="btn-ghost" id="profile-back" hidden>Back</button>
+        <button type="button" class="btn-ghost" id="profile-skip-step">Skip</button>
+        <button type="button" class="btn-primary" id="profile-next">Continue</button>
+        <button type="button" class="btn-primary" id="profile-save" hidden>Save profile</button>
+      </div>
+      <p class="status" id="profile-status" hidden></p>
+    </div>
+  </div>
 
   <!-- First-visit GitHub token setup (saved for Logs / Periods / Admin sync) -->
   <div class="overlay token-setup-overlay" id="token-setup" hidden>
@@ -820,7 +1021,7 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261011pkg1"></script>
-  <script src="./js/app.js?v=20261011pkg1"></script>
+  <script src="./js/workout-admin.js?v=20261011prof1"></script>
+  <script src="./js/app.js?v=20261011prof1"></script>
 </body>
 </html>
