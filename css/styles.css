@@ -3568,6 +3568,13 @@ body.token-setup-open {
   border: none;
 }
 
+.profile-sheet-actions [hidden],
+.profile-nudge[hidden],
+.diet-profile-summary[hidden],
+.profile-overlay[hidden] {
+  display: none !important;
+}
+
 body.profile-sheet-open {
   overflow: hidden;
 }

@@ -15,7 +15,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261011prof1";
+  const PROFILE_ASSET_V = "20261011prof2";
 
   const $ = (id) => document.getElementById(id);
   const todayISO = () => new Date().toISOString().slice(0, 10);
