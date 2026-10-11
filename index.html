@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011adminfix"></script>
+  <script src="./js/admin-auth.js?v=20261011merge"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011adminfix" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011merge" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -173,7 +173,7 @@
         <span class="session-step" data-step="done">3 Done</span>
       </div>
       <div class="cta-row">
-        <a class="btn-primary" href="https://drishabhh.github.io/sapna-workout/" target="_blank" rel="noopener">Full workout + GIFs</a>
+        <a class="btn-primary" href="#session-stretch" id="start-session">Start session</a>
         <a class="btn-ghost" href="#logs">History</a>
       </div>
     </div>
@@ -430,7 +430,7 @@
         <h2 id="gate-title">Admin</h2>
         <button type="button" class="btn-ghost" onclick="return window.sapnaAdminCloseGate();">Cancel</button>
       </header>
-      <p class="hint">Unlock to publish diet / periods / logs, or open Workout Admin to edit today’s plan.</p>
+      <p class="hint">Unlock to build today’s workout plan, and publish diet / periods / logs.</p>
       <form id="gate-form" onsubmit="return window.sapnaAdminUnlock(event);">
         <label class="field">Password
           <input type="password" id="gate-password" autocomplete="current-password" />
@@ -450,15 +450,58 @@
       </header>
       <p class="status admin-status-sticky" id="admin-status" hidden></p>
 
-      <section class="admin-block">
-        <h3 class="admin-subhead">Today’s workout</h3>
-        <p class="hint">Add or edit moves, GIFs, and order on the Workout Admin page — then come back here for diet / periods / logs.</p>
-        <div class="actions">
-          <a class="btn-primary admin-workout-link" id="admin-open-workout" href="https://drishabhh.github.io/sapna-workout/?admin=1" target="_blank" rel="noopener">Add / edit workout</a>
+      <section class="admin-block plan-launch">
+        <h3 class="admin-subhead">Today’s workout plan</h3>
+        <p class="hint">Build the plan here — Stretching or Exercise → body part → GIF → sets/reps, then add another.</p>
+        <div class="actions plan-launch-actions">
+          <button type="button" class="btn-primary" id="plan-create-today">Create plan for today</button>
+          <button type="button" class="btn-ghost" id="plan-create-new">Start a new plan</button>
         </div>
       </section>
 
-      <hr class="admin-sep" />
+      <div id="plan-builder" class="plan-builder" hidden>
+        <section class="admin-block">
+          <h3 class="admin-subhead">Page copy</h3>
+          <label class="field">Headline
+            <input type="text" id="edit-headline" placeholder="Aaj ka workout" />
+          </label>
+          <label class="field">Support line
+            <textarea id="edit-support" rows="2" placeholder="Stretch · lift · log"></textarea>
+          </label>
+          <label class="field">Rest note title
+            <input type="text" id="edit-rest-title" placeholder="Rest & water" />
+          </label>
+          <label class="field">Rest note
+            <textarea id="edit-rest-body" rows="3" placeholder="Rest 1–1.5 min between sets…"></textarea>
+          </label>
+        </section>
+
+        <section class="admin-block">
+          <div class="admin-block-head">
+            <h3 class="admin-subhead">Moves on today’s plan</h3>
+            <button type="button" class="btn-ghost" id="add-move">+ Add move</button>
+          </div>
+          <p class="hint">Step flow: type → body part → GIF → prescription. Change Order numbers to reorder.</p>
+          <div id="admin-moves" class="admin-moves"></div>
+          <div class="actions" style="margin-top:0.75rem">
+            <button type="button" class="btn-primary" id="plan-add-another" hidden>+ Add another move</button>
+          </div>
+        </section>
+
+        <section class="admin-block">
+          <h3 class="admin-subhead">Post workout plan</h3>
+          <p class="hint">Uses the GitHub PAT below (same token as diet / logs).</p>
+          <p class="admin-status" id="publish-status" hidden></p>
+          <p class="admin-status" id="token-status" hidden></p>
+          <div class="actions admin-publish-actions">
+            <button type="button" class="btn-ghost" id="preview-plan">Preview on Workout tab</button>
+            <button type="button" class="btn-primary" id="publish-plan">Post / Publish plan</button>
+            <button type="button" class="btn-ghost" id="save-token" hidden>Save token</button>
+            <button type="button" class="btn-ghost" id="clear-token" hidden>Clear token</button>
+          </div>
+        </section>
+        <hr class="admin-sep" />
+      </div>
 
       <section class="admin-block">
         <h3 class="admin-subhead">Diet defaults</h3>
@@ -511,6 +554,30 @@
           <button type="button" class="btn-ghost" id="admin-clear-google">Clear Google keys</button>
         </div>
       </section>
+    </div>
+  </div>
+
+  <!-- Plan add-move wizard (Health-themed) -->
+  <div class="overlay admin-overlay plan-overlay" id="add-wizard" hidden>
+    <div class="sheet admin-sheet" role="dialog" aria-modal="true" aria-labelledby="add-wizard-title">
+      <header class="sheet-head">
+        <button type="button" class="btn-ghost" id="add-wizard-back" hidden>Back</button>
+        <h2 id="add-wizard-title">Add move</h2>
+        <button type="button" class="btn-ghost" id="add-wizard-close">Close</button>
+      </header>
+      <div id="add-wizard-body" class="gif-browser-body"></div>
+    </div>
+  </div>
+
+  <!-- Hierarchical GIF browser -->
+  <div class="overlay admin-overlay plan-overlay" id="gif-browser" hidden>
+    <div class="sheet admin-sheet admin-sheet-tall" role="dialog" aria-modal="true" aria-labelledby="gif-browser-title">
+      <header class="sheet-head gif-browser-head">
+        <button type="button" class="btn-ghost" id="gif-browser-back" hidden>Back</button>
+        <h2 id="gif-browser-title">Choose GIF</h2>
+        <button type="button" class="btn-ghost" id="gif-browser-close">Close</button>
+      </header>
+      <div id="gif-browser-body" class="gif-browser-body"></div>
     </div>
   </div>
 
@@ -604,12 +671,13 @@
       </header>
       <div class="gif-lightbox-stage">
         <img id="gif-lightbox-img" alt="" hidden />
-        <p class="gif-lightbox-note" id="gif-lightbox-note" hidden>Open the full workout app for this animated demo.</p>
+        <p class="gif-lightbox-note" id="gif-lightbox-note" hidden></p>
       </div>
       <p class="gif-lightbox-hint">Pinch to zoom · tap outside or Close</p>
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261011adminfix"></script>
+  <script src="./js/workout-admin.js?v=20261011merge"></script>
+  <script src="./js/app.js?v=20261011merge"></script>
 </body>
 </html>
