@@ -3214,3 +3214,153 @@ body.plan-admin-open { overflow: hidden; }
 .admin-status.is-ok { color: #1f7a48; }
 .admin-status.is-error { color: #b33; }
 .admin-status.is-info { color: #8a6414; }
+
+/* —— Plan cart (minimal tiles) —— */
+.plan-cart-list { display: grid; gap: 0.55rem; margin: 0.5rem 0 0.75rem; }
+.plan-cart-item {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.plan-cart-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f3eee6;
+}
+.plan-cart-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.plan-cart-thumb-empty { display: grid; place-items: center; height: 100%; color: var(--text-faint); }
+.plan-cart-name { margin: 0 0 0.3rem; font-weight: 700; font-size: 0.92rem; }
+.plan-cart-name em { font-style: normal; font-weight: 600; font-size: 0.72rem; color: var(--text-faint); margin-left: 0.35rem; text-transform: uppercase; }
+.plan-cart-rx {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem;
+  font: inherit;
+  font-size: 16px;
+}
+.plan-cart-tools { display: grid; gap: 0.25rem; }
+.plan-copy-details { margin: 0.65rem 0; border: none; }
+.plan-copy-details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.plan-checkout-actions { margin-top: 0.5rem; }
+.plan-browse-sheet { display: flex; flex-direction: column; }
+.plan-browse-body { flex: 1; overflow: auto; padding-bottom: 0.5rem; }
+.plan-browse-footer {
+  flex-shrink: 0;
+  padding: 0.65rem 0 calc(0.35rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: #fffdf9;
+}
+.plan-browse-footer .btn-primary { width: 100%; min-height: 50px; }
+.plan-browse-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.plan-tab {
+  appearance: none;
+  min-height: 44px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.plan-tab.is-active {
+  background: rgba(201, 149, 42, 0.16);
+  border-color: rgba(201, 149, 42, 0.5);
+  color: #8a6414;
+}
+.plan-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.plan-chip {
+  appearance: none;
+  min-height: 40px;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.plan-chip.is-equip {
+  border-color: rgba(201, 149, 42, 0.45);
+  background: rgba(201, 149, 42, 0.1);
+}
+.plan-tile-search {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  font-size: 16px;
+}
+.plan-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.plan-tile {
+  appearance: none;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 0.35rem;
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+.plan-tile img {
+  display: block;
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #f3eee6;
+}
+.plan-tile span {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.plan-tile.is-added {
+  border-color: #2f9e62;
+  box-shadow: 0 0 0 2px rgba(47, 158, 98, 0.25);
+}
+.plan-history-list { display: grid; gap: 0.5rem; }
+.plan-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.plan-history-item strong { display: block; font-size: 0.95rem; }
+.plan-history-item span { display: block; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }

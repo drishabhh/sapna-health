@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011merge"></script>
+  <script src="./js/admin-auth.js?v=20261011cart"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011merge" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011cart" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -452,7 +452,7 @@
 
       <section class="admin-block plan-launch">
         <h3 class="admin-subhead">Today’s workout plan</h3>
-        <p class="hint">Build the plan here — Stretching or Exercise → body part → GIF → sets/reps, then add another.</p>
+        <p class="hint">Tap tiles to fill a cart, then Publish.</p>
         <div class="actions plan-launch-actions">
           <button type="button" class="btn-primary" id="plan-create-today">Create plan for today</button>
           <button type="button" class="btn-ghost" id="plan-create-new">Start a new plan</button>
@@ -460,48 +460,47 @@
       </section>
 
       <div id="plan-builder" class="plan-builder" hidden>
-        <section class="admin-block">
-          <h3 class="admin-subhead">Page copy</h3>
-          <label class="field">Headline
-            <input type="text" id="edit-headline" placeholder="Aaj ka workout" />
-          </label>
-          <label class="field">Support line
-            <textarea id="edit-support" rows="2" placeholder="Stretch · lift · log"></textarea>
-          </label>
-          <label class="field">Rest note title
-            <input type="text" id="edit-rest-title" placeholder="Rest & water" />
-          </label>
-          <label class="field">Rest note
-            <textarea id="edit-rest-body" rows="3" placeholder="Rest 1–1.5 min between sets…"></textarea>
-          </label>
-        </section>
-
-        <section class="admin-block">
+        <section class="admin-block plan-cart-block">
           <div class="admin-block-head">
-            <h3 class="admin-subhead">Moves on today’s plan</h3>
-            <button type="button" class="btn-ghost" id="add-move">+ Add move</button>
+            <h3 class="admin-subhead">Cart (<span data-cart-count>0</span>)</h3>
+            <button type="button" class="btn-ghost" id="plan-browse-open">Browse moves</button>
           </div>
-          <p class="hint">Step flow: type → body part → GIF → prescription. Change Order numbers to reorder.</p>
-          <div id="admin-moves" class="admin-moves"></div>
-          <div class="actions" style="margin-top:0.75rem">
-            <button type="button" class="btn-primary" id="plan-add-another" hidden>+ Add another move</button>
-          </div>
-        </section>
-
-        <section class="admin-block">
-          <h3 class="admin-subhead">Post workout plan</h3>
-          <p class="hint">Uses the GitHub PAT below (same token as diet / logs).</p>
+          <p class="hint" id="plan-cart-empty">Cart is empty — Browse moves and tap a tile.</p>
+          <div id="plan-cart-list" class="plan-cart-list" hidden></div>
+          <details class="plan-copy-details">
+            <summary>Headline &amp; rest note</summary>
+            <label class="field">Headline
+              <input type="text" id="edit-headline" placeholder="Aaj ka workout" />
+            </label>
+            <label class="field">Support line
+              <textarea id="edit-support" rows="2" placeholder="Stretch · lift · log"></textarea>
+            </label>
+            <label class="field">Rest note title
+              <input type="text" id="edit-rest-title" placeholder="Rest & water" />
+            </label>
+            <label class="field">Rest note
+              <textarea id="edit-rest-body" rows="2" placeholder="Rest 1–1.5 min…"></textarea>
+            </label>
+          </details>
           <p class="admin-status" id="publish-status" hidden></p>
-          <p class="admin-status" id="token-status" hidden></p>
-          <div class="actions admin-publish-actions">
-            <button type="button" class="btn-ghost" id="preview-plan">Preview on Workout tab</button>
-            <button type="button" class="btn-primary" id="publish-plan">Post / Publish plan</button>
-            <button type="button" class="btn-ghost" id="save-token" hidden>Save token</button>
-            <button type="button" class="btn-ghost" id="clear-token" hidden>Clear token</button>
+          <div class="actions admin-publish-actions plan-checkout-actions">
+            <button type="button" class="btn-ghost" id="preview-plan">Preview</button>
+            <button type="button" class="btn-primary" id="publish-plan" disabled>Publish plan</button>
           </div>
         </section>
         <hr class="admin-sep" />
       </div>
+
+      <section class="admin-block">
+        <div class="admin-block-head">
+          <h3 class="admin-subhead">Previous plans</h3>
+          <button type="button" class="btn-ghost" id="plan-history-refresh">Refresh</button>
+        </div>
+        <p class="hint">Saved on GitHub when you Publish — works across phones.</p>
+        <div id="plan-history-list" class="plan-history-list"></div>
+      </section>
+
+      <hr class="admin-sep" />
 
       <section class="admin-block">
         <h3 class="admin-subhead">Diet defaults</h3>
@@ -557,27 +556,16 @@
     </div>
   </div>
 
-  <!-- Plan add-move wizard (Health-themed) -->
-  <div class="overlay admin-overlay plan-overlay" id="add-wizard" hidden>
-    <div class="sheet admin-sheet" role="dialog" aria-modal="true" aria-labelledby="add-wizard-title">
+  <!-- Minimal move browser (tiles → cart) -->
+  <div class="overlay admin-overlay plan-overlay" id="plan-browse" hidden>
+    <div class="sheet admin-sheet admin-sheet-tall plan-browse-sheet" role="dialog" aria-modal="true" aria-labelledby="plan-browse-title">
       <header class="sheet-head">
-        <button type="button" class="btn-ghost" id="add-wizard-back" hidden>Back</button>
-        <h2 id="add-wizard-title">Add move</h2>
-        <button type="button" class="btn-ghost" id="add-wizard-close">Close</button>
+        <button type="button" class="btn-ghost" id="plan-browse-back" hidden>Back</button>
+        <h2 id="plan-browse-title">Add moves</h2>
+        <button type="button" class="btn-ghost" id="plan-browse-close">Close</button>
       </header>
-      <div id="add-wizard-body" class="gif-browser-body"></div>
-    </div>
-  </div>
-
-  <!-- Hierarchical GIF browser -->
-  <div class="overlay admin-overlay plan-overlay" id="gif-browser" hidden>
-    <div class="sheet admin-sheet admin-sheet-tall" role="dialog" aria-modal="true" aria-labelledby="gif-browser-title">
-      <header class="sheet-head gif-browser-head">
-        <button type="button" class="btn-ghost" id="gif-browser-back" hidden>Back</button>
-        <h2 id="gif-browser-title">Choose GIF</h2>
-        <button type="button" class="btn-ghost" id="gif-browser-close">Close</button>
-      </header>
-      <div id="gif-browser-body" class="gif-browser-body"></div>
+      <div id="plan-browse-body" class="plan-browse-body"></div>
+      <footer class="plan-browse-footer" id="plan-browse-footer"></footer>
     </div>
   </div>
 
@@ -677,7 +665,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011merge"></script>
-  <script src="./js/app.js?v=20261011merge"></script>
+  <script src="./js/workout-admin.js?v=20261011cart"></script>
+  <script src="./js/app.js?v=20261011cart"></script>
 </body>
 </html>
