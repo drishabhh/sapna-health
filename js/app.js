@@ -1239,8 +1239,10 @@ Return JSON matching the schema.`;
     /**
      * Sign-in popup MUST run from a user click (not after await Gemini).
      * Call this first on "Use Puter Grok now"; on auto-fallback it may be popup_blocked.
+     * @param {{ timeoutMs?: number }} [opts] — short timeout after Gemini so UI is not stuck.
      */
-    async function ensureSignedIn() {
+    async function ensureSignedIn(opts = {}) {
+      const timeoutMs = opts.timeoutMs;
       if (!(await waitUntilReady())) {
         throw new Error("Puter.js is not loaded. Check network / ad blockers, then retry.");
       }
@@ -1249,12 +1251,28 @@ Return JSON matching the schema.`;
         throw new Error("Puter auth.signIn is missing — update Puter.js.");
       }
       try {
-        await puter.auth.signIn();
+        const signInPromise = puter.auth.signIn();
+        if (timeoutMs && timeoutMs > 0) {
+          await Promise.race([
+            signInPromise,
+            new Promise((_, reject) => {
+              setTimeout(() => {
+                const err = new Error(
+                  "Puter sign-in did not finish (popup blocked or closed). Tap “Use Puter Grok now”."
+                );
+                err.popupBlocked = true;
+                reject(err);
+              }, timeoutMs);
+            }),
+          ]);
+        } else {
+          await signInPromise;
+        }
         return { already: false };
       } catch (e) {
         const err = new Error(formatError(e));
         err.puter = e;
-        err.popupBlocked = isPopupBlocked(e);
+        err.popupBlocked = !!(e?.popupBlocked || isPopupBlocked(e));
         throw err;
       }
     }
@@ -1384,7 +1402,10 @@ ${JSON.stringify(example, null, 2)}`;
       }
 
       try {
-        await PuterGrok.ensureSignedIn();
+        /* After Gemini, gesture is gone — don't hang forever on a blocked popup. */
+        await PuterGrok.ensureSignedIn(
+          fromUserGesture ? {} : { timeoutMs: 8000 }
+        );
         setStatus(statusEl, "Using Puter Grok…", "info");
         const result = await puterCall({ skipAuth: true });
         return { result, provider: "puter-grok" };
