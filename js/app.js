@@ -1073,6 +1073,133 @@ Return JSON matching the schema.`;
     return { getKey, saveKey, hasKey, enrichFoods, coach, testKey, MODEL };
   })();
 
+  /* ───────── Gemini key panels (Admin + Insights + Diet — same phone LS) ───────── */
+  const GeminiKeyUI = (() => {
+    const TESTED = "sapna_gemini_tested";
+
+    function panels() {
+      return [...document.querySelectorAll("[data-gemini-panel]")];
+    }
+
+    function setBadgeOn(el, kind, label) {
+      if (!el) return;
+      if (!kind) {
+        el.hidden = true;
+        el.textContent = "";
+        el.className = "key-badge";
+        return;
+      }
+      el.hidden = false;
+      el.textContent = label || "";
+      el.className = "key-badge is-" + kind;
+    }
+
+    function syncPanels({ keepFocus } = {}) {
+      const has = Gemini.hasKey();
+      const tested = sessionStorage.getItem(TESTED) === "1" || localStorage.getItem(TESTED) === "1";
+      panels().forEach((panel) => {
+        const input = panel.querySelector("[data-gemini-input]");
+        const badge = panel.querySelector("[data-gemini-badge]");
+        if (input && document.activeElement !== input) {
+          input.value = "";
+          input.placeholder = has ? "Key saved — paste to replace" : "AIza…";
+        }
+        if (has && tested) setBadgeOn(badge, "ok", "✓ Working");
+        else if (has) setBadgeOn(badge, "info", "Saved");
+        else setBadgeOn(badge, null);
+        if (panel.tagName === "DETAILS") {
+          if (!has && !keepFocus) panel.open = true;
+          else if (has && panel.id === "coach-gemini-panel") panel.open = false;
+        }
+      });
+    }
+
+    async function saveFrom(panel) {
+      const input = panel?.querySelector("[data-gemini-input]");
+      const status = panel?.querySelector("[data-gemini-status]");
+      const badge = panel?.querySelector("[data-gemini-badge]");
+      const btn = panel?.querySelector("[data-gemini-save]");
+      let key = (input?.value || "").trim();
+      if ((!key || key.startsWith("••")) && Gemini.getKey()) key = Gemini.getKey();
+      if (!key) {
+        setBadgeOn(badge, "error", "Missing");
+        setStatus(status, "Paste a Gemini API key from Google AI Studio.", "error");
+        if ($("admin-status") && panel?.id === "admin-gemini-panel") {
+          setStatus($("admin-status"), "Paste a Gemini API key from Google AI Studio.", "error");
+        }
+        return false;
+      }
+      if (key.length < 20 || !/^AIza/i.test(key)) {
+        setBadgeOn(badge, "error", "Check key");
+        setStatus(status, "That doesn’t look like an AI Studio key (usually starts with AIza).", "error");
+        return false;
+      }
+      Gemini.saveKey(key);
+      if (btn) btn.disabled = true;
+      setBadgeOn(badge, "info", "Checking…");
+      setStatus(status, "Testing Gemini…", "info");
+      const result = await Gemini.testKey();
+      if (btn) btn.disabled = false;
+      if (!result.ok) {
+        try {
+          localStorage.removeItem(TESTED);
+          sessionStorage.removeItem(TESTED);
+        } catch (_) {}
+        setBadgeOn(badge, "error", "Invalid");
+        setStatus(status, result.message, "error");
+        if ($("admin-status") && panel?.id === "admin-gemini-panel") {
+          setStatus($("admin-status"), result.message, "error");
+        }
+        return false;
+      }
+      try {
+        localStorage.setItem(TESTED, "1");
+        sessionStorage.setItem(TESTED, "1");
+      } catch (_) {}
+      syncPanels();
+      setStatus(status, result.message + " Saved on this phone only.", "ok");
+      if ($("admin-status")) {
+        setStatus($("admin-status"), result.message + " Saved on this phone only.", "ok");
+      }
+      return true;
+    }
+
+    function clearFrom(panel) {
+      Gemini.saveKey("");
+      try {
+        localStorage.removeItem(TESTED);
+        sessionStorage.removeItem(TESTED);
+      } catch (_) {}
+      const status = panel?.querySelector("[data-gemini-status]");
+      syncPanels();
+      setStatus(status, "Gemini key cleared from this phone.", "info");
+      if ($("admin-status") && panel?.id === "admin-gemini-panel") {
+        setStatus($("admin-status"), "Gemini key cleared from this phone.", "info");
+      }
+    }
+
+    function wire() {
+      document.addEventListener("click", (e) => {
+        const saveBtn = e.target.closest("[data-gemini-save]");
+        if (saveBtn) {
+          e.preventDefault();
+          const panel = saveBtn.closest("[data-gemini-panel]");
+          saveFrom(panel);
+          return;
+        }
+        const clearBtn = e.target.closest("[data-gemini-clear]");
+        if (clearBtn) {
+          e.preventDefault();
+          const panel = clearBtn.closest("[data-gemini-panel]");
+          clearFrom(panel);
+        }
+      });
+      syncPanels();
+    }
+
+    return { wire, syncPanels, saveFrom, clearFrom };
+  })();
+
   /* ───────── Coach UI (Path B — overnight file + on-demand) ───────── */
   const Coach = (() => {
     const INSIGHTS_URL = "./data/insights/latest.json";
@@ -1223,7 +1350,7 @@ Return JSON matching the schema.`;
       if (!Gemini.hasKey()) {
         setStatus(
           statusEl,
-          "Phone key optional — overnight uses GitHub secret GEMINI_API_KEY. Add Admin Gemini key to refresh now.",
+          "Add Gemini key above (this phone) to refresh now. Overnight 4:00 IST uses GitHub secret GEMINI_API_KEY separately.",
           "error"
         );
         return null;
@@ -2984,43 +3111,6 @@ Return JSON matching the schema.`;
     });
 
 
-    $("admin-save-gemini")?.addEventListener("click", async () => {
-      const btn = $("admin-save-gemini");
-      let key = ($("admin-gemini-key")?.value || "").trim();
-      if ((!key || key.startsWith("••")) && Gemini.getKey()) key = Gemini.getKey();
-      if (!key) {
-        setKeyBadge("admin-gemini-badge", "error", "Missing");
-        setStatus($("admin-status"), "Paste a Gemini API key from Google AI Studio.", "error");
-        return;
-      }
-      Gemini.saveKey(key);
-      if (btn) btn.disabled = true;
-      setKeyBadge("admin-gemini-badge", "info", "Checking…");
-      setStatus($("admin-status"), "Testing Gemini…", "info");
-      const result = await Gemini.testKey();
-      if (btn) btn.disabled = false;
-      if (!result.ok) {
-        setKeyBadge("admin-gemini-badge", "error", "Invalid");
-        setStatus($("admin-status"), result.message, "error");
-        return;
-      }
-      if ($("admin-gemini-key")) {
-        $("admin-gemini-key").value = "";
-        $("admin-gemini-key").placeholder = "Key saved — paste to replace";
-      }
-      setKeyBadge("admin-gemini-badge", "ok", "✓ Working");
-      setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
-    });
-    $("admin-clear-gemini")?.addEventListener("click", () => {
-      Gemini.saveKey("");
-      if ($("admin-gemini-key")) {
-        $("admin-gemini-key").value = "";
-        $("admin-gemini-key").placeholder = "AIza…";
-      }
-      setKeyBadge("admin-gemini-badge", null);
-      setStatus($("admin-status"), "Gemini key cleared.", "info");
-    });
-
     $("admin-save-token")?.addEventListener("click", async () => {
       const btn = $("admin-save-token");
       let token = ($("admin-token")?.value || "").trim();
@@ -3126,12 +3216,7 @@ Return JSON matching the schema.`;
           setKeyBadge("admin-token-badge", null);
         }
       }
-      if (Gemini.hasKey()) {
-        setKeyBadge("admin-gemini-badge", "info", "Saved");
-        if ($("admin-gemini-key")) $("admin-gemini-key").placeholder = "Key saved — paste to replace";
-      } else {
-        setKeyBadge("admin-gemini-badge", null);
-      }
+      if (typeof GeminiKeyUI !== "undefined") GeminiKeyUI.syncPanels();
       Coach.paint();
       setStatus($("admin-status"), "Admin ready — test token / Gemini or post to Pages.", "info");
       const sheet = $("admin-editor")?.querySelector(".admin-sheet");
@@ -3268,6 +3353,7 @@ Return JSON matching the schema.`;
     await Diet.init();
     await Periods.init();
     await Workout.init();
+    GeminiKeyUI.wire();
     Coach.wire();
     /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
     if (Workout.refreshSummaries) Workout.refreshSummaries();

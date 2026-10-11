@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011ins1"></script>
+  <script src="./js/admin-auth.js?v=20261011gemkey1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011ins1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011gemkey1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -171,6 +171,21 @@
         </div>
         <button type="button" class="btn-primary" id="coach-run">Get insights</button>
       </div>
+      <details class="gemini-key-panel" data-gemini-panel id="coach-gemini-panel">
+        <summary class="gemini-key-summary">
+          <span>Gemini key for this phone</span>
+          <span class="key-badge" data-gemini-badge hidden></span>
+        </summary>
+        <p class="hint">Paste your <strong>AI Studio</strong> key to use <strong>Get insights</strong> here. Saved only on this phone — not published. Overnight 4:00 IST still needs the separate GitHub secret <code>GEMINI_API_KEY</code>.</p>
+        <label class="field" for="coach-gemini-key">API key
+          <input type="password" id="coach-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza…" />
+        </label>
+        <div class="actions">
+          <button type="button" class="btn-primary" data-gemini-save>Save &amp; test</button>
+          <button type="button" class="btn-ghost" data-gemini-clear>Clear</button>
+        </div>
+        <p class="status" data-gemini-status hidden></p>
+      </details>
       <div id="coach-body" class="coach-body"></div>
       <p class="status" id="coach-status" hidden></p>
     </section>
@@ -263,6 +278,19 @@
           <span class="diet-chip">1 Gemini call</span>
         </summary>
         <p class="hint">List foods she eats often (one per line). Gemini fills kcal/protein once — then log offline from the library.</p>
+        <div class="gemini-key-panel gemini-key-panel-inline" data-gemini-panel id="diet-gemini-panel">
+          <div class="field-label-row">
+            <label class="field field-grow" for="diet-gemini-key">Gemini key (this phone)</label>
+            <span class="key-badge" data-gemini-badge hidden></span>
+          </div>
+          <input type="password" id="diet-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza…" />
+          <p class="hint">Needed for <strong>Fill library with Gemini</strong>. Same key as Insights / Admin — phone only, never committed.</p>
+          <div class="actions">
+            <button type="button" class="btn-diet" data-gemini-save>Save &amp; test</button>
+            <button type="button" class="btn-diet-ghost" data-gemini-clear>Clear</button>
+          </div>
+          <p class="status" data-gemini-status hidden></p>
+        </div>
         <label class="field">Regular list
           <textarea id="diet-regular-list" rows="5" placeholder="Roti&#10;Dal&#10;Paneer bhurji&#10;Curd (1 bowl)&#10;Banana"></textarea>
         </label>
@@ -552,17 +580,20 @@
         </div>
       </section>
 
-      <section class="admin-block">
-        <div class="field-label-row">
-          <label class="field field-grow" for="admin-gemini-key">Gemini API key</label>
-          <span class="key-badge" id="admin-gemini-badge" hidden></span>
+      <section class="admin-block gemini-key-panel" data-gemini-panel id="admin-gemini-panel">
+        <div class="admin-block-head">
+          <h3 class="admin-subhead">Gemini key (this phone)</h3>
+          <span class="key-badge" id="admin-gemini-badge" data-gemini-badge hidden></span>
         </div>
-        <input type="password" id="admin-gemini-key" class="admin-key-input" autocomplete="off" placeholder="AIza…" />
-        <p class="hint">Phone key for food list + manual Insights. Overnight 4:00 IST uses GitHub secret <code>GEMINI_API_KEY</code> (Settings → Secrets) — never commit the key.</p>
+        <p class="hint"><strong>Phone key</strong> (here) powers manual Insights + food library. <strong>GitHub secret</strong> <code>GEMINI_API_KEY</code> powers overnight 4:00 IST — different place, both optional for their jobs. Never commit either key; never published in JSON.</p>
+        <label class="field" for="admin-gemini-key">AI Studio API key
+          <input type="password" id="admin-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza…" />
+        </label>
         <div class="actions">
-          <button type="button" class="btn-primary" id="admin-save-gemini">Save &amp; test Gemini</button>
-          <button type="button" class="btn-ghost" id="admin-clear-gemini">Clear</button>
+          <button type="button" class="btn-primary" id="admin-save-gemini" data-gemini-save>Save &amp; test Gemini</button>
+          <button type="button" class="btn-ghost" id="admin-clear-gemini" data-gemini-clear>Clear</button>
         </div>
+        <p class="status" data-gemini-status id="admin-gemini-status" hidden></p>
       </section>
 
       <section class="admin-block">
@@ -723,7 +754,7 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011ins1"></script>
-  <script src="./js/app.js?v=20261011ins1"></script>
+  <script src="./js/workout-admin.js?v=20261011gemkey1"></script>
+  <script src="./js/app.js?v=20261011gemkey1"></script>
 </body>
 </html>

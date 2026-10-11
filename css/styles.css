@@ -4493,3 +4493,48 @@ textarea {
   background: rgba(47, 158, 98, 0.14);
   border: 1px solid rgba(47, 158, 98, 0.28);
 }
+
+/* Gemini key panels (Insights / Diet / Admin) */
+.gemini-key-panel {
+  margin: 0.65rem 0 0.85rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 252, 248, 0.9);
+}
+.gemini-key-panel-inline {
+  margin: 0.5rem 0 0.85rem;
+  background: rgba(47, 158, 98, 0.06);
+  border-color: rgba(47, 158, 98, 0.22);
+}
+.coach-card > .gemini-key-panel {
+  margin-top: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+.gemini-key-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.9rem;
+  list-style: none;
+}
+.gemini-key-summary::-webkit-details-marker { display: none; }
+.gemini-key-panel .admin-key-input,
+.gemini-key-panel input[type="password"] {
+  width: 100%;
+  margin: 0.35rem 0 0.45rem;
+  min-height: 44px;
+  font-size: 16px;
+}
+.gemini-key-panel .actions {
+  margin-top: 0.35rem;
+}
+#admin-gemini-panel {
+  padding: 0;
+  border: none;
+  background: transparent;
+  margin: 0;
+}
