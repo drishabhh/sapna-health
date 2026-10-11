@@ -1,5 +1,33 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T23:48:06.185Z",
-  "days": {}
+  "updatedAt": "2026-10-11T23:59:22.404Z",
+  "days": {
+    "2026-10-11": {
+      "done": {
+        "ln-roti-sabzi": false
+      },
+      "extras": [],
+      "breakfast": [
+        {
+          "id": "gfood-the-healthy-factory-bread-1-slice-30g--80",
+          "name": "The Healthy Factory Bread (1 slice (30g))",
+          "kcal": 80,
+          "protein": 4,
+          "servings": 1
+        },
+        {
+          "id": "gfood-milky-mist-high-protein-greek-yogurt-1-cup-100g--90",
+          "name": "Milky Mist High Protein Greek Yogurt (1 cup (100g))",
+          "kcal": 90,
+          "protein": 8,
+          "servings": 1,
+          "carbs": 6.5,
+          "fat": 3.5
+        }
+      ],
+      "lunch": [],
+      "dinner": [],
+      "snacks": []
+    }
+  }
 }
