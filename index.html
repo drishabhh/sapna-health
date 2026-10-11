@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011puter4"></script>
+  <script src="./js/admin-auth.js?v=20261011pkg1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011puter4" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011pkg1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -251,12 +251,70 @@
           <p class="hf-add-meal-hint" id="diet-add-meal-hint">Adding to Breakfast</p>
         </div>
         <label class="field">Search library
-          <input type="search" id="diet-search" placeholder="Roti, dal, paneer…" enterkeyhint="search" autocomplete="off" />
+          <input type="search" id="diet-search" placeholder="Roti, bread, Health Factory…" enterkeyhint="search" autocomplete="off" />
         </label>
-        <label class="field field-inline-servings">Servings
+        <label class="field field-inline-servings" id="diet-servings-wrap">Servings
           <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
         </label>
         <div class="food-pick" id="diet-food-pick"></div>
+
+        <div class="diet-pkg-sheet" id="diet-pkg-sheet" hidden>
+          <p class="diet-pkg-name" id="diet-pkg-name"></p>
+          <p class="hint" id="diet-pkg-base"></p>
+          <div class="diet-pkg-modes" role="group" aria-label="Amount unit">
+            <button type="button" class="meal-chip is-active" data-pkg-mode="grams" id="diet-pkg-mode-g">Grams</button>
+            <button type="button" class="meal-chip" data-pkg-mode="servings" id="diet-pkg-mode-s">Servings</button>
+          </div>
+          <label class="field" for="diet-pkg-amount"><span id="diet-pkg-amount-label">Amount (g)</span>
+            <input type="number" id="diet-pkg-amount" min="1" step="1" value="50" />
+          </label>
+          <p class="diet-pkg-preview" id="diet-pkg-preview" aria-live="polite"></p>
+          <div class="actions">
+            <button type="button" class="btn-diet" id="diet-pkg-confirm">Add to meal</button>
+            <button type="button" class="btn-diet-ghost" id="diet-pkg-cancel">Cancel</button>
+          </div>
+        </div>
+
+        <details class="diet-custom diet-add-product" id="diet-packaged-card" open>
+          <summary>Add product</summary>
+          <p class="hint">Type brand + name. <strong>Fill with AI &amp; save</strong> looks up typical label nutrition (Gemini → Puter Grok). Then log by grams or servings.</p>
+          <div class="field-row">
+            <label class="field">Brand
+              <input type="text" id="diet-pkg-brand" placeholder="The Health Factory" autocomplete="organization" />
+            </label>
+            <label class="field">Product name
+              <input type="text" id="diet-pkg-product" placeholder="Zero Maida Simply Whole Wheat Bread" autocomplete="off" />
+            </label>
+          </div>
+          <label class="field">Serving size / note <span class="field-opt">(optional)</span>
+            <input type="text" id="diet-pkg-serving" placeholder="e.g. 100g or 1 slice ≈ 30g" />
+          </label>
+          <label class="field">Notes for AI <span class="field-opt">(optional)</span>
+            <input type="text" id="diet-pkg-notes" placeholder="India pack, whole wheat bread…" />
+          </label>
+          <div class="actions">
+            <button type="button" class="btn-diet" id="diet-pkg-ai">Fill with AI &amp; save</button>
+            <button type="button" class="btn-diet-ghost" id="diet-pkg-ai-puter">Use Puter Grok now</button>
+          </div>
+          <div class="diet-pkg-ai-preview" id="diet-pkg-ai-preview" hidden>
+            <p class="diet-pkg-preview-title" id="diet-pkg-ai-title"></p>
+            <p class="hint" id="diet-pkg-ai-meta"></p>
+            <pre class="diet-pkg-preview-json" id="diet-pkg-ai-json"></pre>
+            <div class="actions">
+              <button type="button" class="btn-diet" id="diet-pkg-ai-confirm">Save to library</button>
+              <button type="button" class="btn-diet-ghost" id="diet-pkg-ai-discard">Discard</button>
+            </div>
+          </div>
+          <p class="status" id="diet-pkg-status" hidden></p>
+          <details class="diet-pkg-json-details">
+            <summary>Paste full nutrition JSON (power user)</summary>
+            <label class="field">JSON
+              <textarea id="diet-pkg-json" rows="6" placeholder='{"brand":"…","product":"…","serving_size":"100g","nutrition_facts":{"energy_kcal":…}}'></textarea>
+            </label>
+            <button type="button" class="btn-diet" id="diet-pkg-parse">Parse JSON → library</button>
+          </details>
+        </details>
+
         <details class="diet-custom">
           <summary>Custom food</summary>
           <div class="field-row">
@@ -762,7 +820,7 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261011puter4"></script>
-  <script src="./js/app.js?v=20261011puter4"></script>
+  <script src="./js/workout-admin.js?v=20261011pkg1"></script>
+  <script src="./js/app.js?v=20261011pkg1"></script>
 </body>
 </html>

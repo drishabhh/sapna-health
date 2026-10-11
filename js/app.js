@@ -1099,6 +1099,74 @@ Return JSON only matching the schema.`;
       return generate({ prompt, schema, useSearch: false });
     }
 
+    function preparePackagedProduct({ brand, product, servingHint, notes }) {
+      const b = String(brand || "").trim();
+      const p = String(product || "").trim();
+      if (!b && !p) throw new Error("Enter a brand and/or product name.");
+      if (!p) throw new Error("Enter the product name.");
+      const hint = String(servingHint || "").trim();
+      const note = String(notes || "").trim();
+      const prompt = `You look up typical packaged-food nutrition for an adult woman logging meals in India.
+Return one product object with realistic label-style nutrition_facts for the stated serving_size.
+Prefer official / common Indian retail packs when the brand is known. If uncertain, use a clear best-estimate per 100g and set serving_size to "100g".
+Do not invent medical claims. Numbers must be plausible for that food type.
+Brand: ${b || "(unknown)"}
+Product: ${p}
+Serving hint from user: ${hint || "(none — prefer 100g if unsure)"}
+Notes: ${note || "(none)"}
+Return JSON only matching the schema.`;
+      const schema = {
+        type: "object",
+        properties: {
+          brand: { type: "string" },
+          product: { type: "string" },
+          serving_size: { type: "string" },
+          nutrition_facts: {
+            type: "object",
+            properties: {
+              energy_kcal: { type: "number" },
+              protein_g: { type: "number" },
+              total_carbohydrates_g: { type: "number" },
+              dietary_fibre_g: { type: "number" },
+              total_sugars_g: { type: "number" },
+              added_sugars_g: { type: "number" },
+              total_fat_g: { type: "number" },
+              saturated_fat_g: { type: "number" },
+              trans_fat_g: { type: "number" },
+              cholesterol_mg: { type: "number" },
+              sodium_mg: { type: "number" },
+            },
+            required: ["energy_kcal", "protein_g"],
+          },
+        },
+        required: ["brand", "product", "serving_size", "nutrition_facts"],
+      };
+      const example = {
+        brand: b || "Brand",
+        product: p,
+        serving_size: hint || "100g",
+        nutrition_facts: {
+          energy_kcal: 241.4,
+          protein_g: 13.41,
+          total_carbohydrates_g: 43.97,
+          dietary_fibre_g: 6.31,
+          total_sugars_g: 4.1,
+          added_sugars_g: 2.01,
+          total_fat_g: 1.32,
+          saturated_fat_g: 0.2,
+          trans_fat_g: 0,
+          cholesterol_mg: 0,
+          sodium_mg: 340,
+        },
+      };
+      return { prompt, schema, example };
+    }
+
+    async function enrichPackagedProduct(input) {
+      const { prompt, schema } = preparePackagedProduct(input);
+      return generate({ prompt, schema, useSearch: false });
+    }
+
     function prepareCoach(snapshot) {
       const prompt = `You are a gentle health coach for Sapna (private, adult woman).
 Use ONLY this snapshot. Do not invent exact medical diagnoses. Be practical and kind.
@@ -1184,10 +1252,12 @@ Return JSON matching the schema.`;
       saveKey,
       hasKey,
       enrichFoods,
+      enrichPackagedProduct,
       coach,
       testKey,
       preferredModels,
       prepareEnrichFoods,
+      preparePackagedProduct,
       prepareCoach,
     };
   })();
@@ -1346,6 +1416,11 @@ ${JSON.stringify(example, null, 2)}`;
       return chatJson(prompt, example, opts);
     }
 
+    async function enrichPackagedProduct(input, opts) {
+      const { prompt, example } = Gemini.preparePackagedProduct(input);
+      return chatJson(prompt, example, opts);
+    }
+
     async function coach(snapshot, opts) {
       const { prompt, example } = Gemini.prepareCoach(snapshot);
       return chatJson(prompt, example, opts);
@@ -1357,6 +1432,7 @@ ${JSON.stringify(example, null, 2)}`;
       ensureSignedIn,
       isSignedIn,
       enrichFoods,
+      enrichPackagedProduct,
       coach,
       formatError,
       isPopupBlocked,
@@ -1810,6 +1886,7 @@ ${JSON.stringify(example, null, 2)}`;
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
     let state = loadJSON(LS.diet, { targets: null, day: emptyDay(), customFoods: [], recentFoodIds: [] });
+    let pkgPending = null; /* { food, mode: 'grams'|'servings' } */
 
     function ensureDay() {
       if (!state.day || state.day.date !== todayISO()) {
@@ -1832,6 +1909,146 @@ ${JSON.stringify(example, null, 2)}`;
 
     function findFood(id) {
       return allFoods().find((f) => f.id === id) || null;
+    }
+
+    function isPackaged(food) {
+      return !!(food && (food.kind === "packaged" || food.servingGrams || food.servingSize));
+    }
+
+    function parseServingGrams(servingSize) {
+      const s = String(servingSize || "").trim().toLowerCase();
+      if (!s) return null;
+      const m = s.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|kg)\b/);
+      if (!m) return null;
+      const n = Number(m[1]);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      return m[2].startsWith("kg") ? n * 1000 : n;
+    }
+
+    function roundn(n, d = 2) {
+      const f = 10 ** d;
+      return Math.round(Number(n) * f) / f;
+    }
+
+    function displayProductName(brand, product) {
+      const b = String(brand || "").trim();
+      const p = String(product || "").trim();
+      if (b && p) return `${b} — ${p}`;
+      return p || b || "Packaged product";
+    }
+
+    function productFromParts({
+      brand,
+      product,
+      servingSize,
+      kcal,
+      protein,
+      carbs,
+      fiber,
+      sugars,
+      addedSugars,
+      fat,
+      saturatedFat,
+      transFat,
+      cholesterolMg,
+      sodiumMg,
+      id,
+    }) {
+      const name = displayProductName(brand, product);
+      const servingGrams = parseServingGrams(servingSize);
+      const energy = Number(kcal);
+      if (!name || !Number.isFinite(energy)) {
+        throw new Error("Need brand/product and energy_kcal (or kcal).");
+      }
+      const slug =
+        (brand + "-" + product)
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "")
+          .slice(0, 48) || "product";
+      return {
+        id: id || "pkg-" + slug + "-" + Math.round(energy),
+        name,
+        brand: String(brand || "").trim(),
+        product: String(product || "").trim(),
+        servingSize: String(servingSize || "").trim() || (servingGrams ? `${servingGrams}g` : "1 serving"),
+        servingGrams,
+        kcal: roundn(energy, 2),
+        protein: roundn(Number(protein) || 0, 2),
+        carbs: Number.isFinite(Number(carbs)) ? roundn(carbs, 2) : null,
+        fiber: Number.isFinite(Number(fiber)) ? roundn(fiber, 2) : null,
+        sugars: Number.isFinite(Number(sugars)) ? roundn(sugars, 2) : null,
+        addedSugars: Number.isFinite(Number(addedSugars)) ? roundn(addedSugars, 2) : null,
+        fat: Number.isFinite(Number(fat)) ? roundn(fat, 2) : null,
+        saturatedFat: Number.isFinite(Number(saturatedFat)) ? roundn(saturatedFat, 2) : null,
+        transFat: Number.isFinite(Number(transFat)) ? roundn(transFat, 2) : null,
+        cholesterolMg: Number.isFinite(Number(cholesterolMg)) ? roundn(cholesterolMg, 2) : null,
+        sodiumMg: Number.isFinite(Number(sodiumMg)) ? roundn(sodiumMg, 2) : null,
+        kind: "packaged",
+        tags: ["packaged", "brand", String(brand || "").toLowerCase()].filter(Boolean),
+      };
+    }
+
+    function productFromJson(raw) {
+      let obj = raw;
+      if (typeof raw === "string") {
+        const text = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+        obj = JSON.parse(text);
+      }
+      if (!obj || typeof obj !== "object") throw new Error("JSON must be an object.");
+      const nf = obj.nutrition_facts || obj.nutritionFacts || obj.nutrition || {};
+      return productFromParts({
+        brand: obj.brand,
+        product: obj.product || obj.name,
+        servingSize: obj.serving_size || obj.servingSize || obj.serving,
+        kcal: nf.energy_kcal ?? nf.energyKcal ?? nf.kcal ?? obj.energy_kcal ?? obj.kcal,
+        protein: nf.protein_g ?? nf.protein ?? obj.protein_g ?? obj.protein,
+        carbs: nf.total_carbohydrates_g ?? nf.carbohydrates_g ?? nf.carbs ?? obj.carbs,
+        fiber: nf.dietary_fibre_g ?? nf.dietary_fiber_g ?? nf.fiber_g ?? nf.fiber,
+        sugars: nf.total_sugars_g ?? nf.sugars_g ?? nf.sugars,
+        addedSugars: nf.added_sugars_g ?? nf.addedSugars,
+        fat: nf.total_fat_g ?? nf.fat_g ?? nf.fat,
+        saturatedFat: nf.saturated_fat_g ?? nf.saturatedFat,
+        transFat: nf.trans_fat_g ?? nf.transFat,
+        cholesterolMg: nf.cholesterol_mg ?? nf.cholesterolMg,
+        sodiumMg: nf.sodium_mg ?? nf.sodiumMg ?? nf.sodium,
+        id: obj.id,
+      });
+    }
+
+    function scaleFactor(food, mode, amount) {
+      const a = Number(amount);
+      if (!Number.isFinite(a) || a <= 0) throw new Error("Enter a positive amount.");
+      if (mode === "grams") {
+        const g = Number(food.servingGrams) || parseServingGrams(food.servingSize);
+        if (!g) throw new Error("This product has no gram serving — use Servings mode.");
+        return a / g;
+      }
+      return a;
+    }
+
+    function scaledMacros(food, factor) {
+      const mul = (v) => (v == null || !Number.isFinite(Number(v)) ? null : roundn(Number(v) * factor, 2));
+      return {
+        kcal: roundn((Number(food.kcal) || 0) * factor, 1),
+        protein: roundn((Number(food.protein) || 0) * factor, 2),
+        carbs: mul(food.carbs),
+        fat: mul(food.fat),
+        fiber: mul(food.fiber),
+        sugars: mul(food.sugars),
+        sodiumMg: mul(food.sodiumMg),
+      };
+    }
+
+    function savePackagedFood(food) {
+      state.customFoods = state.customFoods || [];
+      const existing = state.customFoods.findIndex(
+        (x) => x.id === food.id || (x.kind === "packaged" && x.name === food.name)
+      );
+      if (existing >= 0) state.customFoods[existing] = { ...state.customFoods[existing], ...food };
+      else state.customFoods.push(food);
+      persist();
+      return food;
     }
 
     function totals() {
@@ -1877,24 +2094,41 @@ ${JSON.stringify(example, null, 2)}`;
       state.recentFoodIds = [foodId, ...prev].slice(0, 8);
     }
 
-    function addItem(food, meal, servings) {
+    function addItem(food, meal, servings, extras = {}) {
       ensureDay();
       const s = Number(servings) || 1;
       const kcal = Number(food.kcal);
       if (!Number.isFinite(kcal)) return;
       state.day[meal] = state.day[meal] || [];
-      state.day[meal].push({
+      const entry = {
         id: food.id || "custom-" + Date.now(),
         name: food.name,
         kcal,
         protein: Number(food.protein) || 0,
         servings: s,
-      });
+      };
+      if (food.carbs != null) entry.carbs = Number(food.carbs);
+      if (food.fat != null) entry.fat = Number(food.fat);
+      if (food.fiber != null) entry.fiber = Number(food.fiber);
+      if (food.sugars != null) entry.sugars = Number(food.sugars);
+      if (food.sodiumMg != null) entry.sodiumMg = Number(food.sodiumMg);
+      if (extras.amountLabel) entry.amountLabel = extras.amountLabel;
+      if (food.kind === "packaged" || extras.kind === "packaged") entry.kind = "packaged";
+      state.day[meal].push(entry);
       pushRecent(food.id);
       markDietLogged(state.day.date || todayISO());
       persist();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+    }
+
+    function addPackagedAmount(food, meal, mode, amount) {
+      const factor = scaleFactor(food, mode, amount);
+      const a = Number(amount);
+      const amountLabel =
+        mode === "grams" ? `${roundn(a, 1)} g` : `${roundn(a, 2)} serving${a === 1 ? "" : "s"}`;
+      addItem(food, meal, factor, { amountLabel, kind: "packaged" });
+      return { factor, amountLabel, macros: scaledMacros(food, factor) };
     }
 
     function removeItem(meal, index) {
@@ -1908,11 +2142,18 @@ ${JSON.stringify(example, null, 2)}`;
       const q = String(query || "").toLowerCase().trim();
       let list = allFoods();
       if (q) {
-        list = list.filter(
-          (f) =>
-            f.name.toLowerCase().includes(q) ||
-            (f.tags || []).some((t) => String(t).toLowerCase().includes(q))
-        );
+        list = list.filter((f) => {
+          const hay = [
+            f.name,
+            f.brand,
+            f.product,
+            ...(f.tags || []),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return hay.includes(q);
+        });
       }
       return list.slice(0, 48);
     }
@@ -1923,9 +2164,12 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function foodButtonHtml(f) {
-      return `<button type="button" class="hf-food-btn" data-food-id="${escapeHtml(f.id)}">
+      const per = isPackaged(f)
+        ? `per ${escapeHtml(f.servingSize || (f.servingGrams ? f.servingGrams + "g" : "serving"))}`
+        : "";
+      return `<button type="button" class="hf-food-btn${isPackaged(f) ? " is-packaged" : ""}" data-food-id="${escapeHtml(f.id)}">
         <span class="hf-food-name">${escapeHtml(f.name)}</span>
-        <em>${f.kcal} kcal · ${f.protein}g P</em>
+        <em>${f.kcal} kcal · ${f.protein}g P${per ? ` · ${per}` : ""}</em>
       </button>`;
     }
 
@@ -2018,10 +2262,15 @@ ${JSON.stringify(example, null, 2)}`;
             ? items
                 .map((item, i) => {
                   const s = Number(item.servings) || 1;
+                  const qty = item.amountLabel
+                    ? ` · ${escapeHtml(item.amountLabel)}`
+                    : s !== 1
+                      ? ` × ${s}`
+                      : "";
                   return `<li>
                     <div>
-                      <div>${escapeHtml(item.name)}${s !== 1 ? ` × ${s}` : ""}</div>
-                      <div class="meta">${Math.round(item.kcal * s)} kcal · ${Math.round(item.protein * s * 10) / 10}g</div>
+                      <div>${escapeHtml(item.name)}${qty}</div>
+                      <div class="meta">${Math.round(item.kcal * s)} kcal · ${Math.round(item.protein * s * 10) / 10}g P</div>
                     </div>
                     <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
                   </li>`;
@@ -2052,6 +2301,230 @@ ${JSON.stringify(example, null, 2)}`;
       }
     }
 
+    let aiProductDraft = null;
+
+    function updatePkgPreview() {
+      if (!pkgPending?.food) return;
+      const mode = pkgPending.mode || "grams";
+      const amount = $("diet-pkg-amount")?.value;
+      try {
+        const factor = scaleFactor(pkgPending.food, mode, amount);
+        const m = scaledMacros(pkgPending.food, factor);
+        const el = $("diet-pkg-preview");
+        if (el) {
+          el.textContent = `→ ${m.kcal} kcal · ${m.protein}g protein` +
+            (m.carbs != null ? ` · ${m.carbs}g carbs` : "") +
+            (m.fat != null ? ` · ${m.fat}g fat` : "");
+        }
+      } catch (e) {
+        const el = $("diet-pkg-preview");
+        if (el) el.textContent = e.message || "Enter amount";
+      }
+    }
+
+    function openPkgSheet(food) {
+      pkgPending = {
+        food,
+        mode: food.servingGrams || parseServingGrams(food.servingSize) ? "grams" : "servings",
+      };
+      const sheet = $("diet-pkg-sheet");
+      if (sheet) sheet.hidden = false;
+      if ($("diet-pkg-name")) $("diet-pkg-name").textContent = food.name;
+      if ($("diet-pkg-base")) {
+        $("diet-pkg-base").textContent =
+          `Label: ${food.servingSize || "1 serving"} = ${food.kcal} kcal · ${food.protein}g protein` +
+          (food.carbs != null ? ` · ${food.carbs}g carbs` : "");
+      }
+      const hasG = !!(food.servingGrams || parseServingGrams(food.servingSize));
+      $("diet-pkg-mode-g")?.classList.toggle("is-active", pkgPending.mode === "grams");
+      $("diet-pkg-mode-s")?.classList.toggle("is-active", pkgPending.mode === "servings");
+      if ($("diet-pkg-mode-g")) $("diet-pkg-mode-g").disabled = !hasG;
+      if ($("diet-pkg-amount")) {
+        $("diet-pkg-amount").value = pkgPending.mode === "grams" ? String(Math.min(50, food.servingGrams || 50)) : "1";
+        $("diet-pkg-amount").step = pkgPending.mode === "grams" ? "1" : "0.25";
+      }
+      if ($("diet-pkg-amount-label")) {
+        $("diet-pkg-amount-label").textContent =
+          pkgPending.mode === "grams" ? "Amount (g)" : "Servings";
+      }
+      if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = true;
+      updatePkgPreview();
+      sheet?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function closePkgSheet() {
+      pkgPending = null;
+      const sheet = $("diet-pkg-sheet");
+      if (sheet) sheet.hidden = true;
+      if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = false;
+    }
+
+    function showAiProductPreview(food, rawJson) {
+      aiProductDraft = food;
+      const box = $("diet-pkg-ai-preview");
+      if (box) box.hidden = false;
+      if ($("diet-pkg-ai-title")) $("diet-pkg-ai-title").textContent = food.name;
+      if ($("diet-pkg-ai-meta")) {
+        $("diet-pkg-ai-meta").textContent =
+          `Per ${food.servingSize}: ${food.kcal} kcal · ${food.protein}g P` +
+          (food.carbs != null ? ` · ${food.carbs}g carbs` : "") +
+          (food.fat != null ? ` · ${food.fat}g fat` : "") +
+          (food.sodiumMg != null ? ` · ${food.sodiumMg}mg sodium` : "");
+      }
+      if ($("diet-pkg-ai-json")) {
+        $("diet-pkg-ai-json").textContent = JSON.stringify(
+          rawJson || {
+            brand: food.brand,
+            product: food.product,
+            serving_size: food.servingSize,
+            nutrition_facts: {
+              energy_kcal: food.kcal,
+              protein_g: food.protein,
+              total_carbohydrates_g: food.carbs,
+              dietary_fibre_g: food.fiber,
+              total_sugars_g: food.sugars,
+              added_sugars_g: food.addedSugars,
+              total_fat_g: food.fat,
+              saturated_fat_g: food.saturatedFat,
+              trans_fat_g: food.transFat,
+              cholesterol_mg: food.cholesterolMg,
+              sodium_mg: food.sodiumMg,
+            },
+          },
+          null,
+          2
+        );
+      }
+    }
+
+    function hideAiProductPreview() {
+      aiProductDraft = null;
+      const box = $("diet-pkg-ai-preview");
+      if (box) box.hidden = true;
+    }
+
+    function readProductForm() {
+      return {
+        brand: $("diet-pkg-brand")?.value || "",
+        product: $("diet-pkg-product")?.value || "",
+        servingHint: $("diet-pkg-serving")?.value || "",
+        notes: $("diet-pkg-notes")?.value || "",
+      };
+    }
+
+    async function fillProductWithAi({ preferPuter } = {}) {
+      const st = $("diet-pkg-status");
+      const input = readProductForm();
+      try {
+        Gemini.preparePackagedProduct(input);
+      } catch (e) {
+        setStatus(st, e.message || String(e), "error");
+        return;
+      }
+      hideAiProductPreview();
+      const puterCall = (opts) => PuterGrok.enrichPackagedProduct(input, opts);
+      try {
+        const { result, provider } = preferPuter
+          ? await AiBridge.puterOnly({ statusEl: st, puterCall })
+          : await AiBridge.withFallback({
+              statusEl: st,
+              geminiCall: () => Gemini.enrichPackagedProduct(input),
+              puterCall,
+            });
+        const food = productFromJson({
+          brand: result.brand || input.brand,
+          product: result.product || input.product,
+          serving_size: result.serving_size || input.servingHint || "100g",
+          nutrition_facts: result.nutrition_facts || result,
+        });
+        food.source = provider === "puter-grok" ? "puter-grok" : "gemini";
+        showAiProductPreview(food, result);
+        setStatus(
+          st,
+          `Preview ready via ${provider === "puter-grok" ? "Puter Grok" : "Gemini"} — confirm to save.`,
+          "ok"
+        );
+      } catch (e) {
+        setStatus(st, e.message || String(e), "error");
+      }
+    }
+
+    function wirePackagedProductUi() {
+      $("diet-pkg-ai")?.addEventListener("click", () => fillProductWithAi());
+      $("diet-pkg-ai-puter")?.addEventListener("click", () => fillProductWithAi({ preferPuter: true }));
+      $("diet-pkg-ai-confirm")?.addEventListener("click", () => {
+        if (!aiProductDraft) {
+          setStatus($("diet-pkg-status"), "Fill with AI first.", "error");
+          return;
+        }
+        savePackagedFood(aiProductDraft);
+        setStatus($("diet-pkg-status"), `Saved “${aiProductDraft.name}” to library.`, "ok");
+        if ($("diet-search")) $("diet-search").value = aiProductDraft.brand || aiProductDraft.product || "";
+        renderFoodPick($("diet-search")?.value || "");
+        hideAiProductPreview();
+      });
+      $("diet-pkg-ai-discard")?.addEventListener("click", () => {
+        hideAiProductPreview();
+        setStatus($("diet-pkg-status"), "Discarded AI preview.", "info");
+      });
+      $("diet-pkg-parse")?.addEventListener("click", () => {
+        const st = $("diet-pkg-status");
+        try {
+          const food = productFromJson($("diet-pkg-json")?.value || "");
+          savePackagedFood(food);
+          showAiProductPreview(food);
+          setStatus(st, `Parsed & saved “${food.name}”.`, "ok");
+          if ($("diet-search")) $("diet-search").value = food.brand || food.product || "";
+          renderFoodPick($("diet-search")?.value || "");
+        } catch (e) {
+          setStatus(st, e.message || "Could not parse JSON.", "error");
+        }
+      });
+      $("diet-pkg-sheet")?.addEventListener("click", (e) => {
+        const modeBtn = e.target.closest("[data-pkg-mode]");
+        if (modeBtn && pkgPending) {
+          if (modeBtn.disabled) return;
+          pkgPending.mode = modeBtn.getAttribute("data-pkg-mode");
+          $("diet-pkg-mode-g")?.classList.toggle("is-active", pkgPending.mode === "grams");
+          $("diet-pkg-mode-s")?.classList.toggle("is-active", pkgPending.mode === "servings");
+          if ($("diet-pkg-amount-label")) {
+            $("diet-pkg-amount-label").textContent =
+              pkgPending.mode === "grams" ? "Amount (g)" : "Servings";
+          }
+          if ($("diet-pkg-amount")) {
+            $("diet-pkg-amount").step = pkgPending.mode === "grams" ? "1" : "0.25";
+            if (pkgPending.mode === "servings") $("diet-pkg-amount").value = "1";
+          }
+          updatePkgPreview();
+          return;
+        }
+      });
+      $("diet-pkg-amount")?.addEventListener("input", updatePkgPreview);
+      $("diet-pkg-confirm")?.addEventListener("click", () => {
+        if (!pkgPending?.food) return;
+        try {
+          const meal = $("diet-meal")?.value || "breakfast";
+          const { amountLabel, macros } = addPackagedAmount(
+            pkgPending.food,
+            meal,
+            pkgPending.mode,
+            $("diet-pkg-amount")?.value
+          );
+          setStatus(
+            $("diet-status"),
+            `Added ${pkgPending.food.name} (${amountLabel}) → ${macros.kcal} kcal`,
+            "ok"
+          );
+          closePkgSheet();
+          if ($("diet-search")) $("diet-search").value = "";
+          renderFoodPick("");
+        } catch (e) {
+          setStatus($("diet-status"), e.message || String(e), "error");
+        }
+      });
+      $("diet-pkg-cancel")?.addEventListener("click", () => closePkgSheet());
+    }
+
     function wire() {
       $("diet-regular-run")?.addEventListener("click", () => bootstrapRegularFoods());
       $("diet-regular-puter")?.addEventListener("click", () => bootstrapRegularFoods({ preferPuter: true }));
@@ -2075,6 +2548,10 @@ ${JSON.stringify(example, null, 2)}`;
           setStatus($("diet-status"), "That item has no usable kcal.", "error");
           return;
         }
+        if (isPackaged(food)) {
+          openPkgSheet(food);
+          return;
+        }
         const meal = $("diet-meal")?.value || "breakfast";
         const servings = $("diet-servings")?.value || 1;
         addItem(food, meal, servings);
@@ -2082,6 +2559,7 @@ ${JSON.stringify(example, null, 2)}`;
         if ($("diet-search")) $("diet-search").value = "";
         renderFoodPick("");
       });
+      wirePackagedProductUi();
       $("diet-add-custom")?.addEventListener("click", () => {
         const name = $("diet-custom-name")?.value.trim();
         const kcal = Number($("diet-custom-kcal")?.value);
@@ -2141,8 +2619,8 @@ ${JSON.stringify(example, null, 2)}`;
       } catch (_) {}
       try {
         const [fRes, dRes] = await Promise.all([
-          fetch("./data/foods.json?v=20261011hf"),
-          fetch("./data/diet-defaults.json?v=20261011hf"),
+          fetch("./data/foods.json?v=20261011pkg1"),
+          fetch("./data/diet-defaults.json?v=20261011pkg1"),
         ]);
         if (fRes.ok) {
           const data = await fRes.json();

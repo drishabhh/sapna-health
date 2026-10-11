@@ -2951,6 +2951,69 @@ a.today-cta,
   font-weight: 600;
 }
 
+.diet-add-product .field-opt {
+  font-weight: 500;
+  color: var(--muted, #7a6a5a);
+  font-size: 0.85em;
+}
+.diet-pkg-sheet {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--line-strong, rgba(90, 60, 30, 0.18));
+  border-radius: 16px;
+  background: rgba(255, 252, 246, 0.9);
+}
+.diet-pkg-name {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.diet-pkg-modes {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.55rem 0 0.65rem;
+}
+.diet-pkg-preview {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text, #2a2118);
+}
+.diet-pkg-ai-preview {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 14px;
+  border: 1px dashed var(--line-strong, rgba(90, 60, 30, 0.25));
+  background: rgba(255, 255, 255, 0.55);
+}
+.diet-pkg-preview-title {
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+.diet-pkg-preview-json {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.65rem;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  border-radius: 10px;
+  background: rgba(40, 30, 20, 0.06);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.diet-pkg-json-details {
+  margin-top: 0.85rem;
+}
+.diet-pkg-json-details summary {
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.hf-food-btn.is-packaged em {
+  opacity: 0.9;
+}
+
 /* Logs tabs */
 .logs-view-tabs {
   display: flex;
