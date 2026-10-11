@@ -116,11 +116,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011logtap"></script>
+  <script src="./js/admin-auth.js?v=20261011logdel"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011logtap" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011logdel" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -540,6 +540,15 @@
         </div>
         <p class="log-sheet-status" id="log-sheet-status" hidden></p>
       </form>
+      <div class="log-sheet-confirm" id="log-sheet-confirm" hidden role="alertdialog" aria-modal="true" aria-labelledby="log-sheet-confirm-title">
+        <div class="log-sheet-confirm-card">
+          <p id="log-sheet-confirm-title">Delete this log?</p>
+          <div class="log-sheet-confirm-actions">
+            <button type="button" class="btn-ghost" id="log-sheet-confirm-cancel">Cancel</button>
+            <button type="button" class="log-sheet-confirm-ok" id="log-sheet-confirm-ok">Delete</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -558,6 +567,6 @@
     </div>
   </div>
 
-  <script src="./js/app.js?v=20261011logtap"></script>
+  <script src="./js/app.js?v=20261011logdel"></script>
 </body>
 </html>

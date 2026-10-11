@@ -1025,6 +1025,7 @@ body.modal-open { overflow: hidden; }
 }
 
 .log-sheet {
+  position: relative;
   width: 100%;
   max-width: 560px;
   max-height: min(92vh, 720px);
@@ -1039,6 +1040,7 @@ body.modal-open { overflow: hidden; }
   color: var(--text);
   box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.18);
   padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+  overflow: hidden;
 }
 
 .log-sheet-head {
@@ -1224,6 +1226,65 @@ body.modal-open { overflow: hidden; }
 
 .log-sheet-table tbody tr.log-sheet-row.is-selected td {
   background: rgba(47, 111, 94, 0.12);
+}
+
+.log-sheet-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.85rem 0.85rem calc(0.85rem + env(safe-area-inset-bottom));
+  background: rgba(20, 36, 33, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.log-sheet-confirm[hidden] {
+  display: none !important;
+}
+
+.log-sheet-confirm-card {
+  width: 100%;
+  border: 1px solid var(--line-strong, var(--line));
+  border-radius: 18px;
+  background: var(--bg-panel, #fff);
+  padding: 1.1rem 1rem 1rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+}
+
+.log-sheet-confirm-card p {
+  margin: 0 0 0.95rem;
+  font-family: var(--font-display, inherit);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-align: center;
+}
+
+.log-sheet-confirm-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.55rem;
+}
+
+.log-sheet-confirm-actions .btn-ghost {
+  min-height: 48px;
+  border-radius: 14px;
+}
+
+.log-sheet-confirm-ok {
+  appearance: none;
+  border: none;
+  border-radius: 14px;
+  min-height: 48px;
+  background: #b33;
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 750;
+  cursor: pointer;
 }
 
 .log-sheet-status {
