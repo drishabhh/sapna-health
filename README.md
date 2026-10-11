@@ -17,7 +17,7 @@ Personal companion for Sapna — **Today**, **Workout** (plan + GIFs + LOG), **D
 
 ## Admin
 
-Password-gated. **Create plan for today** / **Start a new plan** opens a cart: browse Stretching | Exercise → body part → tap GIF tiles to add → reorder/remove in cart → **Publish plan** (writes `data/today.json` plus dated history under `data/plans/`). **Previous plans** → **Use as today** reloads a past day into the cart. Same panel also saves GitHub / Google keys and posts diet, periods, and lift logs.
+Password-gated. **Edit current plan** loads today’s cart. **Create new plan** asks for name + date (default tomorrow), then the same cart. Browse **Library** or **Past plans**, tap tiles (or **+ Add custom** GIF/stretch with body part for the library), then **Publish**. Same panel also saves GitHub / Google keys and posts diet, periods, and lift logs.
 
 ## Stack
 
