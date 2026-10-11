@@ -30,21 +30,22 @@ Browser can’t wake at 4am. GitHub Actions runs once daily:
 | Secret | `GEMINI_API_KEY` — **Settings → Secrets and variables → Actions → New repository secret** (do not commit) |
 | Script | `node scripts/daily-insights.mjs` |
 | Output | `data/insights/latest.json` (+ dated `YYYY-MM-DD.json`) |
-| Site | Today loads overnight file on open; **Get insights** = optional manual refresh (**phone Gemini key**) |
+| Site | Today loads overnight file on open; **AI coach** = optional manual refresh (Gemini → Puter Grok) |
 
-### Phone Gemini key (on the site)
-Paste/save under **Admin → Gemini key (this phone)**, or the same field on **Today → Insights** / **Diet → My regular foods**. Stored in `localStorage` on that phone only (never published in JSON). Shows **✓ Working** after Save & test.
+### Phone AI (browser)
+Paste/save Gemini under **Admin → Gemini key**, or Insights / Diet panels. Stored in `localStorage` only. Manual taps: **try Gemini first**, then **Puter.js Grok** (`https://js.puter.com/v2/`) — no Puter key; may prompt Puter sign-in (User-Pays). Overnight cron stays **Gemini-only** (Actions secret).
 
-| Key | Where | Used for |
+| Key / path | Where | Used for |
 |-----|--------|----------|
-| Phone AI Studio key | Site UI → localStorage | Manual Insights + Fill library |
-| `GEMINI_API_KEY` secret | GitHub Actions secrets | Overnight 4:00 IST cron only |
+| Phone AI Studio key | Site UI → localStorage | Tried first for AI coach + Fill food library |
+| Puter Grok (no key) | Browser via Puter.js | Fallback when Gemini fails / missing |
+| `GEMINI_API_KEY` secret | GitHub Actions secrets | Overnight 4:00 IST cron only (no Puter) |
 
-These are **different** — overnight needs the Action secret; on-device taps need the phone key.
+Overnight and phone are **different** — cron never uses Puter.
 
 **Enable once:** In GitHub, add file `.github/workflows/daily-insights.yml` with the contents of `scripts/daily-insights.workflow.yml` (web UI or a PAT that includes the `workflow` scope). Then **Actions → Daily Insights (4am IST) → Run workflow** to test.
 
-Quota: **one scheduled Gemini call per day** (+ rare manual / food-list bootstrap).
+Quota: **one scheduled Gemini call per day**. Manual / food-list bootstrap: Gemini when the phone key works, else Puter Grok (her Puter allowance).
 
 ## Stack
 

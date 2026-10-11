@@ -1035,7 +1035,7 @@
       throw lastError instanceof Error ? lastError : new Error(String(lastError));
     }
 
-    async function enrichFoods(rawList) {
+    function prepareEnrichFoods(rawList) {
       const list = String(rawList || "")
         .split(/\n|,/)
         .map((s) => s.trim())
@@ -1069,11 +1069,21 @@ Return JSON only matching the schema.`;
         },
         required: ["foods"],
       };
+      const example = {
+        foods: [
+          { name: "Roti", serving: "1 medium", kcal: 120, protein: 3, carbs: 20, fat: 3 },
+        ],
+      };
+      return { prompt, schema, example };
+    }
+
+    async function enrichFoods(rawList) {
+      const { prompt, schema } = prepareEnrichFoods(rawList);
       /* One request for the whole list — local library after that. (No per-food calls.) */
       return generate({ prompt, schema, useSearch: false });
     }
 
-    async function coach(snapshot) {
+    function prepareCoach(snapshot) {
       const prompt = `You are a gentle health coach for Sapna (private, adult woman).
 Use ONLY this snapshot. Do not invent exact medical diagnoses. Be practical and kind.
 If period day or late luteal / menstrual phase, include food ideas that may ease cramps (iron, magnesium, hydration, warm meals) and exercise intensity advice.
@@ -1103,6 +1113,19 @@ Return JSON matching the schema.`;
         },
         required: ["summary", "wins", "watch", "periodTips", "eatNext", "exerciseIdeas"],
       };
+      const example = {
+        summary: "Short kind summary.",
+        wins: ["One win"],
+        watch: ["One watch item"],
+        periodTips: ["One period tip"],
+        eatNext: ["Food idea"],
+        exerciseIdeas: [{ name: "Walk", why: "Gentle", when: "Today" }],
+      };
+      return { prompt, schema, example };
+    }
+
+    async function coach(snapshot) {
+      const { prompt, schema } = prepareCoach(snapshot);
       return generate({ prompt, schema, useSearch: false });
     }
 
@@ -1140,7 +1163,133 @@ Return JSON matching the schema.`;
       return { ok: false, message: lastMsg || "No Gemini model available for this key." };
     }
 
-    return { getKey, saveKey, hasKey, enrichFoods, coach, testKey, preferredModels };
+    return {
+      getKey,
+      saveKey,
+      hasKey,
+      enrichFoods,
+      coach,
+      testKey,
+      preferredModels,
+      prepareEnrichFoods,
+      prepareCoach,
+    };
+  })();
+
+  /* ───────── Puter.js Grok (browser fallback — User-Pays, no API key) ───────── */
+  const PuterGrok = (() => {
+    /* Fast non-reasoning is enough for JSON shapes; 4.7 as second try. */
+    const MODELS = ["x-ai/grok-4-1-fast-non-reasoning", "x-ai/grok-4.7"];
+
+    function available() {
+      return typeof puter !== "undefined" && puter && typeof puter.ai?.chat === "function";
+    }
+
+    function extractText(response) {
+      if (response == null) return "";
+      if (typeof response === "string") return response;
+      const content = response?.message?.content;
+      if (typeof content === "string") return content;
+      if (Array.isArray(content)) {
+        return content
+          .map((p) => (typeof p === "string" ? p : p?.text || p?.content || ""))
+          .join("");
+      }
+      if (typeof response.text === "string") return response.text;
+      if (typeof response?.message === "string") return response.message;
+      try {
+        return JSON.stringify(response);
+      } catch {
+        return String(response);
+      }
+    }
+
+    function parseJson(text) {
+      const raw = String(text || "").trim();
+      if (!raw) throw new Error("Puter Grok returned an empty answer.");
+      const unfenced = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+      try {
+        return JSON.parse(unfenced);
+      } catch {
+        const m = unfenced.match(/\{[\s\S]*\}/);
+        if (m) return JSON.parse(m[0]);
+        throw new Error("Could not parse Puter Grok JSON.");
+      }
+    }
+
+    async function chatJson(prompt, example) {
+      if (!available()) {
+        throw new Error("Puter.js is not loaded. Check network, then retry.");
+      }
+      const full = `${prompt}
+
+Return ONLY valid JSON (no markdown fences) matching this example shape:
+${JSON.stringify(example, null, 2)}`;
+      let lastError;
+      for (const model of MODELS) {
+        try {
+          const response = await puter.ai.chat(full, {
+            model,
+            temperature: 0.2,
+          });
+          return parseJson(extractText(response));
+        } catch (e) {
+          lastError = e instanceof Error ? e : new Error(String(e));
+        }
+      }
+      throw lastError || new Error("Puter Grok failed.");
+    }
+
+    async function enrichFoods(rawList) {
+      const { prompt, example } = Gemini.prepareEnrichFoods(rawList);
+      return chatJson(prompt, example);
+    }
+
+    async function coach(snapshot) {
+      const { prompt, example } = Gemini.prepareCoach(snapshot);
+      return chatJson(prompt, example);
+    }
+
+    return { available, enrichFoods, coach, MODELS };
+  })();
+
+  /* Gemini first (phone key), then Puter Grok — browser paths only */
+  const AiBridge = (() => {
+    async function withFallback({ statusEl, geminiCall, puterCall }) {
+      let geminiErr = null;
+      if (Gemini.hasKey()) {
+        setStatus(statusEl, "Trying Gemini…", "info");
+        try {
+          const result = await geminiCall();
+          return { result, provider: "gemini" };
+        } catch (e) {
+          geminiErr = e instanceof Error ? e : new Error(String(e));
+        }
+      }
+      if (!PuterGrok.available()) {
+        if (geminiErr) throw geminiErr;
+        throw new Error(
+          "Add a Gemini key above, or wait for Puter.js to load for free Grok fallback."
+        );
+      }
+      setStatus(
+        statusEl,
+        "Using Puter Grok… (may ask you to sign in — uses your free Puter allowance)",
+        "info"
+      );
+      try {
+        const result = await puterCall();
+        return { result, provider: "puter-grok" };
+      } catch (e) {
+        const puterMsg = e instanceof Error ? e.message : String(e);
+        if (geminiErr) {
+          throw new Error(`Gemini failed (${geminiErr.message}). Puter Grok: ${puterMsg}`);
+        }
+        throw e instanceof Error ? e : new Error(puterMsg);
+      }
+    }
+
+    return { withFallback };
   })();
 
   /* ───────── Gemini key panels (Admin + Insights + Diet — same phone LS) ───────── */
@@ -1336,7 +1485,7 @@ Return JSON matching the schema.`;
     function renderInto(el, data, meta) {
       if (!el) return;
       if (!data) {
-        el.innerHTML = `<p class="hint">Overnight insights appear after the <strong>4:00 IST</strong> GitHub job — or tap <strong>Get insights</strong> now (1 Gemini call).</p>`;
+        el.innerHTML = `<p class="hint">Overnight insights appear after the <strong>4:00 IST</strong> GitHub job — or tap <strong>AI coach</strong> now (Gemini, then Puter Grok if needed).</p>`;
         return;
       }
       const list = (arr, empty) =>
@@ -1431,22 +1580,38 @@ Return JSON matching the schema.`;
     }
 
     async function run({ statusEl } = {}) {
-      if (!Gemini.hasKey()) {
+      if (!Gemini.hasKey() && !PuterGrok.available()) {
         setStatus(
           statusEl,
-          "Add Gemini key above (this phone) to refresh now. Overnight 4:00 IST uses GitHub secret GEMINI_API_KEY separately.",
+          "Add a Gemini key above, or allow Puter.js to load for free Grok. Overnight 4:00 IST still uses GitHub secret GEMINI_API_KEY only.",
           "error"
         );
         return null;
       }
-      setStatus(statusEl, "Asking Gemini once (compact snapshot)…", "info");
       try {
         const snap = buildSnapshot();
-        const result = await Gemini.coach(snap);
-        const payload = { at: new Date().toISOString(), result, source: "manual" };
+        const { result, provider } = await AiBridge.withFallback({
+          statusEl,
+          geminiCall: () => Gemini.coach(snap),
+          puterCall: () => PuterGrok.coach(snap),
+        });
+        const payload = {
+          at: new Date().toISOString(),
+          result,
+          source: "manual",
+          provider,
+        };
         saveCached(payload);
         paint();
-        setStatus(statusEl, "Manual insights updated — 1 Gemini call. Overnight still runs at 4:00 IST.", "ok");
+        const via =
+          provider === "puter-grok"
+            ? "Puter Grok (Gemini skipped or failed)"
+            : "Gemini";
+        setStatus(
+          statusEl,
+          `Manual insights updated via ${via}. Overnight 4:00 IST stays Gemini-only (Actions secret).`,
+          "ok"
+        );
         return result;
       } catch (e) {
         setStatus(statusEl, e.message || String(e), "error");
@@ -1850,10 +2015,11 @@ Return JSON matching the schema.`;
       return out;
     }
 
-    function importGeminiFoods(foods) {
+    function importGeminiFoods(foods, provider) {
       const rows = Array.isArray(foods) ? foods : [];
       let n = 0;
       state.customFoods = state.customFoods || [];
+      const tag = provider === "puter-grok" ? "puter-grok" : "gemini";
       rows.forEach((f) => {
         const name = String(f.name || "").trim();
         const kcal = Number(f.kcal);
@@ -1871,7 +2037,7 @@ Return JSON matching the schema.`;
           protein: Number.isFinite(Number(f.protein)) ? Math.round(Number(f.protein) * 10) / 10 : 0,
           carbs: Number.isFinite(Number(f.carbs)) ? Math.round(Number(f.carbs) * 10) / 10 : null,
           fat: Number.isFinite(Number(f.fat)) ? Math.round(Number(f.fat) * 10) / 10 : null,
-          tags: ["regular", "gemini"],
+          tags: ["regular", "ai", tag],
         };
         if (existing >= 0) state.customFoods[existing] = row;
         else state.customFoods.push(row);
@@ -1885,15 +2051,19 @@ Return JSON matching the schema.`;
     async function bootstrapRegularFoods() {
       const raw = $("diet-regular-list")?.value || "";
       const st = $("diet-regular-status");
-      if (!Gemini.hasKey()) {
-        setStatus(st, "Add Gemini API key in Admin first.", "error");
+      if (!Gemini.hasKey() && !PuterGrok.available()) {
+        setStatus(st, "Add a Gemini key, or allow Puter.js to load for free Grok fallback.", "error");
         return;
       }
-      setStatus(st, "One Gemini call for your whole list…", "info");
       try {
-        const data = await Gemini.enrichFoods(raw);
-        const n = importGeminiFoods(data.foods || []);
-        setStatus(st, `Added/updated ${n} foods in your library. Log meals offline from now.`, "ok");
+        const { result: data, provider } = await AiBridge.withFallback({
+          statusEl: st,
+          geminiCall: () => Gemini.enrichFoods(raw),
+          puterCall: () => PuterGrok.enrichFoods(raw),
+        });
+        const n = importGeminiFoods(data.foods || [], provider);
+        const via = provider === "puter-grok" ? "Puter Grok" : "Gemini";
+        setStatus(st, `Added/updated ${n} foods via ${via}. Log meals offline from now.`, "ok");
         renderFoodPick($("diet-search")?.value || "");
       } catch (e) {
         setStatus(st, e.message || String(e), "error");

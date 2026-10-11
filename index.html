@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011fb1"></script>
+  <script src="./js/admin-auth.js?v=20261011puter1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011fb1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011puter1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -167,16 +167,16 @@
         <div>
           <p class="today-kicker">Insights <span class="coach-badge" id="coach-badge">Overnight · 4:00 IST</span></p>
           <h2 class="coach-title">What’s working</h2>
-          <p class="hint">Fresh each morning at 4:00 IST from GitHub · tap below only for a manual refresh.</p>
+          <p class="hint">Fresh each morning at 4:00 IST from GitHub · <strong>AI coach</strong> refreshes now (Gemini → Puter Grok).</p>
         </div>
-        <button type="button" class="btn-primary" id="coach-run">Get insights</button>
+        <button type="button" class="btn-primary" id="coach-run">AI coach</button>
       </div>
       <details class="gemini-key-panel" data-gemini-panel id="coach-gemini-panel">
         <summary class="gemini-key-summary">
-          <span>Gemini key for this phone</span>
+          <span>Gemini key for this phone (optional)</span>
           <span class="key-badge" data-gemini-badge hidden></span>
         </summary>
-        <p class="hint">Paste your <strong>AI Studio</strong> key to use <strong>Get insights</strong> here. Saved only on this phone — not published. Overnight 4:00 IST still needs the separate GitHub secret <code>GEMINI_API_KEY</code>.</p>
+        <p class="hint"><strong>AI coach</strong> tries Gemini first (this key), then free <strong>Puter Grok</strong> if Gemini fails — Puter may ask her to sign in (User-Pays allowance). Overnight 4:00 IST stays Gemini-only via GitHub secret <code>GEMINI_API_KEY</code>.</p>
         <label class="field" for="coach-gemini-key">API key
           <input type="password" id="coach-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza… or AQ.…" />
         </label>
@@ -275,16 +275,16 @@
       <details class="diet-card diet-regular-card" id="diet-regular-card">
         <summary class="diet-card-head">
           <h2>My regular foods</h2>
-          <span class="diet-chip">1 Gemini call</span>
+          <span class="diet-chip">AI · Gemini→Grok</span>
         </summary>
-        <p class="hint">List foods she eats often (one per line). Gemini fills kcal/protein once — then log offline from the library.</p>
+        <p class="hint">List foods she eats often (one per line). AI fills kcal/protein once (Gemini, then Puter Grok if needed) — then log offline from the library.</p>
         <div class="gemini-key-panel gemini-key-panel-inline" data-gemini-panel id="diet-gemini-panel">
           <div class="field-label-row">
-            <label class="field field-grow" for="diet-gemini-key">Gemini key (this phone)</label>
+            <label class="field field-grow" for="diet-gemini-key">Gemini key (optional · this phone)</label>
             <span class="key-badge" data-gemini-badge hidden></span>
           </div>
           <input type="password" id="diet-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza… or AQ.…" />
-          <p class="hint">Needed for <strong>Fill library with Gemini</strong>. Same key as Insights / Admin — phone only, never committed.</p>
+          <p class="hint">Tried first for <strong>Fill food library</strong>. Same key as Insights / Admin. If Gemini fails (or no key), Puter Grok runs — may prompt Puter sign-in; uses her free allowance. No Puter key needed.</p>
           <div class="actions">
             <button type="button" class="btn-diet" data-gemini-save>Save &amp; test</button>
             <button type="button" class="btn-diet-ghost" data-gemini-clear>Clear</button>
@@ -295,7 +295,7 @@
           <textarea id="diet-regular-list" rows="5" placeholder="Roti&#10;Dal&#10;Paneer bhurji&#10;Curd (1 bowl)&#10;Banana"></textarea>
         </label>
         <div class="actions">
-          <button type="button" class="btn-diet" id="diet-regular-run">Fill library with Gemini</button>
+          <button type="button" class="btn-diet" id="diet-regular-run">Fill food library (AI)</button>
         </div>
         <p class="status" id="diet-regular-status" hidden></p>
       </details>
@@ -585,7 +585,7 @@
           <h3 class="admin-subhead">Gemini key (this phone)</h3>
           <span class="key-badge" id="admin-gemini-badge" data-gemini-badge hidden></span>
         </div>
-        <p class="hint"><strong>Phone key</strong> (here) powers manual Insights + food library. <strong>GitHub secret</strong> <code>GEMINI_API_KEY</code> powers overnight 4:00 IST — different place, both optional for their jobs. Never commit either key; never published in JSON.</p>
+        <p class="hint"><strong>Phone key</strong> (here) is tried first for manual AI coach + food library; on failure the site falls back to <strong>Puter Grok</strong> (no key — User-Pays sign-in). <strong>GitHub secret</strong> <code>GEMINI_API_KEY</code> powers overnight 4:00 IST only (no Puter in Actions). Never commit keys; never published in JSON.</p>
         <label class="field" for="admin-gemini-key">AI Studio API key
           <input type="password" id="admin-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza… or AQ.…" />
         </label>
@@ -754,7 +754,8 @@
     </div>
   </div>
 
-  <script src="./js/workout-admin.js?v=20261011fb1"></script>
-  <script src="./js/app.js?v=20261011fb1"></script>
+  <script src="https://js.puter.com/v2/"></script>
+  <script src="./js/workout-admin.js?v=20261011puter1"></script>
+  <script src="./js/app.js?v=20261011puter1"></script>
 </body>
 </html>
