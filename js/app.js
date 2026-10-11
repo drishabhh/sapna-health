@@ -986,11 +986,26 @@
       if (schema) body.generationConfig.responseSchema = schema;
       if (useSearch) body.tools = [{ googleSearch: {} }];
       const url = `${BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => ctrl.abort(), 14000) : null;
+      let res;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: ctrl?.signal,
+        });
+      } catch (e) {
+        const err = new Error(
+          e?.name === "AbortError" ? `Gemini timed out (${model}).` : e?.message || "Gemini network error."
+        );
+        err.status = 0;
+        err.model = model;
+        throw err;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = data?.error?.message || `Gemini ${res.status}`;
@@ -1028,6 +1043,7 @@
           return json;
         } catch (e) {
           lastError = e;
+          /* Walk model list on unavailable; any other failure → exit so Puter can run. */
           if (isModelUnavailableError(e?.message, e?.status)) continue;
           throw e;
         }
@@ -1185,6 +1201,64 @@ Return JSON matching the schema.`;
       return typeof puter !== "undefined" && puter && typeof puter.ai?.chat === "function";
     }
 
+    async function waitUntilReady(ms = 10000) {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        if (available()) return true;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      return available();
+    }
+
+    function formatError(e) {
+      if (e == null) return "Puter Grok failed.";
+      if (typeof e === "string") return e;
+      if (e.error || e.msg) {
+        const code = e.error || e.code || "";
+        const msg = e.msg || e.message || "";
+        return [code, msg].filter(Boolean).join(": ") || "Puter auth/chat failed.";
+      }
+      return e.message || String(e);
+    }
+
+    function isPopupBlocked(e) {
+      const code = e?.error || e?.code || "";
+      const msg = formatError(e).toLowerCase();
+      return code === "popup_blocked" || /popup.?blocked|blocked.*popup/.test(msg);
+    }
+
+    async function isSignedIn() {
+      try {
+        if (!available() || typeof puter.auth?.isSignedIn !== "function") return false;
+        return !!(await puter.auth.isSignedIn());
+      } catch {
+        return false;
+      }
+    }
+
+    /**
+     * Sign-in popup MUST run from a user click (not after await Gemini).
+     * Call this first on "Use Puter Grok now"; on auto-fallback it may be popup_blocked.
+     */
+    async function ensureSignedIn() {
+      if (!(await waitUntilReady())) {
+        throw new Error("Puter.js is not loaded. Check network / ad blockers, then retry.");
+      }
+      if (await isSignedIn()) return { already: true };
+      if (typeof puter.auth?.signIn !== "function") {
+        throw new Error("Puter auth.signIn is missing — update Puter.js.");
+      }
+      try {
+        await puter.auth.signIn();
+        return { already: false };
+      } catch (e) {
+        const err = new Error(formatError(e));
+        err.puter = e;
+        err.popupBlocked = isPopupBlocked(e);
+        throw err;
+      }
+    }
+
     function extractText(response) {
       if (response == null) return "";
       if (typeof response === "string") return response;
@@ -1217,9 +1291,14 @@ Return JSON matching the schema.`;
       }
     }
 
-    async function chatJson(prompt, example) {
-      if (!available()) {
-        throw new Error("Puter.js is not loaded. Check network, then retry.");
+    async function chatJson(prompt, example, { skipAuth } = {}) {
+      if (!(await waitUntilReady())) {
+        throw new Error("Puter.js is not loaded. Check network / ad blockers, then retry.");
+      }
+      if (!skipAuth) {
+        await ensureSignedIn();
+      } else if (!(await isSignedIn())) {
+        await ensureSignedIn();
       }
       const full = `${prompt}
 
@@ -1234,27 +1313,98 @@ ${JSON.stringify(example, null, 2)}`;
           });
           return parseJson(extractText(response));
         } catch (e) {
-          lastError = e instanceof Error ? e : new Error(String(e));
+          lastError = new Error(formatError(e));
+          lastError.puter = e;
+          lastError.popupBlocked = isPopupBlocked(e);
+          /* Auth issues: don't spin models */
+          if (lastError.popupBlocked || /auth|sign.?in|not.?signed/i.test(lastError.message)) break;
         }
       }
       throw lastError || new Error("Puter Grok failed.");
     }
 
-    async function enrichFoods(rawList) {
+    async function enrichFoods(rawList, opts) {
       const { prompt, example } = Gemini.prepareEnrichFoods(rawList);
-      return chatJson(prompt, example);
+      return chatJson(prompt, example, opts);
     }
 
-    async function coach(snapshot) {
+    async function coach(snapshot, opts) {
       const { prompt, example } = Gemini.prepareCoach(snapshot);
-      return chatJson(prompt, example);
+      return chatJson(prompt, example, opts);
     }
 
-    return { available, enrichFoods, coach, MODELS };
+    return {
+      available,
+      waitUntilReady,
+      ensureSignedIn,
+      isSignedIn,
+      enrichFoods,
+      coach,
+      formatError,
+      isPopupBlocked,
+      MODELS,
+    };
   })();
 
   /* Gemini first (phone key), then Puter Grok — browser paths only */
   const AiBridge = (() => {
+    function puterHintAfterGemini(geminiMsg) {
+      return (
+        `Gemini failed: ${geminiMsg}. Opening Puter / Using Grok… ` +
+        `(if no popup appears, tap “Use Puter Grok now” — browsers block popups after waiting.)`
+      );
+    }
+
+    async function runPuter({ statusEl, puterCall, geminiErr, fromUserGesture }) {
+      setStatus(
+        statusEl,
+        geminiErr
+          ? puterHintAfterGemini(geminiErr.message)
+          : "Opening Puter / Using Grok… (sign-in popup uses your free Puter allowance)",
+        "info"
+      );
+
+      /* From a fresh button tap: signIn immediately — do not await delays first (popup needs user gesture). */
+      if (fromUserGesture) {
+        if (!PuterGrok.available()) {
+          setStatus(statusEl, "Waiting for Puter.js to load…", "info");
+          const ready = await PuterGrok.waitUntilReady(8000);
+          if (!ready) throw new Error("Puter.js did not load (network or blocker).");
+          throw new Error(
+            "Puter.js just loaded. Tap “Use Puter Grok now” again to open the sign-in popup."
+          );
+        }
+      } else {
+        const ready = await PuterGrok.waitUntilReady(8000);
+        if (!ready) {
+          const base = "Puter.js did not load (network or blocker).";
+          if (geminiErr) throw new Error(`Gemini failed (${geminiErr.message}). ${base}`);
+          throw new Error(base);
+        }
+      }
+
+      try {
+        await PuterGrok.ensureSignedIn();
+        setStatus(statusEl, "Using Puter Grok…", "info");
+        const result = await puterCall({ skipAuth: true });
+        return { result, provider: "puter-grok" };
+      } catch (e) {
+        const puterMsg = PuterGrok.formatError(e);
+        if (PuterGrok.isPopupBlocked(e) || e?.popupBlocked) {
+          const tip =
+            "Tap “Use Puter Grok now” so Puter can open its sign-in popup from your tap.";
+          if (geminiErr) {
+            throw new Error(`Gemini failed (${geminiErr.message}). Puter popup blocked. ${tip}`);
+          }
+          throw new Error(`Puter popup blocked. ${tip}`);
+        }
+        if (geminiErr) {
+          throw new Error(`Gemini failed (${geminiErr.message}). Puter Grok: ${puterMsg}`);
+        }
+        throw new Error(puterMsg);
+      }
+    }
+
     async function withFallback({ statusEl, geminiCall, puterCall }) {
       let geminiErr = null;
       if (Gemini.hasKey()) {
@@ -1264,32 +1414,21 @@ ${JSON.stringify(example, null, 2)}`;
           return { result, provider: "gemini" };
         } catch (e) {
           geminiErr = e instanceof Error ? e : new Error(String(e));
+          setStatus(statusEl, puterHintAfterGemini(geminiErr.message), "info");
         }
+      } else {
+        /* No key: still lost gesture if we wait — prefer already-signed-in Puter, else ask for force tap. */
+        setStatus(statusEl, "Opening Puter / Using Grok…", "info");
       }
-      if (!PuterGrok.available()) {
-        if (geminiErr) throw geminiErr;
-        throw new Error(
-          "Add a Gemini key above, or wait for Puter.js to load for free Grok fallback."
-        );
-      }
-      setStatus(
-        statusEl,
-        "Using Puter Grok… (may ask you to sign in — uses your free Puter allowance)",
-        "info"
-      );
-      try {
-        const result = await puterCall();
-        return { result, provider: "puter-grok" };
-      } catch (e) {
-        const puterMsg = e instanceof Error ? e.message : String(e);
-        if (geminiErr) {
-          throw new Error(`Gemini failed (${geminiErr.message}). Puter Grok: ${puterMsg}`);
-        }
-        throw e instanceof Error ? e : new Error(puterMsg);
-      }
+      return runPuter({ statusEl, puterCall, geminiErr, fromUserGesture: false });
     }
 
-    return { withFallback };
+    /** Force Puter from a fresh click — call signIn while the tap gesture is still valid. */
+    async function puterOnly({ statusEl, puterCall }) {
+      return runPuter({ statusEl, puterCall, geminiErr: null, fromUserGesture: true });
+    }
+
+    return { withFallback, puterOnly };
   })();
 
   /* ───────── Gemini key panels (Admin + Insights + Diet — same phone LS) ───────── */
@@ -1579,22 +1718,17 @@ ${JSON.stringify(example, null, 2)}`;
       }
     }
 
-    async function run({ statusEl } = {}) {
-      if (!Gemini.hasKey() && !PuterGrok.available()) {
-        setStatus(
-          statusEl,
-          "Add a Gemini key above, or allow Puter.js to load for free Grok. Overnight 4:00 IST still uses GitHub secret GEMINI_API_KEY only.",
-          "error"
-        );
-        return null;
-      }
+    async function run({ statusEl, preferPuter } = {}) {
+      const snap = buildSnapshot();
+      const puterCall = (opts) => PuterGrok.coach(snap, opts);
       try {
-        const snap = buildSnapshot();
-        const { result, provider } = await AiBridge.withFallback({
-          statusEl,
-          geminiCall: () => Gemini.coach(snap),
-          puterCall: () => PuterGrok.coach(snap),
-        });
+        const { result, provider } = preferPuter
+          ? await AiBridge.puterOnly({ statusEl, puterCall })
+          : await AiBridge.withFallback({
+              statusEl,
+              geminiCall: () => Gemini.coach(snap),
+              puterCall,
+            });
         const payload = {
           at: new Date().toISOString(),
           result,
@@ -1605,7 +1739,7 @@ ${JSON.stringify(example, null, 2)}`;
         paint();
         const via =
           provider === "puter-grok"
-            ? "Puter Grok (Gemini skipped or failed)"
+            ? "Puter Grok"
             : "Gemini";
         setStatus(
           statusEl,
@@ -1621,7 +1755,13 @@ ${JSON.stringify(example, null, 2)}`;
 
     async function wire() {
       $("coach-run")?.addEventListener("click", () => run({ statusEl: $("coach-status") }));
+      $("coach-puter-run")?.addEventListener("click", () =>
+        run({ statusEl: $("coach-status"), preferPuter: true })
+      );
       $("admin-coach-run")?.addEventListener("click", () => run({ statusEl: $("admin-coach-status") }));
+      $("admin-coach-puter")?.addEventListener("click", () =>
+        run({ statusEl: $("admin-coach-status"), preferPuter: true })
+      );
       paint();
       await loadOvernight();
       paint();
@@ -1893,6 +2033,7 @@ ${JSON.stringify(example, null, 2)}`;
 
     function wire() {
       $("diet-regular-run")?.addEventListener("click", () => bootstrapRegularFoods());
+      $("diet-regular-puter")?.addEventListener("click", () => bootstrapRegularFoods({ preferPuter: true }));
       $("diet-meal-chips")?.addEventListener("click", (e) => {
         const chip = e.target.closest("[data-meal]");
         if (!chip) return;
@@ -2048,19 +2189,18 @@ ${JSON.stringify(example, null, 2)}`;
       return n;
     }
 
-    async function bootstrapRegularFoods() {
+    async function bootstrapRegularFoods({ preferPuter } = {}) {
       const raw = $("diet-regular-list")?.value || "";
       const st = $("diet-regular-status");
-      if (!Gemini.hasKey() && !PuterGrok.available()) {
-        setStatus(st, "Add a Gemini key, or allow Puter.js to load for free Grok fallback.", "error");
-        return;
-      }
+      const puterCall = (opts) => PuterGrok.enrichFoods(raw, opts);
       try {
-        const { result: data, provider } = await AiBridge.withFallback({
-          statusEl: st,
-          geminiCall: () => Gemini.enrichFoods(raw),
-          puterCall: () => PuterGrok.enrichFoods(raw),
-        });
+        const { result: data, provider } = preferPuter
+          ? await AiBridge.puterOnly({ statusEl: st, puterCall })
+          : await AiBridge.withFallback({
+              statusEl: st,
+              geminiCall: () => Gemini.enrichFoods(raw),
+              puterCall,
+            });
         const n = importGeminiFoods(data.foods || [], provider);
         const via = provider === "puter-grok" ? "Puter Grok" : "Gemini";
         setStatus(st, `Added/updated ${n} foods via ${via}. Log meals offline from now.`, "ok");

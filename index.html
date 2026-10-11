@@ -128,11 +128,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011puter1"></script>
+  <script src="./js/admin-auth.js?v=20261011puter2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011puter1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261011puter2" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -169,14 +169,17 @@
           <h2 class="coach-title">What’s working</h2>
           <p class="hint">Fresh each morning at 4:00 IST from GitHub · <strong>AI coach</strong> refreshes now (Gemini → Puter Grok).</p>
         </div>
-        <button type="button" class="btn-primary" id="coach-run">AI coach</button>
+        <div class="coach-ai-actions">
+          <button type="button" class="btn-primary" id="coach-run">AI coach</button>
+          <button type="button" class="btn-ghost" id="coach-puter-run">Use Puter Grok now</button>
+        </div>
       </div>
       <details class="gemini-key-panel" data-gemini-panel id="coach-gemini-panel">
         <summary class="gemini-key-summary">
           <span>Gemini key for this phone (optional)</span>
           <span class="key-badge" data-gemini-badge hidden></span>
         </summary>
-        <p class="hint"><strong>AI coach</strong> tries Gemini first (this key), then free <strong>Puter Grok</strong> if Gemini fails — Puter may ask her to sign in (User-Pays allowance). Overnight 4:00 IST stays Gemini-only via GitHub secret <code>GEMINI_API_KEY</code>.</p>
+        <p class="hint"><strong>AI coach</strong> tries Gemini first, then Puter Grok. After Gemini waits, browsers often <strong>block</strong> the Puter popup — tap <strong>Use Puter Grok now</strong> to open sign-in. Overnight 4:00 IST stays Gemini-only via <code>GEMINI_API_KEY</code>.</p>
         <label class="field" for="coach-gemini-key">API key
           <input type="password" id="coach-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza… or AQ.…" />
         </label>
@@ -284,7 +287,7 @@
             <span class="key-badge" data-gemini-badge hidden></span>
           </div>
           <input type="password" id="diet-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza… or AQ.…" />
-          <p class="hint">Tried first for <strong>Fill food library</strong>. Same key as Insights / Admin. If Gemini fails (or no key), Puter Grok runs — may prompt Puter sign-in; uses her free allowance. No Puter key needed.</p>
+          <p class="hint">Tried first for <strong>Fill food library</strong>. If Gemini fails, status shows Puter next — or tap <strong>Use Puter Grok now</strong> so the sign-in popup is allowed. No Puter key.</p>
           <div class="actions">
             <button type="button" class="btn-diet" data-gemini-save>Save &amp; test</button>
             <button type="button" class="btn-diet-ghost" data-gemini-clear>Clear</button>
@@ -296,6 +299,7 @@
         </label>
         <div class="actions">
           <button type="button" class="btn-diet" id="diet-regular-run">Fill food library (AI)</button>
+          <button type="button" class="btn-diet-ghost" id="diet-regular-puter">Use Puter Grok now</button>
         </div>
         <p class="status" id="diet-regular-status" hidden></p>
       </details>
@@ -599,9 +603,12 @@
       <section class="admin-block">
         <div class="admin-block-head">
           <h3 class="admin-subhead">Cycle-aware exercise ideas</h3>
-          <button type="button" class="btn-ghost" id="admin-coach-run">Refresh insights</button>
+          <div class="actions">
+            <button type="button" class="btn-ghost" id="admin-coach-run">Refresh insights</button>
+            <button type="button" class="btn-ghost" id="admin-coach-puter">Use Puter Grok now</button>
+          </div>
         </div>
-        <p class="hint">From overnight Insights (4:00 IST) or manual refresh — add matching moves to her plan cart.</p>
+        <p class="hint">From overnight Insights (4:00 IST) or manual refresh — add matching moves to her plan cart. Use Puter Grok now if Gemini fails / no popup.</p>
         <div id="admin-coach-exercises"></div>
         <div id="admin-coach-body" class="coach-body coach-body-admin" hidden></div>
         <p class="status" id="admin-coach-status" hidden></p>
@@ -755,7 +762,7 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261011puter1"></script>
-  <script src="./js/app.js?v=20261011puter1"></script>
+  <script src="./js/workout-admin.js?v=20261011puter2"></script>
+  <script src="./js/app.js?v=20261011puter2"></script>
 </body>
 </html>

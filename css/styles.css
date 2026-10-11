@@ -4429,11 +4429,20 @@ textarea {
   font-weight: 750;
   letter-spacing: -0.02em;
 }
-.coach-card-head .btn-primary {
+.coach-ai-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
   flex-shrink: 0;
+  max-width: 11rem;
+}
+.coach-card-head .btn-primary,
+.coach-card-head .btn-ghost {
   min-height: 40px;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.85rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 .coach-summary {
   margin: 0 0 0.75rem;
