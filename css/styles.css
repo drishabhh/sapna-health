@@ -1514,6 +1514,14 @@ body.modal-open { overflow: hidden; }
   border-radius: 12px;
 }
 
+/* btn-ghost sets display:inline-flex and would ignore the hidden attribute */
+#log-sheet-cancel[hidden],
+#log-sheet-delete[hidden],
+.log-sheet-cancel[hidden],
+.log-sheet-delete[hidden] {
+  display: none !important;
+}
+
 .log-sheet-table tbody tr.log-sheet-row {
   cursor: pointer;
   transition: background 0.15s ease;
