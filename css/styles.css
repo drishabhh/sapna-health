@@ -2887,6 +2887,22 @@ a.today-cta,
   font-weight: 700;
 }
 
+.empty-plan-block {
+  margin: 0.5rem 0 1rem;
+  padding: 1rem 1.05rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px dashed var(--line-strong);
+}
+
+.empty-plan-block p {
+  margin: 0 0 0.45rem;
+}
+
+.empty-plan-block p:last-child {
+  margin-bottom: 0;
+}
+
 /* Session steps (workout) */
 .session-steps {
   display: flex;

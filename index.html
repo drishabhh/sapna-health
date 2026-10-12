@@ -130,11 +130,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261012gaps2"></script>
+  <script src="./js/admin-auth.js?v=20261012handoff"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261012gaps2" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261012handoff" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -163,12 +163,12 @@
     </div>
     <div class="profile-nudge" id="today-profile-nudge" hidden>
       <div class="profile-nudge-copy">
-        <p class="today-kicker">Sapna Singh</p>
-        <p class="profile-nudge-title">Set height &amp; weight for calorie goals.</p>
+        <p class="today-kicker">Sapna Singh · welcome</p>
+        <p class="profile-nudge-title">Let’s set up your profile — biometrics, goals, activity, diet prefs &amp; safety.</p>
       </div>
       <div class="profile-nudge-actions">
-        <button type="button" class="btn-primary" data-profile-open>Get started</button>
-        <button type="button" class="btn-ghost" data-profile-skip>Skip</button>
+        <button type="button" class="btn-primary" data-profile-open>Start profile</button>
+        <button type="button" class="btn-ghost" data-profile-skip>Not now</button>
       </div>
     </div>
     <div class="today-strip-wrap" id="today-strip" aria-label="Today at a glance"></div>
@@ -248,12 +248,12 @@
     </div>
     <div class="profile-nudge profile-nudge-diet" id="diet-profile-nudge" hidden>
       <div class="profile-nudge-copy">
-        <p class="hf-diet-eyebrow">Sapna Singh</p>
-        <p class="profile-nudge-title">Height &amp; weight → calorie goals.</p>
+        <p class="hf-diet-eyebrow">Sapna Singh · welcome</p>
+        <p class="profile-nudge-title">Complete your profile for calorie goals — biometrics through safety notes.</p>
       </div>
       <div class="profile-nudge-actions">
-        <button type="button" class="btn-diet" data-profile-open>Get started</button>
-        <button type="button" class="btn-diet-ghost" data-profile-skip>Skip</button>
+        <button type="button" class="btn-diet" data-profile-open>Start profile</button>
+        <button type="button" class="btn-diet-ghost" data-profile-skip>Not now</button>
       </div>
     </div>
     <div class="panel-inner diet-inner">
@@ -511,13 +511,13 @@
         <div class="profile-sheet-head-main">
           <button type="button" class="btn-ghost profile-head-back" id="profile-head-back" hidden aria-label="Go back">‹ Back</button>
           <p class="profile-sheet-brand">Sapna Singh</p>
-          <h2 id="profile-sheet-title">Your profile</h2>
+          <h2 id="profile-sheet-title">Welcome — your profile</h2>
           <p class="hint profile-step-label" id="profile-step-label">About you</p>
         </div>
         <button type="button" class="btn-ghost" id="profile-close" aria-label="Close profile">Close</button>
       </header>
       <div class="profile-progress" id="profile-progress" aria-hidden="true"></div>
-      <p class="hint profile-sheet-lede">Skip anything. Health notes stay on this phone.</p>
+      <p class="hint profile-sheet-lede">Fresh start — we’ll ask biometrics, goals, activity, diet prefs, and safety. Health notes stay on this phone.</p>
 
       <form id="profile-form" class="profile-form" novalidate>
         <!-- 1 · Demographics -->
@@ -926,6 +926,15 @@
         </div>
       </section>
 
+      <section class="admin-block" id="admin-fresh-start">
+        <h3 class="admin-subhead">This phone</h3>
+        <p class="hint">Wipes local session, profile, diet checks, lift/period caches, and guided session on <strong>this device only</strong>. Does not change GitHub. Use after testing so Sapna gets a clean first open.</p>
+        <div class="actions">
+          <button type="button" class="btn-ghost" id="admin-start-fresh">Start fresh on this phone</button>
+        </div>
+        <p class="status" id="admin-fresh-status" hidden></p>
+      </section>
+
       <section class="admin-block gemini-key-panel" data-gemini-panel id="admin-gemini-panel">
         <div class="admin-block-head">
           <h3 class="admin-subhead">Gemini key (this phone)</h3>
@@ -1161,8 +1170,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261012gaps2"></script>
-  <script src="./js/diet-admin.js?v=20261012gaps2"></script>
-  <script src="./js/app.js?v=20261012gaps2"></script>
+  <script src="./js/workout-admin.js?v=20261012handoff"></script>
+  <script src="./js/diet-admin.js?v=20261012handoff"></script>
+  <script src="./js/app.js?v=20261012handoff"></script>
 </body>
 </html>

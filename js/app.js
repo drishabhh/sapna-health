@@ -16,9 +16,11 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261012back2";
+  const PROFILE_ASSET_V = "20261012handoff";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
+  /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
+  const LS_FRESH_PREFIXES = ["sapna_", "sapna-"];
 
   function isAdminUnlocked() {
     try {
@@ -239,12 +241,12 @@
           <button type="button" class="dash-pill" data-nav="workout">
             <em>Workout</em>
             <strong>${workout.liftsTotal ? `${workout.liftsLogged}/${workout.liftsTotal}` : "—"}</strong>
-            <span>${workout.liftsTotal ? "lifts logged" : "plan ready"}</span>
+            <span>${workout.liftsTotal ? "lifts logged" : workout.waitingAdmin ? "no plan yet" : "plan ready"}</span>
           </button>
           <button type="button" class="dash-pill" data-nav="diet">
             <em>Diet</em>
-            <strong>${diet.over ? `+${Math.round(diet.kcal - diet.targetKcal)}` : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
-            <span>${diet.over ? "kcal over" : "kcal left"}</span>
+            <strong>${diet.waitingAdmin ? "—" : diet.over ? `+${Math.round(diet.kcal - diet.targetKcal)}` : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
+            <span>${diet.waitingAdmin ? "no plan yet" : diet.over ? "kcal over" : "kcal left"}</span>
           </button>
           <button type="button" class="dash-pill" data-nav="periods">
             <em>Cycle</em>
@@ -263,25 +265,33 @@
         <a class="today-card today-card-workout dash-card" href="#workout" data-nav="workout">
           <div class="dash-card-top">
             <p class="today-kicker">Workout tracker</p>
-            <span class="dash-badge">${liftPct}%</span>
+            <span class="dash-badge">${workout.waitingAdmin ? "—" : `${liftPct}%`}</span>
           </div>
           <h2>${escapeHtml(workout.title)}</h2>
           <p>${escapeHtml(workout.detail)}</p>
-          ${barHtml("Session lifts", workout.liftsLogged || 0, workout.liftsTotal || 0, "gold")}
+          ${
+            workout.waitingAdmin
+              ? `<p class="empty-teach">No plan yet — Admin publishes the first exercise plan.</p>`
+              : `${barHtml("Session lifts", workout.liftsLogged || 0, workout.liftsTotal || 0, "gold")}
           <div class="dash-meta-row">
             <span>${Number(workout.stretchCount) || 0} stretches</span>
             <span>${Number(workout.liftsTotal) || 0} lifts in plan</span>
-          </div>
-          <span class="today-cta">Open session</span>
+          </div>`
+          }
+          <span class="today-cta">${workout.waitingAdmin ? "See Workout" : "Open session"}</span>
         </a>
 
         <div class="dash-split">
           <div class="today-card today-card-diet dash-card">
             <div class="dash-card-top">
               <p class="today-kicker">Diet tracker</p>
-              <span class="dash-badge">${kcalPct}%</span>
+              <span class="dash-badge">${diet.waitingAdmin ? "—" : `${kcalPct}%`}</span>
             </div>
-            <p class="hf-today-left"><strong>${diet.over ? Math.round(diet.kcal - diet.targetKcal) : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
+            ${
+              diet.waitingAdmin
+                ? `<p class="empty-teach">No meal plan yet — waiting for Admin to publish.</p>
+            <a class="today-cta" href="#diet" data-nav="diet">Open Diet</a>`
+                : `<p class="hf-today-left"><strong>${diet.over ? Math.round(diet.kcal - diet.targetKcal) : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
               <span>${diet.over ? "kcal over" : "kcal left"}</span></p>
             <p class="hf-today-meals">${["breakfast","lunch","dinner","snacks"].map((m) => {
               const on = diet.mealFill && diet.mealFill[m];
@@ -290,7 +300,8 @@
             }).join("")}</p>
             ${barHtml("Eaten", Math.round(diet.kcal), diet.targetKcal, "jade")}
             ${barHtml("Protein g", Math.round(diet.protein), diet.targetProtein, "jade")}
-            <a class="today-cta" href="#diet" data-nav="diet">Log food</a>
+            <a class="today-cta" href="#diet" data-nav="diet">Log food</a>`
+            }
           </div>
 
           <a class="today-card today-card-periods dash-card dash-card-${periodTone}" href="#periods" data-nav="periods">
@@ -365,6 +376,16 @@
         });
       });
       return { stretch, main };
+    }
+
+    function planHasMoves(p) {
+      if (!p || p.empty === true) return false;
+      return (p.sections || []).some((sec) => Array.isArray(sec.moves) && sec.moves.length > 0);
+    }
+
+    function normalizeLoadedPlan(raw) {
+      if (!raw || !planHasMoves(raw)) return null;
+      return raw;
     }
 
     function planFingerprint(p) {
@@ -914,9 +935,18 @@
         return;
       }
       if (!plan) {
-        if (status) status.textContent = "No plan yet — open Admin → Edit current plan.";
-        root.innerHTML = `<p class="hint">Admin → <strong>Edit current plan</strong> to add stretches and lifts.</p>`;
-        updateHeroCtas();
+        if (status) {
+          status.hidden = false;
+          status.textContent = "No plan yet — waiting for Admin.";
+        }
+        root.innerHTML = `<div class="empty-teach empty-plan-block">
+          <p><strong>No workout plan yet.</strong></p>
+          <p class="hint">Admin unlocks → <strong>Edit current plan</strong> or <strong>Create new plan</strong> → browse moves → Publish. Then refresh here.</p>
+        </div>`;
+        const start = $("start-session");
+        const restart = $("restart-session");
+        if (start) start.hidden = true;
+        if (restart) restart.hidden = true;
         updateGuidedProgress([], []);
         updateSessionSteps();
         return;
@@ -1630,7 +1660,7 @@
     }
 
     function loadLocalPlan(next) {
-      plan = next || null;
+      plan = normalizeLoadedPlan(next);
       loaded = true;
       if (plan) {
         const { main } = movesByKind();
@@ -1647,9 +1677,11 @@
       try {
         const res = await fetch(WORKOUT_PLAN_URL + "?t=" + Date.now(), { cache: "no-store" });
         if (!res.ok) throw new Error("no plan");
-        plan = await res.json();
-        const { main } = movesByKind();
-        Weights.suggestFromMoves(main.map((m) => ({ name: m.name, kind: "main" })));
+        plan = normalizeLoadedPlan(await res.json());
+        if (plan) {
+          const { main } = movesByKind();
+          Weights.suggestFromMoves(main.map((m) => ({ name: m.name, kind: "main" })));
+        }
       } catch {
         plan = null;
       }
@@ -1660,15 +1692,16 @@
 
     function snapshot() {
       if (!loaded) {
-        return { title: "Today’s workout", detail: "Loading plan…", liftsTotal: 0, liftsLogged: 0, stretchCount: 0 };
+        return { title: "Today’s workout", detail: "Loading plan…", liftsTotal: 0, liftsLogged: 0, stretchCount: 0, waitingAdmin: false };
       }
       if (!plan) {
         return {
-          title: "Today’s workout",
-          detail: "Open Admin → Edit current plan",
+          title: "No plan yet",
+          detail: "Waiting for Admin to publish the first exercise plan",
           liftsTotal: 0,
           liftsLogged: 0,
           stretchCount: 0,
+          waitingAdmin: true,
         };
       }
       const { stretch, main } = movesByKind();
@@ -1686,6 +1719,7 @@
         liftsTotal: n,
         liftsLogged,
         stretchCount: stretch.length,
+        waitingAdmin: false,
       };
     }
 
@@ -2775,8 +2809,19 @@ ${JSON.stringify(example, null, 2)}`;
       saveJSON(LS.diet, state);
     }
 
+    function dietPlanHasItems(plan) {
+      if (!plan || plan.empty === true) return false;
+      const meals = plan.meals || {};
+      return ["breakfast", "lunch", "dinner", "snacks"].some((k) => Array.isArray(meals[k]) && meals[k].length > 0);
+    }
+
+    function normalizePublishedPlan(plan) {
+      if (!dietPlanHasItems(plan)) return null;
+      return plan;
+    }
+
     function loadPublishedPlan(plan) {
-      publishedPlan = plan || null;
+      publishedPlan = normalizePublishedPlan(plan);
       if (plan?.targets && !state.targets) {
         /* Prefer published plan targets until she overrides */
       }
@@ -3203,7 +3248,8 @@ ${JSON.stringify(example, null, 2)}`;
       if (planSt) {
         if (!publishedPlan) {
           planSt.hidden = false;
-          planSt.textContent = "No published meal plan yet — Admin can set today’s diet. You can still quick-add foods.";
+          planSt.textContent =
+            "No meal plan yet — waiting for Admin to publish. You can still quick-add foods below.";
         } else {
           planSt.hidden = true;
           planSt.textContent = "";
@@ -3253,7 +3299,11 @@ ${JSON.stringify(example, null, 2)}`;
                   </li>`;
                 })
                 .join("")
-            : `<li class="hf-meal-empty">No plan items — Admin publishes the day, or quick-add below.</li>`;
+            : `<li class="hf-meal-empty">${
+                publishedPlan
+                  ? "No items in this meal — quick-add below."
+                  : "Waiting for Admin plan — or quick-add below."
+              }</li>`;
           const extraLis = extras
             .map((item, i) => {
               const s = Number(item.servings) || 1;
@@ -3723,7 +3773,7 @@ ${JSON.stringify(example, null, 2)}`;
           if (!state.targets && defaults.targets) state.targets = { ...defaults.targets };
         }
         if (pRes.ok) {
-          publishedPlan = await pRes.json();
+          publishedPlan = normalizePublishedPlan(await pRes.json());
         }
       } catch (e) {
         console.warn(e);
@@ -3873,6 +3923,7 @@ ${JSON.stringify(example, null, 2)}`;
         over: tot.kcal > tg.kcal,
         mealFill,
         planHeadline: publishedPlan?.headline || "",
+        waitingAdmin: !publishedPlan,
       };
     }
 
@@ -4013,12 +4064,9 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
-    function hasBiometrics(s) {
-      return numOrNull(s.weightKg) != null && numOrNull(s.heightCm) != null;
-    }
-
     function isComplete(s) {
-      return !!(s && (s.completedAt || hasBiometrics(s)));
+      /* Full save only — biometrics alone must not skip the rest of onboarding */
+      return !!(s && s.completedAt);
     }
 
     function needsNudge() {
@@ -4486,10 +4534,22 @@ ${JSON.stringify(example, null, 2)}`;
           setTimeout(tryOpen, 600);
           return;
         }
-        /* Soft nudge banners only — sheet opens on Get started, not forced */
         paintSummaries();
+        /* Fresh handoff: open full profile when incomplete (Skip / Not now still available) */
+        if (needsNudge()) {
+          open({ step: 0 });
+        }
       };
-      setTimeout(tryOpen, 400);
+      setTimeout(tryOpen, 500);
+    }
+
+    function resetLocal() {
+      state = empty();
+      persist();
+      try {
+        sessionStorage.removeItem(SS_SKIP);
+      } catch (_) {}
+      paintSummaries();
     }
 
     return {
@@ -4501,6 +4561,7 @@ ${JSON.stringify(example, null, 2)}`;
       derive,
       getState: () => state,
       isComplete: () => isComplete(state),
+      resetLocal,
     };
   })();
 
@@ -5837,6 +5898,38 @@ ${JSON.stringify(example, null, 2)}`;
       TokenSetup.applyPlaceholders();
       setKeyBadge("admin-token-badge", "ok", "✓ Working");
       setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
+    });
+
+    $("admin-start-fresh")?.addEventListener("click", () => {
+      const ok = window.confirm(
+        "Start fresh on this phone?\n\nClears local profile, diet checks, lift/period caches, guided session, and admin unlock on this device only. GitHub data is unchanged. The page will reload."
+      );
+      if (!ok) return;
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k) continue;
+          if (LS_FRESH_PREFIXES.some((p) => k.startsWith(p))) keys.push(k);
+        }
+        keys.forEach((k) => localStorage.removeItem(k));
+      } catch (_) {}
+      try {
+        [
+          "sapna_admin_unlocked",
+          "sapna_profile_skip_session",
+          "sapna_token_setup_later",
+          "sapna_gemini_tested",
+        ].forEach((k) => sessionStorage.removeItem(k));
+      } catch (_) {}
+      setStatus($("admin-fresh-status"), "Cleared — reloading…", "ok");
+      setTimeout(() => {
+        try {
+          location.reload();
+        } catch (_) {
+          location.href = location.pathname + location.search + "#today";
+        }
+      }, 350);
     });
 
 

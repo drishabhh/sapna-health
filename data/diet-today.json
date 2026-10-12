@@ -1,84 +1,19 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T23:48:06.185Z",
-  "planDate": "2026-10-11",
-  "headline": "Balanced plate",
-  "support": "Check what you ate \u00b7 add extras if needed",
+  "updatedAt": "2026-10-12T05:41:00.000Z",
+  "planDate": null,
+  "headline": "",
+  "support": "",
   "targets": {
     "kcal": 1800,
     "protein": 100
   },
   "meals": {
-    "breakfast": [
-      {
-        "id": "bf-oats",
-        "name": "Oats with milk",
-        "kcal": 280,
-        "protein": 12,
-        "note": "1 bowl"
-      },
-      {
-        "id": "bf-eggs",
-        "name": "Boiled eggs \u00d72",
-        "kcal": 140,
-        "protein": 12,
-        "note": ""
-      }
-    ],
-    "lunch": [
-      {
-        "id": "ln-roti-sabzi",
-        "name": "Roti + sabzi",
-        "kcal": 420,
-        "protein": 14,
-        "note": "2 roti"
-      },
-      {
-        "id": "ln-dal",
-        "name": "Dal",
-        "kcal": 180,
-        "protein": 12,
-        "note": "1 bowl"
-      },
-      {
-        "id": "ln-curd",
-        "name": "Curd",
-        "kcal": 90,
-        "protein": 6,
-        "note": "1 katori"
-      }
-    ],
-    "dinner": [
-      {
-        "id": "dn-paneer",
-        "name": "Paneer bhurji + salad",
-        "kcal": 380,
-        "protein": 28,
-        "note": ""
-      },
-      {
-        "id": "dn-roti",
-        "name": "Roti \u00d71",
-        "kcal": 120,
-        "protein": 3,
-        "note": ""
-      }
-    ],
-    "snacks": [
-      {
-        "id": "sn-fruit",
-        "name": "Fruit (apple/banana)",
-        "kcal": 95,
-        "protein": 1,
-        "note": ""
-      },
-      {
-        "id": "sn-chaas",
-        "name": "Chaas / buttermilk",
-        "kcal": 60,
-        "protein": 3,
-        "note": ""
-      }
-    ]
-  }
+    "breakfast": [],
+    "lunch": [],
+    "dinner": [],
+    "snacks": []
+  },
+  "empty": true,
+  "note": "Waiting for Admin to publish the first diet plan."
 }

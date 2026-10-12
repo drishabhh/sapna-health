@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-10-12T00:06:23.391Z",
-  "planDate": "2026-10-12",
-  "headline": "Aaj ka workout",
-  "support": "Stretch · move · lift — every demo ready when she is.",
+  "updatedAt": "2026-10-12T05:41:00.000Z",
+  "planDate": null,
+  "headline": "",
+  "support": "",
   "restNote": {
     "title": "Rest & water",
     "body": "Rest 1–1.5 min between sets. Drink water — not cold; warm or room temp, sip by sip.",
@@ -15,40 +15,7 @@
       "title": "Stretching",
       "subtitle": "Easy and controlled",
       "kind": "stretch",
-      "moves": [
-        {
-          "id": "arm-circles",
-          "name": "Arm circles",
-          "rx": "10 reps each direction",
-          "remarks": "",
-          "gif": "media/arm-circles.gif",
-          "demo": "img"
-        },
-        {
-          "id": "torso-rotations",
-          "name": "Torso rotations",
-          "rx": "10 reps each side",
-          "remarks": "",
-          "gif": "media/torso-rotations.gif",
-          "demo": "img"
-        },
-        {
-          "id": "leg-swings",
-          "name": "Leg swings",
-          "rx": "10 reps each leg — hold a wall if needed",
-          "remarks": "",
-          "gif": "",
-          "demo": "svg-leg-swing"
-        },
-        {
-          "id": "bodyweight-squats",
-          "name": "Bodyweight squats",
-          "rx": "10 reps — warm-up pace",
-          "remarks": "",
-          "gif": "media/bodyweight-squats.gif",
-          "demo": "img"
-        }
-      ]
+      "moves": []
     },
     {
       "id": "exercise",
@@ -56,72 +23,9 @@
       "title": "Exercise",
       "subtitle": "Follow the prescriptions",
       "kind": "main",
-      "moves": [
-        {
-          "id": "cycle-walk",
-          "name": "Cycle / treadmill walk",
-          "rx": "3 min cycle (normal pace) ya 5 min walk",
-          "remarks": "",
-          "gif": "media/cycle-walk.gif",
-          "demo": "img"
-        },
-        {
-          "id": "chest-press",
-          "name": "Chest press flat bench",
-          "rx": "5 kg · 2 sets × 12",
-          "remarks": "",
-          "gif": "media/chest-press.gif",
-          "demo": "img"
-        },
-        {
-          "id": "shoulder-press",
-          "name": "Shoulder press",
-          "rx": "2.5 kg · 2 sets × 12",
-          "remarks": "",
-          "gif": "media/shoulder-press.gif",
-          "demo": "img"
-        },
-        {
-          "id": "lat-pulldown",
-          "name": "Lat pull down",
-          "rx": "20 kg · 2 sets × 12",
-          "remarks": "",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/cable-pulldown-pro-lat-bar.gif",
-          "demo": "img"
-        },
-        {
-          "id": "cable-row",
-          "name": "Seated Cable Row",
-          "rx": "20 kg · 2 sets × 12",
-          "remarks": "",
-          "gif": "media/cable-row.gif",
-          "demo": "img"
-        },
-        {
-          "id": "leg-curl",
-          "name": "Seated Leg Curl",
-          "rx": "15–20 kg · 2 sets × 12",
-          "remarks": "",
-          "gif": "media/leg-curl.gif",
-          "demo": "img"
-        },
-        {
-          "id": "db-squats",
-          "name": "Dumbbell squats",
-          "rx": "7.5 kg · 2 sets × 12",
-          "remarks": "",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/glutes/barbell-front-squat.gif",
-          "demo": "img"
-        },
-        {
-          "id": "dumbbell-goblet-squat-muwxqnoi-dyl2",
-          "name": "Dumbbell Goblet Squat",
-          "rx": "2 sets × 12",
-          "remarks": "",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/quads/dumbbell-goblet-squat.gif",
-          "demo": "img"
-        }
-      ]
+      "moves": []
     }
-  ]
+  ],
+  "empty": true,
+  "note": "Waiting for Admin to publish the first exercise plan."
 }
