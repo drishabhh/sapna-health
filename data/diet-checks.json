@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T00:21:47.262Z",
+  "updatedAt": "2026-10-12T05:35:07.869Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -14,7 +14,8 @@
     },
     "2026-10-12": {
       "done": {
-        "ln-roti-sabzi": false
+        "ln-roti-sabzi": false,
+        "ln-dal": false
       },
       "extras": [],
       "breakfast": [],
