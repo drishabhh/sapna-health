@@ -1147,12 +1147,24 @@
     }
 
     function defaultWheelValues() {
-      const last = sheetExercise ? Weights.lastFor(sheetExercise) : null;
+      const today = todayISO();
+      const todayRows = sheetExercise
+        ? Weights.entriesFor(sheetExercise).filter((e) => String(e.date || "") === today)
+        : [];
+      /* New log: 5 kg · 12 reps · set N where N = today’s entries + 1 (1st → 1, 2nd → 2, …) */
+      const nextSet = Math.min(12, Math.max(1, todayRows.length + 1));
+      const lastToday = todayRows[todayRows.length - 1] || null;
+      const kg =
+        lastToday && Number.isFinite(Number(lastToday.weight)) ? Number(lastToday.weight) : 5;
+      const reps =
+        lastToday && Number.isFinite(Weights.entryReps(lastToday))
+          ? Weights.entryReps(lastToday)
+          : 12;
       return {
-        kg: last && Number.isFinite(Number(last.weight)) ? Number(last.weight) : 20,
-        reps: last && Number.isFinite(Weights.entryReps(last)) ? Weights.entryReps(last) : 10,
-        sets: last && Number.isFinite(Weights.entrySets(last)) ? Weights.entrySets(last) : 3,
-        date: todayISO(),
+        kg,
+        reps,
+        sets: nextSet,
+        date: today,
       };
     }
 
