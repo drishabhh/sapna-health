@@ -427,16 +427,14 @@
           phase = "done";
           exerciseIndex = 0;
         } else {
-          exerciseIndex = Math.min(Math.max(0, exerciseIndex), mainIds.length - 1);
-          /* Prefer first incomplete if stored index already completed */
-          if (completedIds.includes(mainIds[exerciseIndex])) {
-            const next = mainIds.findIndex((id) => !completedIds.includes(id));
-            if (next < 0) {
-              phase = "done";
-              exerciseIndex = mainIds.length - 1;
-            } else {
-              exerciseIndex = next;
-            }
+          const frontier = mainIds.findIndex((id) => !completedIds.includes(id));
+          if (frontier < 0) {
+            /* All marked done — session complete */
+            phase = "done";
+            exerciseIndex = Math.max(0, mainIds.length - 1);
+          } else {
+            /* Allow resume on a past (completed) step or the frontier — never past frontier */
+            exerciseIndex = Math.min(Math.max(0, exerciseIndex), frontier);
           }
         }
       }
@@ -501,6 +499,12 @@
       $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    function frontierIndex(main) {
+      const ids = (main || []).map(moveKey);
+      const next = ids.findIndex((id) => id && !session.completedIds.includes(id));
+      return next < 0 ? Math.max(0, ids.length - 1) : next;
+    }
+
     function openPeekNext() {
       const { main } = movesByKind();
       const idx = Math.min(session.exerciseIndex, Math.max(0, main.length - 1));
@@ -517,6 +521,23 @@
       $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    function goToExercise(index) {
+      const { main } = movesByKind();
+      if (session.phase !== "exercise" || !main.length) return;
+      const frontier = frontierIndex(main);
+      const i = Math.min(Math.max(0, Number(index) || 0), frontier);
+      peekingNext = false;
+      setSession({ phase: "exercise", exerciseIndex: i });
+      render();
+      $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function goToPreviousExercise() {
+      const idx = session.exerciseIndex;
+      if (idx <= 0) return;
+      goToExercise(idx - 1);
+    }
+
     function completeCurrentExercise() {
       const { main } = movesByKind();
       peekingNext = false;
@@ -528,13 +549,28 @@
       const idx = Math.min(session.exerciseIndex, main.length - 1);
       const key = moveKey(main[idx]);
       const completedIds = session.completedIds.slice();
-      if (key && !completedIds.includes(key)) completedIds.push(key);
-      const next = idx + 1;
-      if (next >= main.length) {
-        setSession({ phase: "done", exerciseIndex: main.length - 1, completedIds });
+      const alreadyDone = key && completedIds.includes(key);
+      if (key && !alreadyDone) completedIds.push(key);
+
+      /* If she reopened a past done step, Completed returns her to the frontier */
+      if (alreadyDone) {
+        const next = main.findIndex((m) => {
+          const id = moveKey(m);
+          return id && !completedIds.includes(id);
+        });
+        if (next < 0) {
+          setSession({ phase: "done", exerciseIndex: main.length - 1, completedIds });
+        } else {
+          setSession({ phase: "exercise", exerciseIndex: next, completedIds });
+        }
       } else {
-        /* Advance only on explicit Completed — never from peek */
-        setSession({ phase: "exercise", exerciseIndex: next, completedIds });
+        const next = idx + 1;
+        if (next >= main.length) {
+          setSession({ phase: "done", exerciseIndex: main.length - 1, completedIds });
+        } else {
+          /* Advance only on explicit Completed — never from peek */
+          setSession({ phase: "exercise", exerciseIndex: next, completedIds });
+        }
       }
       render();
       if (session.phase === "exercise") {
@@ -546,19 +582,32 @@
 
     function exerciseRailHtml(main, idx) {
       if (!main.length) return "";
-      return `<ol class="guided-ex-rail" aria-label="Exercises — past steps stay locked">
+      const frontier = frontierIndex(main);
+      return `<ol class="guided-ex-rail" aria-label="Exercises — tap a past step to reopen">
         ${main
           .map((m, i) => {
             const key = moveKey(m);
-            const done = session.completedIds.includes(key) || i < idx;
-            const current = i === idx && !done;
-            const upcoming = i > idx;
+            const done = session.completedIds.includes(key);
+            const current = i === idx;
+            const upcoming = i > frontier;
+            const canOpen = i <= frontier;
             let cls = "guided-ex-rail-item";
-            if (done) cls += " is-done is-locked";
-            else if (current) cls += " is-current";
-            else if (upcoming) cls += " is-upcoming";
-            const label = done ? "Done · locked" : current ? "Now" : "Up next";
-            return `<li class="${cls}" aria-current="${current ? "step" : "false"}" title="${escapeHtml(label)}">
+            if (current) cls += " is-current";
+            if (done) cls += " is-done";
+            if (upcoming) cls += " is-upcoming";
+            if (canOpen) cls += " is-tappable";
+            const label = current ? "Now" : done ? "Done · tap to reopen" : upcoming ? "Up next" : "Open";
+            const check = done ? `<span class="guided-ex-rail-check" aria-hidden="true">✓</span>` : "";
+            if (canOpen) {
+              return `<li class="${cls}" aria-current="${current ? "step" : "false"}">
+                <button type="button" class="guided-ex-rail-btn" data-ex-goto="${i}" title="${escapeHtml(label)}" ${current ? 'aria-pressed="true"' : ""}>
+                  ${check}
+                  <span class="guided-ex-rail-num">${i + 1}</span>
+                  <span class="guided-ex-rail-name">${escapeHtml(m.name || "Move")}</span>
+                </button>
+              </li>`;
+            }
+            return `<li class="${cls}" aria-current="false" title="${escapeHtml(label)}">
               <span class="guided-ex-rail-num">${i + 1}</span>
               <span class="guided-ex-rail-name">${escapeHtml(m.name || "Move")}</span>
             </li>`;
@@ -596,7 +645,7 @@
         .map((m, i) => `<li><span>${i + 1}.</span> ${escapeHtml(m.name || "Move")}</li>`)
         .join("");
       return `<div class="guided-idle" id="session-idle">
-        <p class="guided-idle-lede">When you start, Stretching opens first — then one lift at a time. Peek the next move anytime; Completed locks that step so you can’t go back.</p>
+        <p class="guided-idle-lede">When you start, Stretching opens first — then one lift at a time. Peek the next move anytime; tap a past step to reopen GIF or LOG. Completed advances.</p>
         ${
           stretch.length
             ? `<div class="guided-idle-block"><h2>Stretching <span class="move-group-tag">${stretch.length}</span></h2><p class="guided-idle-names">${stretchNames}</p></div>`
@@ -798,7 +847,7 @@
         else if (phase === "exercise") {
           support.textContent = peekingNext
             ? "Preview only — back out, then tap Completed when this lift is finished."
-            : "One exercise at a time — peek next without finishing, or tap Completed to lock and advance.";
+            : "One exercise at a time — reopen any past step, peek next, or tap Completed to advance.";
         } else if (phase === "done") support.textContent = "Session complete. Restart only if you mean to begin again.";
         else support.textContent = "Stretch first, then one exercise at a time. Resume stays on this phone.";
       }
@@ -819,8 +868,10 @@
       } else if (phase === "exercise") {
         const n = main.length;
         const i = Math.min(session.exerciseIndex, Math.max(0, n - 1)) + 1;
-        const peekMeta = peekingNext ? " · peeking next" : "";
-        el.innerHTML = `<p class="guided-progress-label">Exercise ${i} of ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done · past locked${peekMeta}</p>`;
+        const frontier = frontierIndex(main);
+        const reviewing = session.exerciseIndex < frontier;
+        const peekMeta = peekingNext ? " · peeking next" : reviewing ? " · reviewing past" : "";
+        el.innerHTML = `<p class="guided-progress-label">Exercise ${i} of ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done · tap past to reopen${peekMeta}</p>`;
       } else if (phase === "done") {
         el.innerHTML = `<p class="guided-progress-label">All done</p><p class="guided-progress-meta">${main.length} exercises · nice work</p>`;
       }
@@ -873,16 +924,28 @@
           html = `<p class="hint">No exercises left in today’s plan.</p>`;
         } else {
           const n = main.length;
+          const frontier = frontierIndex(main);
+          const reviewing = idx < frontier;
+          const moveDone = session.completedIds.includes(moveKey(move));
           const hasNext = idx + 1 < n;
           const nextMove = hasNext ? main[idx + 1] : null;
           if (peekingNext && !hasNext) peekingNext = false;
           const peekBlock =
             peekingNext && nextMove ? peekCardHtml(nextMove, n, idx + 1) : "";
-          const actions = peekingNext
-            ? `<div class="guided-ex-actions">
+          let actions;
+          if (peekingNext) {
+            actions = `<div class="guided-ex-actions">
                 <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back to current</button>
-              </div>`
-            : `<div class="guided-ex-actions">
+              </div>`;
+          } else if (reviewing || moveDone) {
+            actions = `<div class="guided-ex-actions guided-ex-actions-review">
+                ${idx > 0 ? `<button type="button" class="btn-ghost btn-ex-back" data-ex-back>Previous</button>` : ""}
+                <button type="button" class="btn-ghost btn-ex-latest" data-ex-latest>Back to latest</button>
+                <button type="button" class="btn-guided-done" id="exercise-done" data-exercise-done>Continue</button>
+              </div>`;
+          } else {
+            actions = `<div class="guided-ex-actions">
+                ${idx > 0 ? `<button type="button" class="btn-ghost btn-ex-back" data-ex-back>Previous</button>` : ""}
                 ${
                   hasNext
                     ? `<button type="button" class="btn-ghost btn-peek-next" id="peek-next" data-peek-next>See next</button>`
@@ -890,12 +953,15 @@
                 }
                 <button type="button" class="btn-guided-done" id="exercise-done" data-exercise-done>Completed</button>
               </div>`;
+          }
           html = `<div class="move-group session-active guided-phase" id="session-active">
             <h2>${escapeHtml(move.name || "Exercise")} <span class="move-group-tag">${idx + 1}/${n}</span></h2>
             <p class="guided-phase-hint">${
               peekingNext
                 ? "Preview of what’s next — your current lift stays open until you tap Completed."
-                : "Finish the sets, LOG if you want a record. See next to peek ahead; Completed locks this step."
+                : reviewing || moveDone
+                  ? "Reopened past step — GIF and LOG still work. Continue returns you to the latest lift."
+                  : "Finish the sets, LOG if you want a record. Tap a past pill to reopen; See next peeks ahead; Completed advances."
             }</p>
             ${exerciseRailHtml(main, idx)}
             ${peekBlock}
@@ -1385,15 +1451,29 @@
           closePeekNext();
           return;
         }
+        const gotoBtn = e.target.closest("[data-ex-goto]");
+        if (gotoBtn) {
+          e.preventDefault();
+          goToExercise(Number(gotoBtn.getAttribute("data-ex-goto")));
+          return;
+        }
+        const backBtn = e.target.closest("[data-ex-back]");
+        if (backBtn) {
+          e.preventDefault();
+          goToPreviousExercise();
+          return;
+        }
+        const latestBtn = e.target.closest("[data-ex-latest]");
+        if (latestBtn) {
+          e.preventDefault();
+          const { main } = movesByKind();
+          goToExercise(frontierIndex(main));
+          return;
+        }
         const exDone = e.target.closest("[data-exercise-done]");
         if (exDone) {
           e.preventDefault();
           completeCurrentExercise();
-          return;
-        }
-        /* Past rail steps are locked — ignore clicks on completed pills */
-        if (e.target.closest(".guided-ex-rail-item.is-locked")) {
-          e.preventDefault();
           return;
         }
         const btn = e.target.closest("[data-w-log-open]");
