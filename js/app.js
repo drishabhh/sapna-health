@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261012handoff3";
+  const PROFILE_ASSET_V = "20261012handoff4";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -945,11 +945,33 @@
         </div>`;
         const start = $("start-session");
         const restart = $("restart-session");
-        if (start) start.hidden = true;
-        if (restart) restart.hidden = true;
+        const cta = $("workout-cta-row");
+        const doneBar = $("session-done-bar");
+        if (start) {
+          start.hidden = true;
+          start.setAttribute("hidden", "");
+        }
+        if (restart) {
+          restart.hidden = true;
+          restart.setAttribute("hidden", "");
+        }
+        if (cta) {
+          cta.hidden = true;
+          cta.setAttribute("hidden", "");
+        }
+        if (doneBar) {
+          doneBar.hidden = true;
+          doneBar.setAttribute("hidden", "");
+        }
+        document.body.classList.remove("guided-session-active");
         updateGuidedProgress([], []);
         updateSessionSteps();
         return;
+      }
+      const ctaRow = $("workout-cta-row");
+      if (ctaRow) {
+        ctaRow.hidden = false;
+        ctaRow.removeAttribute("hidden");
       }
       const { stretch, main } = movesByKind();
       const phase = session.phase;
