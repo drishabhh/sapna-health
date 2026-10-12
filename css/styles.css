@@ -4738,6 +4738,13 @@ body.plan-admin-open { overflow: hidden; }
   min-width: min(100%, 9.5rem);
 }
 
+/* Flex children must honor [hidden] (UA [hidden]{display:none} loses to flex rules) */
+.cta-row > [hidden],
+#workout-cta-row[hidden],
+#session-done-bar[hidden] {
+  display: none !important;
+}
+
 .site-nav {
   width: 100%;
   max-width: 100%;
