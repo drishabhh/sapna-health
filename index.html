@@ -130,11 +130,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261011diet1"></script>
+  <script src="./js/admin-auth.js?v=20261012guide1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261011diet1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261012guide1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -214,22 +214,24 @@
   <section class="panel panel-workout" id="panel-workout" data-panel="workout">
     <div class="hero workout-hero-compact">
       <h1 class="headline">Workout</h1>
-      <p class="support">Session flow: Stretch → Exercise → LOG each lift.</p>
+      <p class="support" id="workout-hero-support">Stretch first, then one exercise at a time. Resume stays on this phone.</p>
       <div class="session-steps" aria-label="Session steps">
-        <span class="session-step is-done" data-step="stretch">1 Stretch</span>
-        <span class="session-step is-active" data-step="lift">2 Lift &amp; log</span>
+        <span class="session-step" data-step="stretch">1 Stretch</span>
+        <span class="session-step" data-step="lift">2 Exercise</span>
         <span class="session-step" data-step="done">3 Done</span>
       </div>
-      <div class="cta-row">
-        <a class="btn-primary" href="#session-stretch" id="start-session">Start session</a>
+      <div class="cta-row" id="workout-cta-row">
+        <button type="button" class="btn-primary" id="start-session">Start session</button>
+        <button type="button" class="btn-ghost" id="restart-session" hidden>Restart session</button>
         <a class="btn-ghost" href="#logs">History</a>
       </div>
     </div>
     <div class="workout-shell">
       <p class="hint" id="workout-plan-status">Loading today’s plan…</p>
+      <div id="guided-progress" class="guided-progress" hidden></div>
       <div id="workout-groups"></div>
       <div class="session-done-bar" id="session-done-bar" hidden>
-        <p><strong>Nice work.</strong> Lifts are saved on this phone.</p>
+        <p><strong>Nice work.</strong> Session complete — lifts stay on this phone.</p>
         <a class="btn-primary" href="#logs">See logs</a>
       </div>
     </div>
@@ -1141,8 +1143,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261011diet1"></script>
-  <script src="./js/diet-admin.js?v=20261011diet1"></script>
-  <script src="./js/app.js?v=20261011diet1"></script>
+  <script src="./js/workout-admin.js?v=20261012guide1"></script>
+  <script src="./js/diet-admin.js?v=20261012guide1"></script>
+  <script src="./js/app.js?v=20261012guide1"></script>
 </body>
 </html>

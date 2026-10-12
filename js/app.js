@@ -9,13 +9,14 @@
     gemini: "sapna_gemini_key",
     coach: "sapna_coach_last_v1",
     profile: "sapna_profile",
+    guided: "sapna_guided_session_v1",
   };
   const REPO = { owner: "drishabhh", name: "sapna-health", branch: "main" };
   const DIET_DEFAULTS_PATH = "data/diet-defaults.json";
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261011diet1";
+  const PROFILE_ASSET_V = "20261012guide1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
 
@@ -302,10 +303,22 @@
     let sheetExercise = "";
     let sheetEditingId = null;
     let sheetScrollY = 0;
+    /* Guided session: idle | stretch | exercise | done */
+    let session = {
+      date: "",
+      planHash: "",
+      phase: "idle",
+      exerciseIndex: 0,
+      completedIds: [],
+    };
 
     function sectionKind(section) {
       if (section?.kind === "stretch" || section?.id === "stretching") return "stretch";
       return "main";
+    }
+
+    function moveKey(m) {
+      return String(m?.id || m?.name || "").trim();
     }
 
     function movesByKind() {
@@ -320,6 +333,218 @@
         });
       });
       return { stretch, main };
+    }
+
+    function planFingerprint(p) {
+      if (!p) return "";
+      const ids = [];
+      (p.sections || []).forEach((sec) => {
+        (sec.moves || []).forEach((m) => ids.push(moveKey(m)));
+      });
+      return [p.planDate || "", p.updatedAt || "", ids.join("|")].join("::");
+    }
+
+    function defaultSession() {
+      return {
+        date: todayISO(),
+        planHash: planFingerprint(plan),
+        phase: "idle",
+        exerciseIndex: 0,
+        completedIds: [],
+      };
+    }
+
+    function readStoredSession() {
+      try {
+        const raw = localStorage.getItem(LS.guided);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        return {
+          date: String(parsed.date || ""),
+          planHash: String(parsed.planHash || ""),
+          phase: ["idle", "stretch", "exercise", "done"].includes(parsed.phase)
+            ? parsed.phase
+            : "idle",
+          exerciseIndex: Math.max(0, Number(parsed.exerciseIndex) || 0),
+          completedIds: Array.isArray(parsed.completedIds)
+            ? parsed.completedIds.map((x) => String(x))
+            : [],
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    function persistSession() {
+      try {
+        localStorage.setItem(LS.guided, JSON.stringify(session));
+      } catch (_) {}
+    }
+
+    function reconcileSession(saved) {
+      if (!saved || saved.date !== todayISO()) return defaultSession();
+      const { stretch, main } = movesByKind();
+      const mainIds = main.map(moveKey).filter(Boolean);
+      const hash = planFingerprint(plan);
+      let phase = saved.phase;
+      let exerciseIndex = saved.exerciseIndex;
+      let completedIds = (saved.completedIds || []).filter((id) => mainIds.includes(id));
+
+      if (saved.planHash !== hash) {
+        /* Plan republished — remap, never soft-lock */
+        if (phase === "stretch") {
+          if (!stretch.length) phase = mainIds.length ? "exercise" : "idle";
+          exerciseIndex = 0;
+        } else if (phase === "exercise" || phase === "done") {
+          const next = mainIds.findIndex((id) => !completedIds.includes(id));
+          if (next < 0) {
+            phase = mainIds.length ? "done" : "idle";
+            exerciseIndex = Math.max(0, mainIds.length - 1);
+          } else {
+            phase = "exercise";
+            exerciseIndex = next;
+          }
+        } else {
+          phase = "idle";
+          exerciseIndex = 0;
+          completedIds = [];
+        }
+      }
+
+      if (phase === "stretch" && !stretch.length) {
+        phase = mainIds.length ? "exercise" : "idle";
+        exerciseIndex = 0;
+      }
+      if (phase === "exercise") {
+        if (!mainIds.length) {
+          phase = "done";
+          exerciseIndex = 0;
+        } else {
+          exerciseIndex = Math.min(Math.max(0, exerciseIndex), mainIds.length - 1);
+          /* Prefer first incomplete if stored index already completed */
+          if (completedIds.includes(mainIds[exerciseIndex])) {
+            const next = mainIds.findIndex((id) => !completedIds.includes(id));
+            if (next < 0) {
+              phase = "done";
+              exerciseIndex = mainIds.length - 1;
+            } else {
+              exerciseIndex = next;
+            }
+          }
+        }
+      }
+      if (phase === "done" && !mainIds.length && !stretch.length) phase = "idle";
+
+      return {
+        date: todayISO(),
+        planHash: hash,
+        phase,
+        exerciseIndex,
+        completedIds,
+      };
+    }
+
+    function adoptSessionFromStorage() {
+      session = reconcileSession(readStoredSession());
+      persistSession();
+    }
+
+    function setSession(partial) {
+      session = {
+        ...session,
+        ...partial,
+        date: todayISO(),
+        planHash: planFingerprint(plan),
+      };
+      persistSession();
+    }
+
+    function startGuidedSession() {
+      const { stretch, main } = movesByKind();
+      if (!stretch.length && !main.length) return;
+      if (stretch.length) {
+        setSession({ phase: "stretch", exerciseIndex: 0, completedIds: [] });
+      } else {
+        setSession({ phase: "exercise", exerciseIndex: 0, completedIds: [] });
+      }
+      render();
+      $("session-stretch")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function restartGuidedSession() {
+      if (!window.confirm("Restart today’s session from stretching? Progress on this phone for this session will reset.")) {
+        return;
+      }
+      setSession({ phase: "idle", exerciseIndex: 0, completedIds: [] });
+      render();
+    }
+
+    function completeStretching() {
+      const { main } = movesByKind();
+      if (!main.length) {
+        setSession({ phase: "done", exerciseIndex: 0 });
+      } else {
+        setSession({ phase: "exercise", exerciseIndex: 0 });
+      }
+      render();
+      $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function completeCurrentExercise() {
+      const { main } = movesByKind();
+      if (!main.length) {
+        setSession({ phase: "done", exerciseIndex: 0 });
+        render();
+        return;
+      }
+      const idx = Math.min(session.exerciseIndex, main.length - 1);
+      const key = moveKey(main[idx]);
+      const completedIds = session.completedIds.slice();
+      if (key && !completedIds.includes(key)) completedIds.push(key);
+      const next = idx + 1;
+      if (next >= main.length) {
+        setSession({ phase: "done", exerciseIndex: main.length - 1, completedIds });
+      } else {
+        setSession({ phase: "exercise", exerciseIndex: next, completedIds });
+      }
+      render();
+      if (session.phase === "exercise") {
+        $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        $("session-done-bar")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    }
+
+    function restNoteHtml() {
+      const note = plan?.restNote;
+      if (!note || (!note.title && !note.body)) return "";
+      const title = escapeHtml(note.title || "Rest & water");
+      const body = escapeHtml(note.body || "");
+      return `<aside class="guided-rest-note" aria-label="Rest and water">
+        <p class="guided-rest-title">${title}</p>
+        <p class="guided-rest-body">${body}</p>
+      </aside>`;
+    }
+
+    function idlePreviewHtml(stretch, main) {
+      const stretchNames = stretch.map((m) => escapeHtml(m.name || "Stretch")).join(" · ");
+      const liftRows = main
+        .map((m, i) => `<li><span>${i + 1}.</span> ${escapeHtml(m.name || "Move")}</li>`)
+        .join("");
+      return `<div class="guided-idle" id="session-idle">
+        <p class="guided-idle-lede">When you start, Stretching opens first — then one lift at a time with a big Done.</p>
+        ${
+          stretch.length
+            ? `<div class="guided-idle-block"><h2>Stretching <span class="move-group-tag">${stretch.length}</span></h2><p class="guided-idle-names">${stretchNames}</p></div>`
+            : ""
+        }
+        ${
+          main.length
+            ? `<div class="guided-idle-block"><h2>Exercises <span class="move-group-tag">${main.length}</span></h2><ol class="guided-idle-list">${liftRows}</ol></div>`
+            : ""
+        }
+      </div>`;
     }
 
     function lastLogLine(name) {
@@ -468,19 +693,21 @@
       return `<p class="move-remarks">${escapeHtml(note)}</p>`;
     }
 
-    function cardHtml(move) {
+    function cardHtml(move, opts = {}) {
       const name = move.name || "Move";
       const isStretch = move.kind === "stretch";
       const gif = gifPreviewHtml(move);
+      const key = moveKey(move);
+      const activeClass = opts.active ? " is-guided-active" : "";
       if (isStretch) {
-        return `<article class="move-log-card is-stretch" data-move="${escapeHtml(name)}" data-kind="stretch">
+        return `<article class="move-log-card is-stretch${activeClass}" data-move="${escapeHtml(name)}" data-move-id="${escapeHtml(key)}" data-kind="stretch">
           <p class="move-title">${escapeHtml(name)}</p>
           <p class="move-rx">${escapeHtml(move.rx || "Easy and controlled")} · no weight log</p>
           ${remarksHtml(move)}
           ${gif}
         </article>`;
       }
-      return `<article class="move-log-card" data-move="${escapeHtml(name)}" data-kind="main">
+      return `<article class="move-log-card${activeClass}" data-move="${escapeHtml(name)}" data-move-id="${escapeHtml(key)}" data-kind="main">
         <p class="move-title">${escapeHtml(name)}</p>
         <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
         ${remarksHtml(move)}
@@ -490,6 +717,46 @@
           <button type="button" class="btn-log-open" data-w-log-open>LOG</button>
         </div>
       </article>`;
+    }
+
+    function updateHeroCtas() {
+      const start = $("start-session");
+      const restart = $("restart-session");
+      const support = $("workout-hero-support");
+      const phase = session.phase;
+      const active = phase === "stretch" || phase === "exercise" || phase === "done";
+      if (start) {
+        start.hidden = active;
+        start.textContent = phase === "idle" ? "Start session" : "Start session";
+      }
+      if (restart) restart.hidden = !active;
+      if (support) {
+        if (phase === "stretch") support.textContent = "Warm up with every stretch, then tap Stretching completed.";
+        else if (phase === "exercise") support.textContent = "One exercise at a time — LOG weight if you need, then Done.";
+        else if (phase === "done") support.textContent = "Session complete. Restart only if you mean to begin again.";
+        else support.textContent = "Stretch first, then one exercise at a time. Resume stays on this phone.";
+      }
+    }
+
+    function updateGuidedProgress(stretch, main) {
+      const el = $("guided-progress");
+      if (!el) return;
+      const phase = session.phase;
+      if (phase === "idle" || !plan) {
+        el.hidden = true;
+        el.innerHTML = "";
+        return;
+      }
+      el.hidden = false;
+      if (phase === "stretch") {
+        el.innerHTML = `<p class="guided-progress-label">Stretching</p><p class="guided-progress-meta">${stretch.length} moves · then lifts</p>`;
+      } else if (phase === "exercise") {
+        const n = main.length;
+        const i = Math.min(session.exerciseIndex, Math.max(0, n - 1)) + 1;
+        el.innerHTML = `<p class="guided-progress-label">Exercise ${i} of ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done · LOG anytime</p>`;
+      } else if (phase === "done") {
+        el.innerHTML = `<p class="guided-progress-label">All done</p><p class="guided-progress-meta">${main.length} exercises · nice work</p>`;
+      }
     }
 
     function render() {
@@ -508,52 +775,91 @@
       if (!plan) {
         if (status) status.textContent = "No plan yet — open Admin → Edit current plan.";
         root.innerHTML = `<p class="hint">Admin → <strong>Edit current plan</strong> to add stretches and lifts.</p>`;
+        updateHeroCtas();
+        updateGuidedProgress([], []);
+        updateSessionSteps();
         return;
       }
       const { stretch, main } = movesByKind();
+      const phase = session.phase;
       if (status) {
         status.textContent = plan.headline
-          ? `${plan.headline} — Stretch (view) → tap LOG on lifts.`
-          : "Stretch (view) → tap LOG on lifts.";
+          ? `${plan.headline} · guided session`
+          : "Guided session";
       }
+
       let html = "";
-      if (stretch.length) {
-        html += `<div class="move-group session-stretch" id="session-stretch"><h2>1 · Stretching <span class="move-group-tag">view only</span></h2>${stretch.map(cardHtml).join("")}</div>`;
+      if (phase === "idle") {
+        html = idlePreviewHtml(stretch, main);
+        if (!stretch.length && !main.length) html = `<p class="hint">No moves in today’s plan.</p>`;
+      } else if (phase === "stretch") {
+        html = `<div class="move-group session-stretch guided-phase" id="session-stretch">
+          <h2>Stretching <span class="move-group-tag">warm-up</span></h2>
+          <p class="guided-phase-hint">Do each stretch at an easy pace. When you’re ready, continue below.</p>
+          ${stretch.map((m) => cardHtml(m, { active: true })).join("")}
+          <button type="button" class="btn-guided-done" id="stretch-completed" data-stretch-done>Stretching completed</button>
+        </div>`;
+      } else if (phase === "exercise") {
+        const idx = Math.min(session.exerciseIndex, Math.max(0, main.length - 1));
+        const move = main[idx];
+        if (!move) {
+          html = `<p class="hint">No exercises left in today’s plan.</p>`;
+        } else {
+          const n = main.length;
+          html = `<div class="move-group session-active guided-phase" id="session-active">
+            <h2>${escapeHtml(move.name || "Exercise")} <span class="move-group-tag">${idx + 1}/${n}</span></h2>
+            <p class="guided-phase-hint">Finish the sets, LOG if you want a record, then Done.</p>
+            ${cardHtml(move, { active: true })}
+            ${restNoteHtml()}
+            <button type="button" class="btn-guided-done" id="exercise-done" data-exercise-done>Done</button>
+          </div>`;
+        }
+      } else if (phase === "done") {
+        html = `<div class="guided-complete" id="session-complete">
+          <p class="guided-complete-title">You’re finished</p>
+          <p class="guided-complete-body">Stretching and all ${main.length} exercises are done for today. Logs stay on this phone.</p>
+        </div>`;
       }
-      if (main.length) {
-        html += `<div class="move-group session-lifts" id="session-lifts"><h2>2 · Exercise <span class="move-group-tag">tap LOG</span></h2>${main.map(cardHtml).join("")}</div>`;
-      }
+
       if (!html) html = `<p class="hint">No moves in today’s plan.</p>`;
       root.innerHTML = html;
+      document.body.classList.toggle("guided-session-active", phase === "stretch" || phase === "exercise");
       wireGifLightbox();
       wireGifLazyLoad(root);
       refreshCardSummaries();
+      updateHeroCtas();
+      updateGuidedProgress(stretch, main);
       updateSessionSteps();
     }
 
     function updateSessionSteps() {
       const { stretch, main } = movesByKind();
+      const phase = session.phase;
       const logged = main.filter((m) => Weights.lastFor(m.name)).length;
-      const anyLog = logged > 0;
-      const allDone = main.length > 0 && logged >= main.length;
       document.querySelectorAll(".session-step").forEach((el) => {
         const step = el.getAttribute("data-step");
         el.classList.remove("is-active", "is-done");
         if (step === "stretch") {
-          el.classList.add(anyLog || !stretch.length ? "is-done" : "is-active");
+          if (phase === "stretch") el.classList.add("is-active");
+          else if (phase === "exercise" || phase === "done" || (!stretch.length && phase !== "idle")) {
+            el.classList.add("is-done");
+          }
         } else if (step === "lift") {
-          if (allDone) el.classList.add("is-done");
-          else if (anyLog || !stretch.length) el.classList.add("is-active");
-        } else if (step === "done" && allDone) {
-          el.classList.add("is-active", "is-done");
+          if (phase === "exercise") el.classList.add("is-active");
+          else if (phase === "done") el.classList.add("is-done");
+        } else if (step === "done") {
+          if (phase === "done") el.classList.add("is-active", "is-done");
         }
       });
       const bar = $("session-done-bar");
       if (bar) {
-        bar.hidden = !allDone;
-        if (allDone) {
-          bar.querySelector("p").innerHTML =
-            `<strong>Session complete.</strong> ${logged}/${main.length} lifts logged on this phone.`;
+        const show = phase === "done";
+        bar.hidden = !show;
+        if (show) {
+          const p = bar.querySelector("p");
+          if (p) {
+            p.innerHTML = `<strong>Session complete.</strong> ${logged}/${main.length} lifts logged on this phone.`;
+          }
         }
       }
     }
@@ -750,7 +1056,28 @@
     }
 
     function wire() {
+      $("start-session")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        startGuidedSession();
+      });
+      $("restart-session")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        restartGuidedSession();
+      });
+
       $("workout-groups")?.addEventListener("click", (e) => {
+        const stretchDone = e.target.closest("[data-stretch-done]");
+        if (stretchDone) {
+          e.preventDefault();
+          completeStretching();
+          return;
+        }
+        const exDone = e.target.closest("[data-exercise-done]");
+        if (exDone) {
+          e.preventDefault();
+          completeCurrentExercise();
+          return;
+        }
         const btn = e.target.closest("[data-w-log-open]");
         if (!btn) return;
         const card = btn.closest(".move-log-card");
@@ -884,6 +1211,7 @@
         const { main } = movesByKind();
         Weights.suggestFromMoves(main.map((m) => ({ name: m.name, kind: "main" })));
       }
+      adoptSessionFromStorage();
       render();
       refreshCardSummaries();
       updateSessionSteps();
@@ -901,6 +1229,7 @@
         plan = null;
       }
       loaded = true;
+      adoptSessionFromStorage();
       render();
     }
 
@@ -920,11 +1249,15 @@
       const { stretch, main } = movesByKind();
       const liftsLogged = main.filter((m) => Weights.lastFor(m.name)).length;
       const n = main.length;
+      let detail = "Open session when ready";
+      if (session.phase === "stretch") detail = "In session · stretching";
+      else if (session.phase === "exercise") {
+        detail = `In session · ${Math.min(session.exerciseIndex + 1, n)}/${n}`;
+      } else if (session.phase === "done") detail = "Session complete today";
+      else if (n) detail = `${liftsLogged}/${n} lifts logged · ${stretch.length} stretches`;
       return {
         title: plan.headline || "Today’s workout",
-        detail: n
-          ? `${liftsLogged}/${n} lifts logged · ${stretch.length} stretches`
-          : "Open session when ready",
+        detail,
         liftsTotal: n,
         liftsLogged,
         stretchCount: stretch.length,
