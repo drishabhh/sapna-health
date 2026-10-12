@@ -35,6 +35,32 @@
   const $ = (id) => document.getElementById(id);
   const todayISO = () => new Date().toISOString().slice(0, 10);
 
+  /* Light haptics — no-op when vibrate unsupported (common on iOS Safari) */
+  const Haptics = (() => {
+    let lastTickAt = 0;
+    function pulse(pattern) {
+      try {
+        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+          navigator.vibrate(pattern);
+        }
+      } catch (_) {}
+    }
+    function light() {
+      pulse(12);
+    }
+    function ok() {
+      pulse([14, 28, 14]);
+    }
+    function tick() {
+      const now = Date.now();
+      if (now - lastTickAt < 48) return;
+      lastTickAt = now;
+      pulse(8);
+    }
+    return { pulse, light, ok, tick };
+  })();
+  window.sapnaHaptic = Haptics;
+
   function setStatus(el, msg, kind) {
     if (!el) return;
     if (!msg) {
@@ -92,6 +118,7 @@
 
   function showPanel(name) {
     const id = PANELS.includes(name || "today") ? (name || "today") : "today";
+    const prev = document.body.dataset.section;
     document.querySelectorAll(".panel").forEach((p) => {
       p.classList.toggle("is-active", p.dataset.panel === id);
     });
@@ -103,6 +130,7 @@
     }
     document.body.dataset.section = id;
     window.scrollTo(0, 0);
+    if (prev && prev !== id) Haptics.light();
     if (id === "today") Today.render();
     if (id === "workout") Workout.render();
     if (id === "diet") Diet.render();
@@ -307,8 +335,6 @@
     /* UI-only: peek next exercise without completing current */
     let peekingNext = false;
     let wheelsBuilt = false;
-    const WHEEL_ITEM_H = 40;
-    const WHEEL_PAD = 50;
     /* Guided session: idle | stretch | exercise | done */
     let session = {
       date: "",
@@ -468,6 +494,7 @@
     function startGuidedSession() {
       const { stretch, main } = movesByKind();
       if (!stretch.length && !main.length) return;
+      Haptics.light();
       peekingNext = false;
       if (stretch.length) {
         setSession({ phase: "stretch", exerciseIndex: 0, completedIds: [] });
@@ -489,6 +516,7 @@
 
     function completeStretching() {
       const { main } = movesByKind();
+      Haptics.ok();
       peekingNext = false;
       if (!main.length) {
         setSession({ phase: "done", exerciseIndex: 0 });
@@ -509,6 +537,7 @@
       const { main } = movesByKind();
       const idx = Math.min(session.exerciseIndex, Math.max(0, main.length - 1));
       if (session.phase !== "exercise" || idx + 1 >= main.length) return;
+      Haptics.light();
       peekingNext = true;
       render();
       $("guided-peek")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -526,6 +555,7 @@
       if (session.phase !== "exercise" || !main.length) return;
       const frontier = frontierIndex(main);
       const i = Math.min(Math.max(0, Number(index) || 0), frontier);
+      if (i !== session.exerciseIndex) Haptics.light();
       peekingNext = false;
       setSession({ phase: "exercise", exerciseIndex: i });
       render();
@@ -540,6 +570,7 @@
 
     function completeCurrentExercise() {
       const { main } = movesByKind();
+      Haptics.ok();
       peekingNext = false;
       if (!main.length) {
         setSession({ phase: "done", exerciseIndex: 0 });
@@ -1053,9 +1084,9 @@
       const y = new Date();
       y.setHours(12, 0, 0, 0);
       y.setDate(y.getDate() - 1);
-      if (iso === y.toISOString().slice(0, 10)) return "Yesterday";
+      if (iso === y.toISOString().slice(0, 10)) return "Yest";
       if (Number.isNaN(d.getTime())) return iso;
-      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+      return d.toLocaleDateString(undefined, { month: "numeric", day: "numeric" });
     }
 
     function dateWheelOptions(extraIso) {
@@ -1142,7 +1173,7 @@
       return "";
     }
 
-    function syncWheelFromScroll(vp) {
+    function syncWheelFromScroll(vp, opts = {}) {
       if (!vp) return;
       const items = [...vp.querySelectorAll(".log-wheel-item")];
       if (!items.length) return;
@@ -1160,7 +1191,13 @@
       items.forEach((li) => li.classList.toggle("is-selected", li === best));
       const key = wheelKeyForViewport(vp);
       const hid = hiddenIdForWheel(key);
-      if (hid && $(hid)) $(hid).value = best.getAttribute("data-value") || "";
+      const next = best.getAttribute("data-value") || "";
+      const prev = vp.dataset.wheelValue;
+      if (hid && $(hid)) $(hid).value = next;
+      if (opts.haptic !== false && prev != null && prev !== "" && prev !== next) {
+        Haptics.tick();
+      }
+      vp.dataset.wheelValue = next;
     }
 
     function setWheelValue(key, value) {
@@ -1209,7 +1246,9 @@
       const top = Math.max(0, li.offsetTop - (vp.clientHeight - li.offsetHeight) / 2);
       vp.scrollTop = top;
       ul.querySelectorAll(".log-wheel-item").forEach((el) => el.classList.toggle("is-selected", el === li));
-      if (hid && $(hid)) $(hid).value = li.getAttribute("data-value") || target;
+      const val = li.getAttribute("data-value") || target;
+      if (hid && $(hid)) $(hid).value = val;
+      vp.dataset.wheelValue = val;
     }
 
     function defaultWheelValues() {
@@ -1526,6 +1565,7 @@
               }
               return;
             }
+            Haptics.ok();
             if (status) {
               status.hidden = false;
               status.textContent = `Updated · ${kg} kg · ${sets}×${reps}`;
@@ -1540,6 +1580,7 @@
               kind: "main",
               date: logDate,
             });
+            Haptics.ok();
             if (status) {
               status.hidden = false;
               status.textContent = `Saved ${kg} kg · ${sets}×${reps}.`;
@@ -2772,6 +2813,7 @@ ${JSON.stringify(example, null, 2)}`;
       state.day.done = state.day.done || {};
       state.day.done[itemId] = !state.day.done[itemId];
       if (state.day.done[itemId]) markDietLogged(state.day.date);
+      Haptics.light();
       persist();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
@@ -3031,6 +3073,7 @@ ${JSON.stringify(example, null, 2)}`;
       if ($("diet-quick-name")) $("diet-quick-name").value = "";
       if ($("diet-quick-kcal")) $("diet-quick-kcal").value = "";
       if ($("diet-quick-protein")) $("diet-quick-protein").value = "";
+      Haptics.ok();
       setStatus($("diet-status"), `Added ${name}`, "ok");
     }
 
@@ -4397,6 +4440,7 @@ ${JSON.stringify(example, null, 2)}`;
         const now = Date.now();
         if (now < backLockUntil) return;
         backLockUntil = now + 450; /* avoid touchend+click double-step on iOS */
+        Haptics.light();
         goBackStep();
       };
       /* click + touchend — iOS sometimes drops click on sticky footer controls */
@@ -4409,12 +4453,14 @@ ${JSON.stringify(example, null, 2)}`;
       $("profile-next")?.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        Haptics.light();
         state = readFormInto(state);
         showStep(step + 1);
       });
       $("profile-skip-step")?.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        Haptics.light();
         state = readFormInto(state);
         if (step >= STEPS.length - 1) skipSession();
         else showStep(step + 1);
@@ -4422,6 +4468,7 @@ ${JSON.stringify(example, null, 2)}`;
       $("profile-save")?.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
+        Haptics.ok();
         save();
       });
       document.addEventListener("click", (e) => {

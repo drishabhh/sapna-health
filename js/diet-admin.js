@@ -608,6 +608,9 @@ window.SapnaDietAdmin = (() => {
           window.Diet.loadPublishedPlan(plan);
         } catch (_) {}
       }
+      try {
+        if (window.sapnaHaptic?.ok) window.sapnaHaptic.ok();
+      } catch (_) {}
       setStatus(
         writeToday
           ? "Diet plan published for today + history. Pages ~30–60s."

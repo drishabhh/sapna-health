@@ -762,6 +762,9 @@ window.SapnaPlanAdmin = (() => {
           if (window.Workout?.loadLocalPlan) window.Workout.loadLocalPlan(plan);
         } catch (_) {}
       }
+      try {
+        if (window.sapnaHaptic?.ok) window.sapnaHaptic.ok();
+      } catch (_) {}
       setAdminStatus(
         writeToday
           ? "Published. Today updated + saved in Previous plans. Pages ~30–60s."
