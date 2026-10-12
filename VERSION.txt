@@ -1,1 +1,1 @@
-compact1
+quiet1

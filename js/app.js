@@ -229,7 +229,7 @@
               </li>`;
             })
             .join("")}</ul>`
-        : `<p class="empty-teach">No lifts logged yet — finish a session and tap <strong>LOG</strong>.</p>`;
+        : `<p class="empty-teach">No lifts yet</p>`;
 
       const periodTone = period.isPeriod ? "rose" : "soft";
       const strip = $("today-strip");
@@ -627,18 +627,18 @@
             if (done) cls += " is-done";
             if (upcoming) cls += " is-upcoming";
             if (canOpen) cls += " is-tappable";
-            const label = current ? "Now" : done ? "Done · tap to reopen" : upcoming ? "Up next" : "Open";
+            const label = current ? "Now" : done ? "Done" : upcoming ? "Up next" : String(i + 1);
             const check = done ? `<span class="guided-ex-rail-check" aria-hidden="true">✓</span>` : "";
             if (canOpen) {
               return `<li class="${cls}" aria-current="${current ? "step" : "false"}">
-                <button type="button" class="guided-ex-rail-btn" data-ex-goto="${i}" title="${escapeHtml(label)}" ${current ? 'aria-pressed="true"' : ""}>
+                <button type="button" class="guided-ex-rail-btn" data-ex-goto="${i}" aria-label="${escapeHtml(label + ": " + (m.name || "Move"))}" ${current ? 'aria-pressed="true"' : ""}>
                   ${check}
                   <span class="guided-ex-rail-num">${i + 1}</span>
                   <span class="guided-ex-rail-name">${escapeHtml(m.name || "Move")}</span>
                 </button>
               </li>`;
             }
-            return `<li class="${cls}" aria-current="false" title="${escapeHtml(label)}">
+            return `<li class="${cls}" aria-current="false" aria-label="${escapeHtml(label + ": " + (m.name || "Move"))}">
               <span class="guided-ex-rail-num">${i + 1}</span>
               <span class="guided-ex-rail-name">${escapeHtml(m.name || "Move")}</span>
             </li>`;
@@ -649,24 +649,27 @@
 
     function peekCardHtml(move, n, nextIdx) {
       return `<aside class="guided-peek" id="guided-peek" aria-label="Next exercise preview">
-        <p class="guided-peek-kicker">Next · preview only</p>
+        <p class="guided-peek-kicker">Next</p>
         <h3 class="guided-peek-title">${escapeHtml(move.name || "Exercise")} <span class="move-group-tag">${nextIdx + 1}/${n}</span></h3>
         <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
         ${remarksHtml(move)}
         ${gifPreviewHtml(move)}
-        <p class="guided-peek-note">Still on the current lift — peek never marks it completed.</p>
-        <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back to current</button>
+        <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back</button>
       </aside>`;
     }
 
     function restNoteHtml() {
       const note = plan?.restNote;
       if (!note || (!note.title && !note.body)) return "";
-      const title = escapeHtml(note.title || "Rest & water");
-      const body = escapeHtml(note.body || "");
+      const title = escapeHtml(note.title || "Rest");
+      let body = String(note.body || "").trim();
+      /* Keep one short line max */
+      const cut = body.split(/[.!?]/)[0] || body;
+      body = cut.length > 72 ? cut.slice(0, 69).trim() + "…" : cut;
+      body = escapeHtml(body);
       return `<aside class="guided-rest-note" aria-label="Rest and water">
         <p class="guided-rest-title">${title}</p>
-        <p class="guided-rest-body">${body}</p>
+        ${body ? `<p class="guided-rest-body">${body}</p>` : ""}
       </aside>`;
     }
 
@@ -676,7 +679,6 @@
         .map((m, i) => `<li><span>${i + 1}.</span> ${escapeHtml(m.name || "Move")}</li>`)
         .join("");
       return `<div class="guided-idle" id="session-idle">
-        <p class="guided-idle-lede">When you start, Stretching opens first — then one lift at a time. Peek the next move anytime; tap a past step to reopen GIF or LOG. Completed advances.</p>
         ${
           stretch.length
             ? `<div class="guided-idle-block"><h2>Stretching <span class="move-group-tag">${stretch.length}</span></h2><p class="guided-idle-names">${stretchNames}</p></div>`
@@ -692,11 +694,11 @@
 
     function lastLogLine(name) {
       const last = Weights.lastFor(name);
-      if (!last) return "Tap LOG to record";
+      if (!last) return "";
       const s = Weights.entrySets(last);
       const r = Weights.entryReps(last);
       const sr = Number.isFinite(s) && Number.isFinite(r) ? ` · ${s}×${r}` : "";
-      return `Last: ${last.weight} kg · ${last.date}${sr}`;
+      return `${last.weight} kg${sr}`;
     }
 
     function absoluteGif(src) {
@@ -713,7 +715,6 @@
           <span class="gif-preview-frame">
             <img data-src="${escapeHtml(fallback)}" alt="" width="320" height="140" decoding="async" />
           </span>
-          <span class="gif-preview-hint">Tap to enlarge</span>
         </button>`;
       }
       const src = absoluteGif(move.gif || "media/bodyweight-squats.gif");
@@ -721,7 +722,6 @@
         <span class="gif-preview-frame">
           <img data-src="${escapeHtml(src)}" alt="" width="320" height="140" decoding="async" />
         </span>
-        <span class="gif-preview-hint">Tap to enlarge</span>
       </button>`;
     }
 
@@ -874,13 +874,8 @@
       }
       if (restart) restart.hidden = !active;
       if (support) {
-        if (phase === "stretch") support.textContent = "Warm up with every stretch, then tap Stretching completed.";
-        else if (phase === "exercise") {
-          support.textContent = peekingNext
-            ? "Preview only — back out, then tap Completed when this lift is finished."
-            : "One exercise at a time — reopen any past step, peek next, or tap Completed to advance.";
-        } else if (phase === "done") support.textContent = "Session complete. Restart only if you mean to begin again.";
-        else support.textContent = "Stretch first, then one exercise at a time. Resume stays on this phone.";
+        support.hidden = true;
+        support.textContent = "";
       }
     }
 
@@ -895,16 +890,13 @@
       }
       el.hidden = false;
       if (phase === "stretch") {
-        el.innerHTML = `<p class="guided-progress-label">Stretching</p><p class="guided-progress-meta">${stretch.length} moves · then lifts</p>`;
+        el.innerHTML = `<p class="guided-progress-label">Stretching</p><p class="guided-progress-meta">${stretch.length}</p>`;
       } else if (phase === "exercise") {
         const n = main.length;
         const i = Math.min(session.exerciseIndex, Math.max(0, n - 1)) + 1;
-        const frontier = frontierIndex(main);
-        const reviewing = session.exerciseIndex < frontier;
-        const peekMeta = peekingNext ? " · peeking next" : reviewing ? " · reviewing past" : "";
-        el.innerHTML = `<p class="guided-progress-label">Exercise ${i} of ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done · tap past to reopen${peekMeta}</p>`;
+        el.innerHTML = `<p class="guided-progress-label">${i} / ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done</p>`;
       } else if (phase === "done") {
-        el.innerHTML = `<p class="guided-progress-label">All done</p><p class="guided-progress-meta">${main.length} exercises · nice work</p>`;
+        el.innerHTML = `<p class="guided-progress-label">Done</p><p class="guided-progress-meta">${main.length}</p>`;
       }
     }
 
@@ -932,27 +924,25 @@
       const { stretch, main } = movesByKind();
       const phase = session.phase;
       if (status) {
-        status.textContent = plan.headline
-          ? `${plan.headline} · guided session`
-          : "Guided session";
+        status.textContent = plan.headline || "";
+        status.hidden = !plan.headline;
       }
 
       let html = "";
       if (phase === "idle") {
         html = idlePreviewHtml(stretch, main);
-        if (!stretch.length && !main.length) html = `<p class="hint">No moves in today’s plan.</p>`;
+        if (!stretch.length && !main.length) html = `<p class="hint">No plan today.</p>`;
       } else if (phase === "stretch") {
         html = `<div class="move-group session-stretch guided-phase" id="session-stretch">
-          <h2>Stretching <span class="move-group-tag">warm-up</span></h2>
-          <p class="guided-phase-hint">Do each stretch at an easy pace. When you’re ready, continue below.</p>
+          <h2>Stretching</h2>
           ${stretch.map((m) => cardHtml(m, { active: true })).join("")}
-          <button type="button" class="btn-guided-done" id="stretch-completed" data-stretch-done>Stretching completed</button>
+          <button type="button" class="btn-guided-done" id="stretch-completed" data-stretch-done>Stretching done</button>
         </div>`;
       } else if (phase === "exercise") {
         const idx = Math.min(session.exerciseIndex, Math.max(0, main.length - 1));
         const move = main[idx];
         if (!move) {
-          html = `<p class="hint">No exercises left in today’s plan.</p>`;
+          html = `<p class="hint">No exercises left.</p>`;
         } else {
           const n = main.length;
           const frontier = frontierIndex(main);
@@ -966,12 +956,12 @@
           let actions;
           if (peekingNext) {
             actions = `<div class="guided-ex-actions">
-                <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back to current</button>
+                <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back</button>
               </div>`;
           } else if (reviewing || moveDone) {
             actions = `<div class="guided-ex-actions guided-ex-actions-review">
                 ${idx > 0 ? `<button type="button" class="btn-ghost btn-ex-back" data-ex-back>Previous</button>` : ""}
-                <button type="button" class="btn-ghost btn-ex-latest" data-ex-latest>Back to latest</button>
+                <button type="button" class="btn-ghost btn-ex-latest" data-ex-latest>Latest</button>
                 <button type="button" class="btn-guided-done" id="exercise-done" data-exercise-done>Continue</button>
               </div>`;
           } else {
@@ -987,13 +977,6 @@
           }
           html = `<div class="move-group session-active guided-phase" id="session-active">
             <h2>${escapeHtml(move.name || "Exercise")} <span class="move-group-tag">${idx + 1}/${n}</span></h2>
-            <p class="guided-phase-hint">${
-              peekingNext
-                ? "Preview of what’s next — your current lift stays open until you tap Completed."
-                : reviewing || moveDone
-                  ? "Reopened past step — GIF and LOG still work. Continue returns you to the latest lift."
-                  : "Finish the sets, LOG if you want a record. Tap a past pill to reopen; See next peeks ahead; Completed advances."
-            }</p>
             ${exerciseRailHtml(main, idx)}
             ${peekBlock}
             <div class="guided-current-block${peekingNext ? " is-dimmed-by-peek" : ""}" id="guided-current-block">
@@ -1005,12 +988,11 @@
         }
       } else if (phase === "done") {
         html = `<div class="guided-complete" id="session-complete">
-          <p class="guided-complete-title">You’re finished</p>
-          <p class="guided-complete-body">Stretching and all ${main.length} exercises are done for today. Logs stay on this phone.</p>
+          <p class="guided-complete-title">Done</p>
         </div>`;
       }
 
-      if (!html) html = `<p class="hint">No moves in today’s plan.</p>`;
+      if (!html) html = `<p class="hint">No plan today.</p>`;
       root.innerHTML = html;
       document.body.classList.toggle("guided-session-active", phase === "stretch" || phase === "exercise");
       wireGifLightbox();
@@ -1047,7 +1029,7 @@
         if (show) {
           const p = bar.querySelector("p");
           if (p) {
-            p.innerHTML = `<strong>Session complete.</strong> ${logged}/${main.length} lifts logged on this phone.`;
+            p.innerHTML = `<strong>Done.</strong> ${logged}/${main.length} logged`;
           }
         }
       }
@@ -1057,7 +1039,11 @@
       document.querySelectorAll(".move-log-card[data-kind='main']").forEach((card) => {
         const name = card.getAttribute("data-move") || card.querySelector(".move-title")?.textContent || "";
         const last = card.querySelector(".last-log");
-        if (last) last.textContent = lastLogLine(name.trim());
+        if (last) {
+          const line = lastLogLine(name.trim());
+          last.textContent = line;
+          last.hidden = !line;
+        }
       });
     }
 
@@ -1069,7 +1055,7 @@
       const cancel = $("log-sheet-cancel");
       const editing = sheetEditingId != null;
       if (banner) banner.hidden = !editing;
-      if (save) save.textContent = editing ? "Update" : "Save entry";
+      if (save) save.textContent = editing ? "Update" : "Save";
       if (del) del.hidden = !editing;
       if (cancel) cancel.hidden = !editing;
       document.querySelectorAll("#log-sheet-tbody tr").forEach((tr) => {
@@ -2563,7 +2549,7 @@ ${JSON.stringify(example, null, 2)}`;
     function renderInto(el, data, meta) {
       if (!el) return;
       if (!data) {
-        el.innerHTML = `<p class="hint">Overnight insights appear after the <strong>4:00 IST</strong> GitHub job — or tap <strong>AI coach</strong> now (Gemini, then Puter Grok if needed).</p>`;
+        el.innerHTML = `<p class="hint">Updates at 4:00 IST.</p>`;
         return;
       }
       const list = (arr, empty) =>
@@ -3210,8 +3196,9 @@ ${JSON.stringify(example, null, 2)}`;
         $("diet-plan-headline").textContent = publishedPlan?.headline || "Today’s plate";
       }
       if ($("diet-plan-support")) {
-        $("diet-plan-support").textContent =
-          publishedPlan?.support || "Tap ✓ for what you ate · quick-add anything else.";
+        const support = String(publishedPlan?.support || "").trim();
+        $("diet-plan-support").textContent = support;
+        $("diet-plan-support").hidden = !support;
       }
       const planSt = $("diet-plan-status");
       if (planSt) {
@@ -5032,10 +5019,7 @@ ${JSON.stringify(example, null, 2)}`;
       if (progress) {
         const keys = [...map.keys()].sort();
         if (!keys.length) {
-          progress.innerHTML = `<div class="empty-teach">
-            <strong>No lifts logged yet</strong>
-            <p>Go to <a href="#workout" data-nav="workout">Workout</a>, open an Exercise move, tap <strong>LOG</strong>, enter kg · sets · reps.</p>
-          </div>`;
+          progress.innerHTML = `<div class="empty-teach"><strong>No lifts yet</strong></div>`;
         } else {
           progress.innerHTML = keys
             .map((name) => {
@@ -5083,7 +5067,7 @@ ${JSON.stringify(example, null, 2)}`;
               </li>`;
               })
               .join("")}</ul>`
-          : `<div class="empty-teach"><strong>History is empty</strong><p>Saved LOG entries show up here, newest first. Start from <a href="#workout" data-nav="workout">Workout</a>.</p></div>`;
+          : `<div class="empty-teach"><strong>No history</strong></div>`;
       }
       if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
         Today.render();

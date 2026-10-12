@@ -130,11 +130,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261012compact1"></script>
+  <script src="./js/admin-auth.js?v=20261012quiet1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261012compact1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261012quiet1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -156,19 +156,19 @@
     <div class="today-hero">
       <p class="today-greet" id="today-greet-line">Good day, Sapna Singh</p>
       <h1 class="today-title">Today</h1>
-      <p class="today-lede" id="today-date-line">Workout · diet · cycle</p>
+      <p class="today-lede" id="today-date-line"></p>
       <div class="profile-entry-row">
-        <button type="button" class="btn-ghost profile-open-btn" data-profile-open>Your profile</button>
+        <button type="button" class="btn-ghost profile-open-btn" data-profile-open>Profile</button>
       </div>
     </div>
     <div class="profile-nudge" id="today-profile-nudge" hidden>
       <div class="profile-nudge-copy">
-        <p class="today-kicker">For Sapna Singh</p>
-        <p class="profile-nudge-title">A few soft questions — calories, diet tips, and safer workouts.</p>
+        <p class="today-kicker">Sapna Singh</p>
+        <p class="profile-nudge-title">Set height &amp; weight for calorie goals.</p>
       </div>
       <div class="profile-nudge-actions">
         <button type="button" class="btn-primary" data-profile-open>Get started</button>
-        <button type="button" class="btn-ghost" data-profile-skip>Skip for now</button>
+        <button type="button" class="btn-ghost" data-profile-skip>Skip</button>
       </div>
     </div>
     <div class="today-strip-wrap" id="today-strip" aria-label="Today at a glance"></div>
@@ -180,21 +180,20 @@
     <section class="coach-card" id="coach-card" aria-label="Sapna insights">
       <div class="coach-card-head">
         <div>
-          <p class="today-kicker">Insights <span class="coach-badge" id="coach-badge">Overnight · 4:00 IST</span></p>
+          <p class="today-kicker">Insights <span class="coach-badge" id="coach-badge">4:00 IST</span></p>
           <h2 class="coach-title">What’s working</h2>
-          <p class="hint">Fresh each morning at 4:00 IST from GitHub. <span class="ai-admin-only">Admin can regenerate with AI (Gemini → Puter Grok).</span></p>
         </div>
         <div class="coach-ai-actions ai-admin-only">
           <button type="button" class="btn-primary" id="coach-run">AI coach</button>
-          <button type="button" class="btn-ghost" id="coach-puter-run">Use Puter Grok now</button>
+          <button type="button" class="btn-ghost" id="coach-puter-run">Puter Grok</button>
         </div>
       </div>
       <details class="gemini-key-panel ai-admin-only" data-gemini-panel id="coach-gemini-panel">
         <summary class="gemini-key-summary">
-          <span>Gemini key for this phone (optional)</span>
+          <span>Gemini key (optional)</span>
           <span class="key-badge" data-gemini-badge hidden></span>
         </summary>
-        <p class="hint"><strong>AI coach</strong> tries Gemini first, then Puter Grok. Overnight 4:00 IST stays Gemini-only via <code>GEMINI_API_KEY</code>.</p>
+        <p class="hint">Gemini first, then Puter. Overnight uses <code>GEMINI_API_KEY</code>.</p>
         <label class="field" for="coach-gemini-key">API key
           <input type="password" id="coach-gemini-key" data-gemini-input class="admin-key-input" autocomplete="off" placeholder="AIza… or AQ.…" />
         </label>
@@ -214,25 +213,25 @@
   <section class="panel panel-workout" id="panel-workout" data-panel="workout">
     <div class="hero workout-hero-compact">
       <h1 class="headline">Workout</h1>
-      <p class="support" id="workout-hero-support">Stretch first, then one exercise at a time. Resume stays on this phone.</p>
+      <p class="support" id="workout-hero-support" hidden></p>
       <div class="session-steps" aria-label="Session steps">
-        <span class="session-step" data-step="stretch">1 Stretch</span>
-        <span class="session-step" data-step="lift">2 Exercise</span>
-        <span class="session-step" data-step="done">3 Done</span>
+        <span class="session-step" data-step="stretch">Stretch</span>
+        <span class="session-step" data-step="lift">Exercise</span>
+        <span class="session-step" data-step="done">Done</span>
       </div>
       <div class="cta-row" id="workout-cta-row">
         <button type="button" class="btn-primary" id="start-session">Start session</button>
-        <button type="button" class="btn-ghost" id="restart-session" hidden>Restart session</button>
+        <button type="button" class="btn-ghost" id="restart-session" hidden>Restart</button>
         <a class="btn-ghost" href="#logs">History</a>
       </div>
     </div>
     <div class="workout-shell">
-      <p class="hint" id="workout-plan-status">Loading today’s plan…</p>
+      <p class="hint" id="workout-plan-status">Loading…</p>
       <div id="guided-progress" class="guided-progress" hidden></div>
       <div id="workout-groups"></div>
       <div class="session-done-bar" id="session-done-bar" hidden>
-        <p><strong>Nice work.</strong> Session complete — lifts stay on this phone.</p>
-        <a class="btn-primary" href="#logs">See logs</a>
+        <p><strong>Done.</strong></p>
+        <a class="btn-primary" href="#logs">Logs</a>
       </div>
     </div>
   </section>
@@ -240,21 +239,21 @@
   <!-- DIET — Sapna: checkmarks on admin plan + simple extras -->
   <section class="panel panel-diet" id="panel-diet" data-panel="diet">
     <div class="diet-hero diet-hero-compact hf-diet-hero">
-      <p class="hf-diet-eyebrow">Today’s plan</p>
+      <p class="hf-diet-eyebrow">Diet</p>
       <h1 class="diet-title" id="diet-plan-headline">Today’s plate</h1>
-      <p class="diet-lede" id="diet-plan-support">Tap ✓ for what you ate · quick-add anything else.</p>
+      <p class="diet-lede" id="diet-plan-support" hidden></p>
       <div class="profile-entry-row">
-        <button type="button" class="btn-diet-ghost profile-open-btn" data-profile-open>Your profile</button>
+        <button type="button" class="btn-diet-ghost profile-open-btn" data-profile-open>Profile</button>
       </div>
     </div>
     <div class="profile-nudge profile-nudge-diet" id="diet-profile-nudge" hidden>
       <div class="profile-nudge-copy">
-        <p class="hf-diet-eyebrow">For Sapna Singh</p>
-        <p class="profile-nudge-title">Set height &amp; weight once — we’ll suggest your daily calorie &amp; protein goals.</p>
+        <p class="hf-diet-eyebrow">Sapna Singh</p>
+        <p class="profile-nudge-title">Height &amp; weight → calorie goals.</p>
       </div>
       <div class="profile-nudge-actions">
         <button type="button" class="btn-diet" data-profile-open>Get started</button>
-        <button type="button" class="btn-diet-ghost" data-profile-skip>Skip for now</button>
+        <button type="button" class="btn-diet-ghost" data-profile-skip>Skip</button>
       </div>
     </div>
     <div class="panel-inner diet-inner">
@@ -283,7 +282,6 @@
           <h2>Quick add</h2>
           <p class="hf-add-meal-hint" id="diet-add-meal-hint">Extra · Breakfast</p>
         </div>
-        <p class="hint">Ate something outside the plan? Name + rough kcal/protein, or pick from the library.</p>
         <div class="field-row diet-quick-row">
           <label class="field field-grow">Name
             <input type="text" id="diet-quick-name" placeholder="e.g. Samosa, latte…" autocomplete="off" />
@@ -344,7 +342,7 @@
           <h2>Sync checkmarks</h2>
           <span class="diet-chip">optional</span>
         </summary>
-        <p class="hint">Uses the same GitHub PAT as weights/periods. Checkmarks + extras sync to <code>data/diet-checks.json</code>.</p>
+        <p class="hint">Same GitHub PAT · <code>data/diet-checks.json</code></p>
         <div class="actions">
           <button type="button" class="btn-diet" id="diet-sync-checks">Sync now</button>
           <button type="button" class="btn-diet-ghost" id="diet-pull-checks">Refresh from cloud</button>
@@ -357,7 +355,7 @@
           <h2>Daily targets</h2>
           <span class="diet-chip">editable</span>
         </summary>
-        <p class="hint" id="diet-targets-from-profile">From the published plan, <strong>Your profile</strong>, or overrides below.</p>
+        <p class="hint" id="diet-targets-from-profile">From plan or profile.</p>
         <div class="field-row">
           <label class="field">Calories (kcal)
             <input type="number" id="diet-target-kcal" min="800" max="5000" step="50" />
@@ -389,12 +387,12 @@
           <button type="button" class="btn-period-nav" id="period-next" aria-label="Next month">›</button>
         </div>
         <div class="cal-grid" id="period-cal"></div>
-        <p class="hint cal-hint">Tap a day → mark below. Soft pink = period · soft tint = predicted start.</p>
+        <p class="hint cal-hint">Pink = period · tint = predicted</p>
       </div>
 
       <div class="periods-note-card">
         <h2>This day</h2>
-        <p class="hint" id="period-selected-label">Tap a day to mark period or add a short note.</p>
+        <p class="hint" id="period-selected-label">Select a day</p>
         <div class="actions sticky-day-actions">
           <button type="button" class="btn-period" id="period-toggle">Mark period day</button>
           <button type="button" class="btn-period-ghost" id="period-save-note">Save note</button>
@@ -408,7 +406,7 @@
 
       <details class="periods-sync-card">
         <summary><strong>Sync across phones</strong> <span class="hint-inline">optional · GitHub</span></summary>
-        <p class="hint">Publishes dates to <code>data/periods.json</code> on Pages.</p>
+        <p class="hint"><code>data/periods.json</code></p>
         <label class="field">GitHub PAT (repo scope)
           <input type="password" id="period-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
         </label>
@@ -430,12 +428,11 @@
     <div class="panel-inner">
       <header class="section-head logs-hero">
         <h1>Logs</h1>
-        <p>By lift or newest first — Stretching never logs weight.</p>
       </header>
 
       <div class="logs-sync-card" id="logs-sync-card">
-        <h2>Sync across phones</h2>
-        <p class="hint">Lift logs save on this phone first. Tap <strong>Sync now</strong> to upload so her other phone can see them (same GitHub PAT as Periods / Admin). Opens pull cloud logs automatically too.</p>
+        <h2>Sync</h2>
+        <p class="hint">Phone first · Sync to share across devices.</p>
         <label class="field">GitHub PAT (repo scope)
           <input type="password" id="log-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
         </label>
@@ -526,7 +523,7 @@
         <button type="button" class="btn-ghost" id="profile-close" aria-label="Close profile">Close</button>
       </header>
       <div class="profile-progress" id="profile-progress" aria-hidden="true"></div>
-      <p class="hint profile-sheet-lede">Soft check-in — skip anything. Used for calorie goals, diet tips, and workout safety. Health notes stay on this phone.</p>
+      <p class="hint profile-sheet-lede">Skip anything. Health notes stay on this phone.</p>
 
       <form id="profile-form" class="profile-form" novalidate>
         <!-- 1 · Demographics -->
@@ -691,7 +688,7 @@
     <div class="sheet token-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="token-setup-title">
       <p class="brand token-setup-brand">Sapna Singh</p>
       <h2 id="token-setup-title">Connect this phone</h2>
-      <p class="hint">Paste a GitHub token once. Sapna uses it for <strong>lift logs</strong>, <strong>period sync</strong>, and <strong>Admin publish</strong> across her phones. Saved only in this browser.</p>
+      <p class="hint">GitHub PAT for sync &amp; publish. Saved on this phone only.</p>
       <label class="field">GitHub PAT (repo scope)
         <input type="password" id="token-setup-input" autocomplete="off" placeholder="ghp_…" enterkeyhint="done" />
       </label>
@@ -711,7 +708,7 @@
         <h2 id="gate-title">Admin</h2>
         <button type="button" class="btn-ghost" onclick="return window.sapnaAdminCloseGate();">Cancel</button>
       </header>
-      <p class="hint">Unlock to build today’s workout plan, and publish diet / periods / logs.</p>
+      <p class="hint">Workout · diet · periods · logs</p>
       <form id="gate-form" onsubmit="return window.sapnaAdminUnlock(event);">
         <label class="field">Password
           <input type="password" id="gate-password" autocomplete="current-password" />
@@ -733,7 +730,7 @@
 
       <section class="admin-block plan-launch">
         <h3 class="admin-subhead">Workout plans</h3>
-        <p class="hint">Edit today’s plan, or create a dated plan. Tap tiles into the cart, then Publish.</p>
+        <p class="hint">Cart → Publish</p>
         <div class="actions plan-launch-actions">
           <button type="button" class="btn-primary" id="plan-edit-current">Edit current plan</button>
           <button type="button" class="btn-ghost" id="plan-create-new">Create new plan</button>
@@ -786,7 +783,7 @@
 
       <section class="admin-block plan-launch diet-plan-launch">
         <h3 class="admin-subhead">Diet plans</h3>
-        <p class="hint">Build today’s meal plan like a cart — Sapna only checkmarks what she ate. Big obvious actions.</p>
+        <p class="hint">Cart → Publish · Sapna checkmarks</p>
         <div class="actions plan-launch-actions">
           <button type="button" class="btn-primary" id="diet-edit-current">Edit today’s diet</button>
           <button type="button" class="btn-ghost" id="diet-create-new">New diet day</button>
@@ -1083,7 +1080,7 @@
         <button type="button" class="btn-ghost" id="log-sheet-close">Close</button>
       </header>
       <div class="log-sheet-scroll">
-        <p class="log-sheet-order">Oldest → newest · tap a row to change or delete it</p>
+        <p class="log-sheet-order">Oldest → newest</p>
         <div class="log-sheet-table-wrap">
           <table class="log-sheet-table">
             <thead>
@@ -1097,10 +1094,10 @@
             <tbody id="log-sheet-tbody"></tbody>
           </table>
         </div>
-        <p class="log-sheet-empty" id="log-sheet-empty">No logs yet for this exercise.</p>
+        <p class="log-sheet-empty" id="log-sheet-empty">No logs yet</p>
       </div>
       <form class="log-sheet-form log-sheet-form-wheels" id="log-sheet-form" autocomplete="off">
-        <p class="log-sheet-edit-banner" id="log-sheet-edit-banner" hidden>Editing selected log</p>
+        <p class="log-sheet-edit-banner" id="log-sheet-edit-banner" hidden>Editing</p>
         <div class="log-wheels" id="log-wheels" aria-label="Kg, reps, sets, and date">
           <div class="log-wheel-col" data-wheel="kg">
             <span class="log-wheel-label">Kg</span>
@@ -1136,7 +1133,7 @@
         <input type="hidden" id="log-sheet-sets" name="sets" value="" />
         <input type="hidden" id="log-sheet-date" name="date" value="" />
         <div class="log-sheet-form-actions">
-          <button type="submit" class="log-sheet-save" id="log-sheet-save">Save entry</button>
+          <button type="submit" class="log-sheet-save" id="log-sheet-save">Save</button>
           <button type="button" class="log-sheet-delete" id="log-sheet-delete" hidden>Delete</button>
           <button type="button" class="btn-ghost log-sheet-cancel" id="log-sheet-cancel" hidden>Cancel</button>
         </div>
@@ -1170,8 +1167,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261012compact1"></script>
-  <script src="./js/diet-admin.js?v=20261012compact1"></script>
-  <script src="./js/app.js?v=20261012compact1"></script>
+  <script src="./js/workout-admin.js?v=20261012quiet1"></script>
+  <script src="./js/diet-admin.js?v=20261012quiet1"></script>
+  <script src="./js/app.js?v=20261012quiet1"></script>
 </body>
 </html>
