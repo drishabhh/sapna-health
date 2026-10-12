@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11T13:40:27.281Z",
+  "updatedAt": "2026-10-12T00:06:23.391Z",
   "plans": [
     {
       "date": "2026-10-12",
-      "headline": "Back bicep",
-      "moveCount": 3,
+      "headline": "Aaj ka workout",
+      "moveCount": 12,
       "path": "data/plans/2026-10-12.json",
-      "updatedAt": "2026-10-11T13:39:14.590Z"
+      "updatedAt": "2026-10-12T00:06:23.391Z"
     },
     {
       "date": "2026-10-11",
