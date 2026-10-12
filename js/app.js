@@ -3159,11 +3159,6 @@ ${JSON.stringify(example, null, 2)}`;
     function focusAddForMeal(meal) {
       const sel = $("diet-meal");
       if (sel) sel.value = meal;
-      $("diet-meal-chips")?.querySelectorAll(".meal-chip").forEach((c) => {
-        const on = c.getAttribute("data-meal") === meal;
-        c.classList.toggle("is-active", on);
-        c.setAttribute("aria-selected", on ? "true" : "false");
-      });
       const panel = $("diet-add-card");
       if (panel) {
         panel.hidden = false;
@@ -3175,8 +3170,12 @@ ${JSON.stringify(example, null, 2)}`;
         hint.textContent = `Extra · ${label}`;
       }
       renderFoodPick($("diet-search")?.value || "");
+      /* No autofocus — keyboard only when Sapna taps a real text/number field */
       try {
-        $("diet-search")?.focus({ preventScroll: true });
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function" && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) {
+          ae.blur();
+        }
       } catch (_) {}
       panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
@@ -3234,7 +3233,6 @@ ${JSON.stringify(example, null, 2)}`;
 
       const mealsRoot = $("diet-meals");
       if (mealsRoot) {
-        const active = $("diet-meal")?.value || "breakfast";
         mealsRoot.innerHTML = MEALS.map(({ id, label }) => {
           const planned = planItems(id);
           const extras = extrasInMeal(id);
@@ -3273,7 +3271,7 @@ ${JSON.stringify(example, null, 2)}`;
               </li>`;
             })
             .join("");
-          return `<section class="hf-meal-card meal-slot${id === active ? " is-active-meal" : ""}" data-meal-slot="${id}">
+          return `<section class="hf-meal-card meal-slot" data-meal-slot="${id}">
             <header class="hf-meal-head">
               <div>
                 <h3>${label}</h3>
@@ -3287,11 +3285,6 @@ ${JSON.stringify(example, null, 2)}`;
         }).join("");
       }
 
-      $("diet-meal-chips")?.querySelectorAll(".meal-chip").forEach((c) => {
-        const on = c.getAttribute("data-meal") === ($("diet-meal")?.value || "breakfast");
-        c.classList.toggle("is-active", on);
-        c.setAttribute("aria-selected", on ? "true" : "false");
-      });
       const hint = $("diet-add-meal-hint");
       if (hint) {
         const label = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
@@ -3351,6 +3344,11 @@ ${JSON.stringify(example, null, 2)}`;
       }
       if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = true;
       updatePkgPreview();
+      /* Don’t autofocus amount — keyboard only on user tap */
+      try {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function" && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) ae.blur();
+      } catch (_) {}
       sheet?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
@@ -3623,15 +3621,6 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-quick-add")?.addEventListener("click", () => addQuickExtra());
       $("diet-sync-checks")?.addEventListener("click", () => publishChecks($("diet-sync-status")));
       $("diet-pull-checks")?.addEventListener("click", () => pullChecks());
-      $("diet-meal-chips")?.addEventListener("click", (e) => {
-        const chip = e.target.closest("[data-meal]");
-        if (!chip) return;
-        focusAddForMeal(chip.getAttribute("data-meal"));
-        document.querySelector(`[data-meal-slot="${chip.getAttribute("data-meal")}"]`)?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      });
       $("diet-search")?.addEventListener("input", (e) => {
         renderFoodPick(e.target.value);
       });
