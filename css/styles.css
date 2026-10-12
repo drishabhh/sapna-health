@@ -3688,17 +3688,7 @@ body[data-section="today"] .today-brand {
 }
 
 .gif-preview-hint {
-  display: none;
-}
-
-.gif-preview-hint-legacy {
-  display: block;
-  padding: 0.35rem 0.75rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-faint);
+  display: none !important;
 }
 
 .move-log-card .move-log-actions {

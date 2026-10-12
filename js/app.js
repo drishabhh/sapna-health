@@ -663,8 +663,8 @@
       if (!note || (!note.title && !note.body)) return "";
       const title = escapeHtml(note.title || "Rest");
       let body = String(note.body || "").trim();
-      /* Keep one short line max */
-      const cut = body.split(/[.!?]/)[0] || body;
+      /* One short line — split on sentence end, not decimal points */
+      const cut = (body.match(/^[\s\S]*?[.!?](?=\s|$)/) || [body])[0].trim();
       body = cut.length > 72 ? cut.slice(0, 69).trim() + "…" : cut;
       body = escapeHtml(body);
       return `<aside class="guided-rest-note" aria-label="Rest and water">
