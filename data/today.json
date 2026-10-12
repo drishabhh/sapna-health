@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-10-11T13:40:27.281Z",
-  "planDate": "2026-10-11",
-  "headline": "Chest triceps",
-  "support": "Stretch · lift · log",
+  "updatedAt": "2026-10-12T00:06:23.391Z",
+  "planDate": "2026-10-12",
+  "headline": "Aaj ka workout",
+  "support": "Stretch · move · lift — every demo ready when she is.",
   "restNote": {
     "title": "Rest & water",
     "body": "Rest 1–1.5 min between sets. Drink water — not cold; warm or room temp, sip by sip.",
@@ -17,31 +17,35 @@
       "kind": "stretch",
       "moves": [
         {
-          "id": "arm-circles-mv3ugec4-6qsn",
+          "id": "arm-circles",
           "name": "Arm circles",
-          "rx": "10 reps",
+          "rx": "10 reps each direction",
+          "remarks": "",
           "gif": "media/arm-circles.gif",
           "demo": "img"
         },
         {
-          "id": "dynamic-chest-stretch-male-mv3ue8d9-mvdi",
-          "name": "Dynamic Chest Stretch Male",
-          "rx": "10 reps",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/dynamic-chest-stretch-male.gif",
+          "id": "torso-rotations",
+          "name": "Torso rotations",
+          "rx": "10 reps each side",
+          "remarks": "",
+          "gif": "media/torso-rotations.gif",
           "demo": "img"
         },
         {
-          "id": "leg-swings-mv3uh9gu-5xxr",
+          "id": "leg-swings",
           "name": "Leg swings",
-          "rx": "10 reps",
-          "gif": "media/leg-swings.gif",
-          "demo": "img"
+          "rx": "10 reps each leg — hold a wall if needed",
+          "remarks": "",
+          "gif": "",
+          "demo": "svg-leg-swing"
         },
         {
-          "id": "baby-sit-mv3vesnb-nmq0",
-          "name": "Baby sit",
-          "rx": "10 reps",
-          "gif": "media/custom-baby-sit-mv3vcrf6.gif",
+          "id": "bodyweight-squats",
+          "name": "Bodyweight squats",
+          "rx": "10 reps — warm-up pace",
+          "remarks": "",
+          "gif": "media/bodyweight-squats.gif",
           "demo": "img"
         }
       ]
@@ -54,38 +58,67 @@
       "kind": "main",
       "moves": [
         {
-          "id": "chest-press-flat-bench-mv3uhymu-xgr4",
+          "id": "cycle-walk",
+          "name": "Cycle / treadmill walk",
+          "rx": "3 min cycle (normal pace) ya 5 min walk",
+          "remarks": "",
+          "gif": "media/cycle-walk.gif",
+          "demo": "img"
+        },
+        {
+          "id": "chest-press",
           "name": "Chest press flat bench",
-          "rx": "2 × 12",
+          "rx": "5 kg · 2 sets × 12",
+          "remarks": "",
           "gif": "media/chest-press.gif",
           "demo": "img"
         },
         {
-          "id": "dumbbell-incline-bench-press-mv3uijpk-xpp1",
-          "name": "Dumbbell Incline Bench Press",
-          "rx": "2 × 12",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/dumbbell-incline-bench-press.gif",
+          "id": "shoulder-press",
+          "name": "Shoulder press",
+          "rx": "2.5 kg · 2 sets × 12",
+          "remarks": "",
+          "gif": "media/shoulder-press.gif",
           "demo": "img"
         },
         {
-          "id": "dumbbell-pullover-on-exercise-ball-mv3uixg1-ig6e",
-          "name": "Dumbbell Pullover On Exercise Ball",
-          "rx": "2 × 12",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/dumbbell-pullover-on-exercise-ball.gif",
+          "id": "lat-pulldown",
+          "name": "Lat pull down",
+          "rx": "20 kg · 2 sets × 12",
+          "remarks": "",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/cable-pulldown-pro-lat-bar.gif",
           "demo": "img"
         },
         {
-          "id": "dumbbell-lying-triceps-extension-mv3ukpzv-udeb",
-          "name": "Dumbbell Lying Triceps Extension",
-          "rx": "2 × 12",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/triceps/dumbbell-lying-triceps-extension.gif",
+          "id": "cable-row",
+          "name": "Seated Cable Row",
+          "rx": "20 kg · 2 sets × 12",
+          "remarks": "",
+          "gif": "media/cable-row.gif",
           "demo": "img"
         },
         {
-          "id": "walk-elliptical-cross-trainer-mv3unrtu-ob4c",
-          "name": "Walk Elliptical Cross Trainer",
-          "rx": "2 × 12",
-          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/cardio/walk-elliptical-cross-trainer.gif",
+          "id": "leg-curl",
+          "name": "Seated Leg Curl",
+          "rx": "15–20 kg · 2 sets × 12",
+          "remarks": "",
+          "gif": "media/leg-curl.gif",
+          "demo": "img"
+        },
+        {
+          "id": "db-squats",
+          "name": "Dumbbell squats",
+          "rx": "7.5 kg · 2 sets × 12",
+          "remarks": "",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/glutes/barbell-front-squat.gif",
+          "demo": "img"
+        },
+        {
+          "id": "dumbbell-goblet-squat-muwxqnoi-dyl2",
+          "name": "Dumbbell Goblet Squat",
+          "rx": "2 sets × 12",
+          "remarks": "",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/quads/dumbbell-goblet-squat.gif",
           "demo": "img"
         }
       ]
