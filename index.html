@@ -5,7 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="description" content="Sapna Singh’s health — diet, periods (private on device), gym weight logs, and today’s workout." />
   <meta name="theme-color" content="#f7f2eb" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
   <title>Sapna Singh — Health</title>
+  <script>
+    /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
+    (function () {
+      var APP_V = "20261012sync1";
+      window.SAPNA_APP_V = APP_V;
+      try {
+        fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
+          .then(function (r) { return r.ok ? r.text() : ""; })
+          .then(function (txt) {
+            var remote = String(txt || "").trim();
+            if (!remote || remote === APP_V) return;
+            var u = new URL(location.href);
+            if (u.searchParams.get("v") === remote) return;
+            u.searchParams.set("v", remote);
+            location.replace(u.pathname + u.search + u.hash);
+          })
+          .catch(function () {});
+      } catch (e) {}
+    })();
+  </script>
   <script>
     window.sapnaAdminDismissTokenSetup = function () {
       var token = document.getElementById("token-setup");
@@ -130,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261012handoff4"></script>
+  <script src="./js/admin-auth.js?v=20261012sync1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261012handoff4" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261012sync1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -653,8 +675,8 @@
             <button type="button" class="profile-chip" data-value="prefer_not">Prefer not to say</button>
           </div>
           <label class="check-row profile-sync-opt">
-            <input type="checkbox" id="pf-sync-basics" />
-            <span>Also sync <strong>basics</strong> (weight, goals, diet prefs — not medical) to GitHub for other phones</span>
+            <input type="checkbox" id="pf-sync-basics" checked />
+            <span>Sync <strong>basics</strong> to other phones (weight, goals, diet prefs — medical notes stay on this phone)</span>
           </label>
         </section>
 
@@ -682,7 +704,7 @@
     <div class="sheet token-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="token-setup-title">
       <p class="brand token-setup-brand">Sapna Singh</p>
       <h2 id="token-setup-title">Connect this phone</h2>
-      <p class="hint">GitHub PAT for sync &amp; publish. Saved on this phone only.</p>
+      <p class="hint">Paste a GitHub PAT once — this phone uploads your logs/checks/profile and pulls the same on other phones. Saved here only.</p>
       <label class="field">GitHub PAT (repo scope)
         <input type="password" id="token-setup-input" autocomplete="off" placeholder="ghp_…" enterkeyhint="done" />
       </label>
@@ -1170,8 +1192,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261012handoff4"></script>
-  <script src="./js/diet-admin.js?v=20261012handoff4"></script>
-  <script src="./js/app.js?v=20261012handoff4"></script>
+  <script src="./js/workout-admin.js?v=20261012sync1"></script>
+  <script src="./js/diet-admin.js?v=20261012sync1"></script>
+  <script src="./js/app.js?v=20261012sync1"></script>
 </body>
 </html>

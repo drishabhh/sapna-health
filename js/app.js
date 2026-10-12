@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261012handoff4";
+  const PROFILE_ASSET_V = "20261012sync1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3601,6 +3601,73 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-pkg-cancel")?.addEventListener("click", () => closePkgSheet());
     }
 
+    function mergeExtras(a, b) {
+      const out = [];
+      const seen = new Set();
+      const push = (item) => {
+        if (!item) return;
+        const key =
+          item.id != null
+            ? `id:${item.id}`
+            : `n:${item.name || ""}|k:${item.kcal || 0}|m:${item.meal || ""}|t:${item.at || item.addedAt || ""}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(item);
+      };
+      (Array.isArray(a) ? a : []).forEach(push);
+      (Array.isArray(b) ? b : []).forEach(push);
+      return out;
+    }
+
+    function mergeOneDay(localDay, remoteDay) {
+      const L = localDay || {};
+      const R = remoteDay || {};
+      const done = { ...(R.done || {}), ...(L.done || {}) };
+      /* true wins if either side checked */
+      Object.keys({ ...(R.done || {}), ...(L.done || {}) }).forEach((k) => {
+        done[k] = !!(L.done?.[k] || R.done?.[k]);
+      });
+      return {
+        done,
+        extras: mergeExtras(L.extras, R.extras),
+        breakfast: mergeExtras(L.breakfast, R.breakfast),
+        lunch: mergeExtras(L.lunch, R.lunch),
+        dinner: mergeExtras(L.dinner, R.dinner),
+        snacks: mergeExtras(L.snacks, R.snacks),
+      };
+    }
+
+    function mergeChecksCloud(cloud) {
+      if (!cloud || typeof cloud !== "object") return 0;
+      const remoteDays = cloud.days && typeof cloud.days === "object" ? cloud.days : {};
+      const localDays = state.checksByDate || {};
+      const keys = new Set([...Object.keys(remoteDays), ...Object.keys(localDays)]);
+      const next = {};
+      let changed = 0;
+      keys.forEach((k) => {
+        next[k] = mergeOneDay(localDays[k], remoteDays[k]);
+        const before = JSON.stringify(localDays[k] || {});
+        const after = JSON.stringify(next[k] || {});
+        if (before !== after) changed += 1;
+      });
+      state.checksByDate = next;
+      const d = todayISO();
+      if (next[d]) {
+        state.day = {
+          ...emptyDay(),
+          date: d,
+          done: { ...(next[d].done || {}) },
+          extras: Array.isArray(next[d].extras) ? next[d].extras.slice() : [],
+          breakfast: next[d].breakfast || [],
+          lunch: next[d].lunch || [],
+          dinner: next[d].dinner || [],
+          snacks: next[d].snacks || [],
+        };
+      }
+      persist();
+      return changed;
+    }
+
     function checksPayload() {
       persistChecksSnapshot();
       return {
@@ -3610,10 +3677,24 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
+    function hasLocalChecks() {
+      persistChecksSnapshot();
+      const days = state.checksByDate || {};
+      return Object.keys(days).some((k) => {
+        const day = days[k] || {};
+        const done = day.done || {};
+        if (Object.keys(done).some((id) => done[id])) return true;
+        if ((day.extras || []).length) return true;
+        if ((day.breakfast || []).length || (day.lunch || []).length || (day.dinner || []).length || (day.snacks || []).length)
+          return true;
+        return false;
+      });
+    }
+
     async function publishChecks(statusEl, tokenOverride) {
       const token =
         tokenOverride ||
-        localStorage.getItem(LS.token) ||
+        getSavedToken() ||
         ($("admin-token")?.value || "").trim();
       if (!token) {
         setStatus(statusEl, "Save a GitHub PAT first (Connect this phone).", "error");
@@ -3621,7 +3702,19 @@ ${JSON.stringify(example, null, 2)}`;
       }
       setStatus(statusEl, "Syncing checkmarks…", "info");
       try {
+        /* Merge remote (API) first so an empty phone never wipes the other */
+        try {
+          const remote = await githubGetJson(DIET_CHECKS_PATH, token);
+          if (remote) mergeChecksCloud(remote);
+        } catch (_) {
+          await pullChecks({ quiet: true });
+        }
         const payload = checksPayload();
+        /* Never overwrite non-empty remote with a truly empty local payload */
+        if (!hasLocalChecks() && payload.days && Object.keys(payload.days).length === 0) {
+          setStatus(statusEl, "Nothing to upload yet — checks stay local until you mark meals.", "info");
+          return true;
+        }
         await githubPutFile(
           DIET_CHECKS_PATH,
           b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
@@ -3638,40 +3731,41 @@ ${JSON.stringify(example, null, 2)}`;
 
     let autoSyncTimer = null;
     function maybeAutoSyncChecks() {
-      if (!(localStorage.getItem(LS.token) || "").trim()) return;
+      if (!getSavedToken()) return;
       clearTimeout(autoSyncTimer);
       autoSyncTimer = setTimeout(() => {
         publishChecks($("diet-sync-status"));
       }, 2500);
     }
 
-    async function pullChecks() {
+    async function pullChecks({ quiet } = {}) {
       const st = $("diet-sync-status");
-      setStatus(st, "Refreshing checkmarks…", "info");
+      if (!quiet) setStatus(st, "Refreshing checkmarks…", "info");
       try {
-        const res = await fetch(`./${DIET_CHECKS_PATH}?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("No cloud checkmarks yet.");
-        const data = await res.json();
-        const days = data.days || {};
-        state.checksByDate = { ...(state.checksByDate || {}), ...days };
-        const d = todayISO();
-        if (days[d]) {
-          state.day = {
-            ...emptyDay(),
-            date: d,
-            done: { ...(days[d].done || {}) },
-            extras: Array.isArray(days[d].extras) ? days[d].extras.slice() : [],
-            breakfast: days[d].breakfast || [],
-            lunch: days[d].lunch || [],
-            dinner: days[d].dinner || [],
-            snacks: days[d].snacks || [],
-          };
+        const token = getSavedToken();
+        let data = null;
+        if (token) {
+          try {
+            data = await githubGetJson(DIET_CHECKS_PATH, token);
+          } catch (_) {
+            data = null;
+          }
         }
-        persist();
+        if (!data) {
+          const res = await fetch(`./${DIET_CHECKS_PATH}?t=${Date.now()}`, { cache: "no-store" });
+          if (!res.ok) throw new Error("No cloud checkmarks yet.");
+          data = await res.json();
+        }
+        const changed = mergeChecksCloud(data);
         render();
-        setStatus(st, "Pulled checkmarks from cloud.", "ok");
+        if (typeof Today !== "undefined" && Today.render) Today.render();
+        if (!quiet) {
+          setStatus(st, changed ? "Pulled checkmarks from cloud." : "Already up to date with cloud.", "ok");
+        }
+        return changed;
       } catch (e) {
-        setStatus(st, e.message || String(e), "error");
+        if (!quiet) setStatus(st, e.message || String(e), "error");
+        return 0;
       }
     }
 
@@ -3692,7 +3786,7 @@ ${JSON.stringify(example, null, 2)}`;
       });
       $("diet-quick-add")?.addEventListener("click", () => addQuickExtra());
       $("diet-sync-checks")?.addEventListener("click", () => publishChecks($("diet-sync-status")));
-      $("diet-pull-checks")?.addEventListener("click", () => pullChecks());
+      $("diet-pull-checks")?.addEventListener("click", () => pullChecks({ quiet: false }));
       $("diet-search")?.addEventListener("input", (e) => {
         renderFoodPick(e.target.value);
       });
@@ -3801,25 +3895,7 @@ ${JSON.stringify(example, null, 2)}`;
         console.warn(e);
       }
       try {
-        const cRes = await fetch(`./${DIET_CHECKS_PATH}?v=${PROFILE_ASSET_V}`, { cache: "no-store" });
-        if (cRes.ok) {
-          const data = await cRes.json();
-          const days = data.days || {};
-          state.checksByDate = { ...days, ...(state.checksByDate || {}) };
-          const d = todayISO();
-          if (days[d] && (!state.day || state.day.date !== d || !Object.keys(state.day.done || {}).length)) {
-            state.day = {
-              ...emptyDay(),
-              date: d,
-              done: { ...(days[d].done || {}) },
-              extras: Array.isArray(days[d].extras) ? days[d].extras.slice() : [],
-              breakfast: days[d].breakfast || [],
-              lunch: days[d].lunch || [],
-              dinner: days[d].dinner || [],
-              snacks: days[d].snacks || [],
-            };
-          }
-        }
+        await pullChecks({ quiet: true });
       } catch (_) {}
       wire();
       render();
@@ -3964,6 +4040,7 @@ ${JSON.stringify(example, null, 2)}`;
       listFoods,
       publishChecks,
       pullChecks,
+      hasLocalChecks,
     };
   })();
 
@@ -3996,7 +4073,7 @@ ${JSON.stringify(example, null, 2)}`;
       conditionsOther: "",
       injuries: "",
       pregnancy: null,
-      syncBasics: false,
+      syncBasics: true,
       derived: null,
     });
 
@@ -4162,7 +4239,7 @@ ${JSON.stringify(example, null, 2)}`;
       if ($("pf-if-note")) $("pf-if-note").value = s.ifNote || "";
       if ($("pf-conditions-other")) $("pf-conditions-other").value = s.conditionsOther || "";
       if ($("pf-injuries")) $("pf-injuries").value = s.injuries || "";
-      if ($("pf-sync-basics")) $("pf-sync-basics").checked = !!s.syncBasics;
+      if ($("pf-sync-basics")) $("pf-sync-basics").checked = s.syncBasics !== false;
       setChips("sex", s.sex, true);
       setChips("goal", s.goal, true);
       setChips("activity", s.activity, true);
@@ -4323,13 +4400,100 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
+    function mergeBasicsFromCloud(cloud) {
+      if (!cloud || typeof cloud !== "object") return false;
+      /* Never overwrite medical/local-only fields; fill gaps from public basics */
+      const before = JSON.stringify(state);
+      const take = (key) => {
+        if (cloud[key] == null || cloud[key] === "") return;
+        if (state[key] == null || state[key] === "" || (Array.isArray(state[key]) && !state[key].length)) {
+          state[key] = cloud[key];
+        }
+      };
+      [
+        "age",
+        "sex",
+        "weightKg",
+        "heightCm",
+        "goal",
+        "targetWeightKg",
+        "paceKgPerWeek",
+        "activity",
+        "workoutDays",
+        "workoutType",
+        "mealsPerDay",
+        "allergiesNote",
+        "ifNote",
+      ].forEach(take);
+      if (Array.isArray(cloud.dietStyles) && cloud.dietStyles.length && !(state.dietStyles || []).length) {
+        state.dietStyles = cloud.dietStyles.slice();
+      }
+      if (Array.isArray(cloud.allergies) && cloud.allergies.length && !(state.allergies || []).length) {
+        state.allergies = cloud.allergies.slice();
+      }
+      if (cloud.derived && typeof cloud.derived === "object" && !state.derived) {
+        state.derived = cloud.derived;
+      }
+      /* If cloud has a complete-looking basics set and local never finished onboarding, mark complete */
+      if (!state.completedAt && (cloud.weightKg != null || cloud.heightCm != null) && cloud.goal) {
+        state.completedAt = cloud.updatedAt || new Date().toISOString();
+      }
+      state.derived = derive(state);
+      const after = JSON.stringify(state);
+      if (before !== after) {
+        persist();
+        applyToDiet();
+        paintSummaries();
+        return true;
+      }
+      return false;
+    }
+
+    async function pullBasics({ quiet } = {}) {
+      try {
+        const token = getSavedToken();
+        let data = null;
+        if (token) {
+          try {
+            data = await githubGetJson(PROFILE_PATH, token);
+          } catch (_) {
+            data = null;
+          }
+        }
+        if (!data) {
+          const res = await fetch(`./${PROFILE_PATH}?t=${Date.now()}`, { cache: "no-store" });
+          if (!res.ok) return false;
+          data = await res.json();
+        }
+        return mergeBasicsFromCloud(data);
+      } catch (_) {
+        if (!quiet) {
+          /* silent on boot */
+        }
+        return false;
+      }
+    }
+
+    function shouldPublishBasics() {
+      if (!state.syncBasics) return false;
+      if (!getSavedToken()) return false;
+      return !!(state.completedAt || state.weightKg != null || state.heightCm != null || state.goal);
+    }
+
     async function maybePublishBasics() {
       if (!state.syncBasics) return { ok: true, skipped: true };
-      const token = (localStorage.getItem(LS.token) || "").trim();
+      const token = getSavedToken();
       if (!token) {
         return { ok: false, message: "Saved on phone. Add a GitHub token to sync basics." };
       }
+      if (!shouldPublishBasics()) return { ok: true, skipped: true };
       try {
+        /* Prefer local completed profile — do not upload empty shell over remote */
+        const remote = await githubGetJson(PROFILE_PATH, token).catch(() => null);
+        if (remote) mergeBasicsFromCloud(remote);
+        if (!state.weightKg && !state.heightCm && !state.goal && !state.completedAt) {
+          return { ok: true, skipped: true };
+        }
         const payload = publicBasics(state);
         await githubPutFile(
           PROFILE_PATH,
@@ -4348,6 +4512,8 @@ ${JSON.stringify(example, null, 2)}`;
       state.derived = derive(state);
       state.completedAt = new Date().toISOString();
       state.skippedAt = null;
+      /* With a PAT saved, keep syncing basics across phones by default */
+      if (getSavedToken()) state.syncBasics = true;
       persist();
       applyToDiet();
       paintSummaries();
@@ -4574,6 +4740,13 @@ ${JSON.stringify(example, null, 2)}`;
       paintSummaries();
     }
 
+    async function bootSync() {
+      await pullBasics({ quiet: true });
+      if (shouldPublishBasics()) {
+        await maybePublishBasics();
+      }
+    }
+
     return {
       init: promptIfNeeded,
       open,
@@ -4584,6 +4757,10 @@ ${JSON.stringify(example, null, 2)}`;
       getState: () => state,
       isComplete: () => isComplete(state),
       resetLocal,
+      pullBasics,
+      maybePublishBasics,
+      shouldPublishBasics,
+      bootSync,
     };
   })();
 
@@ -4788,7 +4965,12 @@ ${JSON.stringify(example, null, 2)}`;
         if (!state.days[selected].period && !state.days[selected].note) delete state.days[selected];
         persist();
         render();
-        setStatus($("period-status"), "Saved here — Sync dates to share across devices.", "ok");
+        if (getSavedToken()) {
+          setStatus($("period-status"), "Saved — syncing to other phones…", "ok");
+          scheduleAutoSync();
+        } else {
+          setStatus($("period-status"), "Saved here — add a PAT under Sync to share across phones.", "ok");
+        }
       });
       $("period-save-note")?.addEventListener("click", () => {
         const note = $("period-note")?.value.trim() || "";
@@ -4797,7 +4979,12 @@ ${JSON.stringify(example, null, 2)}`;
         if (!state.days[selected].period && !note) delete state.days[selected];
         persist();
         render();
-        setStatus($("period-status"), "Note saved. Sync dates to publish.", "ok");
+        if (getSavedToken()) {
+          setStatus($("period-status"), "Note saved — syncing…", "ok");
+          scheduleAutoSync();
+        } else {
+          setStatus($("period-status"), "Note saved. Add a PAT under Sync to publish.", "ok");
+        }
       });
       $("period-sync")?.addEventListener("click", () => publishPeriods($("period-status"), $("period-token")?.value.trim()));
       $("period-export")?.addEventListener("click", () => {
@@ -4827,16 +5014,35 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function mergeCloud(cloud) {
-      if (!cloud?.days || typeof cloud.days !== "object") return;
+      if (!cloud?.days || typeof cloud.days !== "object") return 0;
+      let changed = 0;
       Object.entries(cloud.days).forEach(([key, info]) => {
         const local = state.days[key] || {};
-        state.days[key] = {
+        const next = {
           period: !!(info.period || local.period),
           note: local.note || info.note || "",
         };
-        if (!state.days[key].period && !state.days[key].note) delete state.days[key];
+        if (!next.period && !next.note) {
+          if (state.days[key]) {
+            delete state.days[key];
+            changed += 1;
+          }
+          return;
+        }
+        const prev = JSON.stringify(local);
+        const after = JSON.stringify(next);
+        if (prev !== after) changed += 1;
+        state.days[key] = next;
       });
-      persist();
+      if (changed) persist();
+      return changed;
+    }
+
+    function hasLocalDays() {
+      return Object.keys(state.days || {}).some((k) => {
+        const v = state.days[k];
+        return !!(v && (v.period || v.note));
+      });
     }
 
     function publishPayload() {
@@ -4855,8 +5061,32 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
+    async function pullCloud({ quiet } = {}) {
+      try {
+        const token = getSavedToken();
+        let data = null;
+        if (token) {
+          try {
+            data = await githubGetJson(PERIODS_PATH, token);
+          } catch (_) {
+            data = null;
+          }
+        }
+        if (!data) {
+          const res = await fetch(`./${PERIODS_PATH}?t=${Date.now()}`, { cache: "no-store" });
+          if (!res.ok) return 0;
+          data = await res.json();
+        }
+        const changed = mergeCloud(data);
+        render();
+        return changed;
+      } catch (_) {
+        return 0;
+      }
+    }
+
     async function publishPeriods(statusEl, tokenOverride) {
-      const token = tokenOverride || localStorage.getItem(LS.token) || $("admin-token")?.value.trim();
+      const token = tokenOverride || getSavedToken() || $("admin-token")?.value.trim();
       if (!token) {
         setStatus(statusEl, "Add a GitHub PAT (repo scope) — or save one in Admin.", "error");
         return false;
@@ -4864,7 +5094,17 @@ ${JSON.stringify(example, null, 2)}`;
       if (tokenOverride) localStorage.setItem(LS.token, tokenOverride);
       setStatus(statusEl, "Syncing period dates…", "info");
       try {
+        try {
+          const remote = await githubGetJson(PERIODS_PATH, token);
+          if (remote) mergeCloud(remote);
+        } catch (_) {
+          await pullCloud({ quiet: true });
+        }
         const payload = publishPayload();
+        if (!Object.keys(payload.days || {}).length && !hasLocalDays()) {
+          setStatus(statusEl, "No period dates to upload yet.", "info");
+          return true;
+        }
         await githubPutFile(
           PERIODS_PATH,
           b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
@@ -4879,19 +5119,36 @@ ${JSON.stringify(example, null, 2)}`;
       }
     }
 
+    let autoSyncTimer = 0;
+    function scheduleAutoSync() {
+      if (!getSavedToken()) return;
+      if (autoSyncTimer) clearTimeout(autoSyncTimer);
+      autoSyncTimer = setTimeout(() => {
+        autoSyncTimer = 0;
+        publishPeriods($("period-status"));
+      }, 1600);
+    }
+
     async function init() {
       wire();
-      try {
-        const res = await fetch(`./${PERIODS_PATH}?t=${Date.now()}`, { cache: "no-store" });
-        if (res.ok) mergeCloud(await res.json());
-      } catch (_) {}
-      if ($("period-token") && localStorage.getItem(LS.token)) {
+      await pullCloud({ quiet: true });
+      if ($("period-token") && getSavedToken()) {
         $("period-token").placeholder = "Token saved — paste to replace";
       }
       render();
     }
 
-    return { init, render, publishPeriods, publishPayload, snapshot, coachSnapshot };
+    return {
+      init,
+      render,
+      publishPeriods,
+      publishPayload,
+      snapshot,
+      coachSnapshot,
+      pullCloud,
+      hasLocalDays,
+      scheduleAutoSync,
+    };
   })();
 
   /* ───────── Weight logs ───────── */
@@ -5349,8 +5606,13 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
+    function hasLocalEntries() {
+      const deleted = new Set((state.deletedIds || []).map(String));
+      return (state.entries || []).some((e) => e && e.id != null && !deleted.has(String(e.id)));
+    }
+
     async function publishWeights(statusEl, tokenOverride) {
-      const token = tokenOverride || localStorage.getItem(LS.token) || $("log-token")?.value.trim() || $("admin-token")?.value.trim();
+      const token = tokenOverride || getSavedToken() || $("log-token")?.value.trim() || $("admin-token")?.value.trim();
       if (!token) {
         setStatus(statusEl, "Add a GitHub PAT (repo scope) — same as Periods / Admin.", "error");
         return false;
@@ -5360,9 +5622,18 @@ ${JSON.stringify(example, null, 2)}`;
       }
       setStatus(statusEl, "Syncing lift logs…", "info");
       try {
-        /* Pull first so we don't clobber other phone's newer entries */
-        await pullCloud({ quiet: true });
+        /* Pull via Contents API first (fresher than Pages) so we never clobber */
+        try {
+          const remote = await githubGetJson(WEIGHTS_PATH, token);
+          if (remote) mergeCloud(remote);
+        } catch (_) {
+          await pullCloud({ quiet: true });
+        }
         const payload = publishPayload();
+        if (!payload.entries.length && !hasLocalEntries()) {
+          setStatus(statusEl, "No lift logs to upload yet.", "info");
+          return true;
+        }
         await githubPutFile(
           WEIGHTS_PATH,
           b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
@@ -5386,12 +5657,24 @@ ${JSON.stringify(example, null, 2)}`;
 
     async function pullCloud({ quiet } = {}) {
       try {
-        const res = await fetch(`./${WEIGHTS_PATH}?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) {
-          if (!quiet) setStatus($("log-sync-status"), "No cloud logs yet — Sync now from a phone that has entries.", "info");
-          return 0;
+        let data = null;
+        const token = getSavedToken();
+        if (token) {
+          try {
+            data = await githubGetJson(WEIGHTS_PATH, token);
+          } catch (_) {
+            data = null;
+          }
         }
-        const added = mergeCloud(await res.json());
+        if (!data) {
+          const res = await fetch(`./${WEIGHTS_PATH}?t=${Date.now()}`, { cache: "no-store" });
+          if (!res.ok) {
+            if (!quiet) setStatus($("log-sync-status"), "No cloud logs yet — Sync now from a phone that has entries.", "info");
+            return 0;
+          }
+          data = await res.json();
+        }
+        const added = mergeCloud(data);
         /* Always refresh Workout cards + Today — quiet pull used to skip this, so
            Recent lifts updated later while per-exercise “Last:” stayed empty. */
         render();
@@ -5413,7 +5696,7 @@ ${JSON.stringify(example, null, 2)}`;
 
     let autoSyncTimer = 0;
     function scheduleAutoSync() {
-      if (!localStorage.getItem(LS.token)) return;
+      if (!getSavedToken()) return;
       if (autoSyncTimer) clearTimeout(autoSyncTimer);
       autoSyncTimer = setTimeout(() => {
         autoSyncTimer = 0;
@@ -5453,6 +5736,7 @@ ${JSON.stringify(example, null, 2)}`;
       publishWeights,
       pullCloud,
       scheduleAutoSync,
+      hasLocalEntries,
     };
   })();
 
@@ -5776,9 +6060,32 @@ ${JSON.stringify(example, null, 2)}`;
     return { render };
   })();
 
-  /* ───────── Admin publish diet defaults ───────── */
+  /* ───────── GitHub Contents helpers ───────── */
   function b64EncodeUnicode(str) {
     return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  function b64DecodeUnicode(b64) {
+    return decodeURIComponent(escape(atob(String(b64 || "").replace(/\n/g, ""))));
+  }
+
+  async function githubGetJson(path, token) {
+    const api = `https://api.github.com/repos/${REPO.owner}/${REPO.name}/contents/${path}?ref=${REPO.branch}`;
+    const headers = { Accept: "application/vnd.github+json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(api, { headers, cache: "no-store" });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `GitHub ${res.status}`);
+    }
+    const meta = await res.json();
+    if (!meta.content) return null;
+    try {
+      return JSON.parse(b64DecodeUnicode(meta.content));
+    } catch {
+      return null;
+    }
   }
 
   async function githubPutFile(path, contentB64, message, token) {
@@ -5804,6 +6111,10 @@ ${JSON.stringify(example, null, 2)}`;
       const err = await putRes.json().catch(() => ({}));
       throw new Error(err.message || `GitHub ${putRes.status}`);
     }
+  }
+
+  function getSavedToken() {
+    return (localStorage.getItem(LS.token) || "").trim();
   }
 
   function setKeyBadge(id, kind, label) {
@@ -5919,7 +6230,8 @@ ${JSON.stringify(example, null, 2)}`;
       }
       TokenSetup.applyPlaceholders();
       setKeyBadge("admin-token-badge", "ok", "✓ Working");
-      setStatus($("admin-status"), result.message + " Saved on this phone.", "ok");
+      setStatus($("admin-status"), result.message + " Syncing this phone…", "info");
+      await CloudSync.afterTokenSaved($("admin-status"));
     });
 
     $("admin-start-fresh")?.addEventListener("click", () => {
@@ -6057,12 +6369,86 @@ ${JSON.stringify(example, null, 2)}`;
     };
   }
 
+  /* ───────── Cross-device sync orchestrator ───────── */
+  const CloudSync = (() => {
+    async function pullAll() {
+      await Promise.all([
+        Weights.pullCloud({ quiet: true }).catch(() => 0),
+        Diet.pullChecks({ quiet: true }).catch(() => 0),
+        Periods.pullCloud({ quiet: true }).catch(() => 0),
+        Profile.pullBasics({ quiet: true }).catch(() => false),
+      ]);
+    }
+
+    async function pushLocals(statusEl) {
+      const token = getSavedToken();
+      if (!token) return { ok: false, message: "No PAT saved." };
+      const results = [];
+      if (Weights.hasLocalEntries()) {
+        results.push(["weights", await Weights.publishWeights(statusEl, token)]);
+      }
+      if (Diet.hasLocalChecks()) {
+        results.push(["diet", await Diet.publishChecks(statusEl, token)]);
+      }
+      if (Periods.hasLocalDays()) {
+        results.push(["periods", await Periods.publishPeriods(statusEl, token)]);
+      }
+      if (Profile.shouldPublishBasics()) {
+        const pub = await Profile.maybePublishBasics();
+        results.push(["profile", !!(pub && pub.ok)]);
+      }
+      return { ok: results.every(([, v]) => v), results };
+    }
+
+    /** After PAT save: merge remote, then upload anything this phone already has. */
+    async function afterTokenSaved(statusEl) {
+      setStatus(statusEl, "Connecting — pulling then uploading this phone’s data…", "info");
+      try {
+        await pullAll();
+        const pushed = await pushLocals(statusEl);
+        const n = (pushed.results || []).filter(([, ok]) => ok).length;
+        if (n) {
+          setStatus(
+            statusEl,
+            `Synced ${n} data set${n === 1 ? "" : "s"} to GitHub. Other phones: open the plain link + paste the same PAT once.`,
+            "ok"
+          );
+        } else {
+          setStatus(
+            statusEl,
+            "Token saved. No local logs yet — future saves sync automatically. Published plans load without a token.",
+            "ok"
+          );
+        }
+        if (typeof Today !== "undefined" && Today.render) Today.render();
+        if (typeof Workout !== "undefined" && Workout.render) Workout.render();
+        if (typeof Diet !== "undefined" && Diet.render) Diet.render();
+        if (typeof Periods !== "undefined" && Periods.render) Periods.render();
+        if (typeof Weights !== "undefined" && Weights.render) Weights.render();
+        if (typeof Profile !== "undefined" && Profile.paintSummaries) Profile.paintSummaries();
+        return true;
+      } catch (e) {
+        setStatus(statusEl, e.message || String(e), "error");
+        return false;
+      }
+    }
+
+    /** Boot: always pull public/API JSON; if PAT present, upload local-only data. */
+    async function boot() {
+      await pullAll();
+      if (!getSavedToken()) return;
+      await pushLocals(null);
+    }
+
+    return { pullAll, pushLocals, afterTokenSaved, boot };
+  })();
+
   /* ───────── First-visit token setup (one PAT for everything) ───────── */
   const TokenSetup = (() => {
     const SS_LATER = "sapna_token_setup_later";
 
     function hasToken() {
-      return !!(localStorage.getItem(LS.token) || "").trim();
+      return !!getSavedToken();
     }
 
     function applyPlaceholders() {
@@ -6100,7 +6486,7 @@ ${JSON.stringify(example, null, 2)}`;
       setStatus($("token-setup-status"), "");
     }
 
-    function save() {
+    async function save() {
       const raw = ($("token-setup-input")?.value || "").trim();
       if (!raw) {
         setStatus($("token-setup-status"), "Paste your GitHub token first.", "error");
@@ -6110,13 +6496,19 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus($("token-setup-status"), "That doesn’t look like a GitHub token. Check and try again.", "error");
         return false;
       }
+      const result = await validateGithubToken(raw);
+      if (!result.ok) {
+        setStatus($("token-setup-status"), result.message || "Token rejected by GitHub.", "error");
+        return false;
+      }
       localStorage.setItem(LS.token, raw);
       try {
         sessionStorage.removeItem(SS_LATER);
       } catch (_) {}
       applyPlaceholders();
-      setStatus($("token-setup-status"), "Saved on this phone — sync & publish ready.", "ok");
-      setTimeout(close, 450);
+      setStatus($("token-setup-status"), "Token OK — syncing this phone’s data…", "info");
+      await CloudSync.afterTokenSaved($("token-setup-status"));
+      setTimeout(close, 900);
       return true;
     }
 
@@ -6182,6 +6574,15 @@ ${JSON.stringify(example, null, 2)}`;
     GeminiKeyUI.wire();
     Coach.wire();
     Profile.init();
+    try {
+      await Profile.bootSync();
+    } catch (_) {}
+    /* If PAT already saved: upload any local-only data that never reached the repo */
+    try {
+      await CloudSync.boot();
+    } catch (err) {
+      console.warn("CloudSync boot", err);
+    }
     /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
     if (Workout.refreshSummaries) Workout.refreshSummaries();
     else Workout.render();
