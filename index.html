@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Sapna health — diet, periods (private on device), gym weight logs, and today’s workout." />
+  <meta name="description" content="Sapna Singh’s health — diet, periods (private on device), gym weight logs, and today’s workout." />
   <meta name="theme-color" content="#f7f2eb" />
-  <title>Sapna — Health</title>
+  <title>Sapna Singh — Health</title>
   <script>
     window.sapnaAdminDismissTokenSetup = function () {
       var token = document.getElementById("token-setup");
@@ -130,17 +130,17 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261012guide1"></script>
+  <script src="./js/admin-auth.js?v=20261012peek1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261012guide1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261012peek1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
 
   <header class="topbar">
-    <p class="topbar-brand">Sapna</p>
+    <p class="topbar-brand">Sapna Singh</p>
     <nav class="top-nav-desktop" aria-label="Sections">
       <a href="#today" data-nav="today">Today</a>
       <a href="#workout" data-nav="workout">Workout</a>
@@ -154,7 +154,7 @@
   <!-- TODAY HUB -->
   <section class="panel is-active panel-today" id="panel-today" data-panel="today">
     <div class="today-hero">
-      <p class="today-greet" id="today-greet-line">Good day</p>
+      <p class="today-greet" id="today-greet-line">Good day, Sapna Singh</p>
       <h1 class="today-title">Today</h1>
       <p class="today-lede" id="today-date-line">Workout · diet · cycle</p>
       <div class="profile-entry-row">
@@ -163,7 +163,7 @@
     </div>
     <div class="profile-nudge" id="today-profile-nudge" hidden>
       <div class="profile-nudge-copy">
-        <p class="today-kicker">Personalize Sapna</p>
+        <p class="today-kicker">For Sapna Singh</p>
         <p class="profile-nudge-title">A few soft questions — calories, diet tips, and safer workouts.</p>
       </div>
       <div class="profile-nudge-actions">
@@ -249,7 +249,7 @@
     </div>
     <div class="profile-nudge profile-nudge-diet" id="diet-profile-nudge" hidden>
       <div class="profile-nudge-copy">
-        <p class="hf-diet-eyebrow">Personalize</p>
+        <p class="hf-diet-eyebrow">For Sapna Singh</p>
         <p class="profile-nudge-title">Set height &amp; weight once — we’ll suggest your daily calorie &amp; protein goals.</p>
       </div>
       <div class="profile-nudge-actions">
@@ -504,6 +504,7 @@
     </div>
   </section>
 
+  <p class="site-credit" aria-label="Credit">built with love by rishu for suppu</p>
   <nav class="site-nav site-nav-5" aria-label="Primary">
     <a href="#today" data-nav="today"><span class="nav-ico">●</span>Today</a>
     <a href="#workout" data-nav="workout"><span class="nav-ico">W</span>Workout</a>
@@ -517,7 +518,7 @@
     <div class="sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-sheet-title">
       <header class="sheet-head profile-sheet-head">
         <div>
-          <p class="profile-sheet-brand">Sapna</p>
+          <p class="profile-sheet-brand">Sapna Singh</p>
           <h2 id="profile-sheet-title">Your profile</h2>
           <p class="hint profile-step-label" id="profile-step-label">About you</p>
         </div>
@@ -687,7 +688,7 @@
   <!-- First-visit GitHub token setup (saved for Logs / Periods / Admin sync) -->
   <div class="overlay token-setup-overlay" id="token-setup" hidden>
     <div class="sheet token-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="token-setup-title">
-      <p class="brand token-setup-brand">Sapna</p>
+      <p class="brand token-setup-brand">Sapna Singh</p>
       <h2 id="token-setup-title">Connect this phone</h2>
       <p class="hint">Paste a GitHub token once. Sapna uses it for <strong>lift logs</strong>, <strong>period sync</strong>, and <strong>Admin publish</strong> across her phones. Saved only in this browser.</p>
       <label class="field">GitHub PAT (repo scope)
@@ -1097,17 +1098,42 @@
         </div>
         <p class="log-sheet-empty" id="log-sheet-empty">No logs yet for this exercise.</p>
       </div>
-      <form class="log-sheet-form" id="log-sheet-form" autocomplete="off">
+      <form class="log-sheet-form log-sheet-form-wheels" id="log-sheet-form" autocomplete="off">
         <p class="log-sheet-edit-banner" id="log-sheet-edit-banner" hidden>Editing selected log</p>
-        <label>kg
-          <input id="log-sheet-kg" name="kg" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" enterkeyhint="next" />
-        </label>
-        <label>Sets
-          <input id="log-sheet-sets" name="sets" type="number" inputmode="numeric" min="1" step="1" placeholder="2" enterkeyhint="next" />
-        </label>
-        <label>Reps
-          <input id="log-sheet-reps" name="reps" type="number" inputmode="numeric" min="1" step="1" placeholder="12" enterkeyhint="done" />
-        </label>
+        <div class="log-wheels" id="log-wheels" aria-label="Kg, reps, sets, and date">
+          <div class="log-wheel-col" data-wheel="kg">
+            <span class="log-wheel-label">Kg</span>
+            <div class="log-wheel-viewport" tabindex="0" role="listbox" aria-label="Kilograms">
+              <ul class="log-wheel-list" id="log-wheel-kg"></ul>
+              <div class="log-wheel-highlight" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="log-wheel-col" data-wheel="reps">
+            <span class="log-wheel-label">Reps</span>
+            <div class="log-wheel-viewport" tabindex="0" role="listbox" aria-label="Reps">
+              <ul class="log-wheel-list" id="log-wheel-reps"></ul>
+              <div class="log-wheel-highlight" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="log-wheel-col" data-wheel="sets">
+            <span class="log-wheel-label">Sets</span>
+            <div class="log-wheel-viewport" tabindex="0" role="listbox" aria-label="Sets">
+              <ul class="log-wheel-list" id="log-wheel-sets"></ul>
+              <div class="log-wheel-highlight" aria-hidden="true"></div>
+            </div>
+          </div>
+          <div class="log-wheel-col log-wheel-col-date" data-wheel="date">
+            <span class="log-wheel-label">Date</span>
+            <div class="log-wheel-viewport" tabindex="0" role="listbox" aria-label="Date">
+              <ul class="log-wheel-list" id="log-wheel-date"></ul>
+              <div class="log-wheel-highlight" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+        <input type="hidden" id="log-sheet-kg" name="kg" value="" />
+        <input type="hidden" id="log-sheet-reps" name="reps" value="" />
+        <input type="hidden" id="log-sheet-sets" name="sets" value="" />
+        <input type="hidden" id="log-sheet-date" name="date" value="" />
         <div class="log-sheet-form-actions">
           <button type="submit" class="log-sheet-save" id="log-sheet-save">Save entry</button>
           <button type="button" class="log-sheet-delete" id="log-sheet-delete" hidden>Delete</button>
@@ -1143,8 +1169,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261012guide1"></script>
-  <script src="./js/diet-admin.js?v=20261012guide1"></script>
-  <script src="./js/app.js?v=20261012guide1"></script>
+  <script src="./js/workout-admin.js?v=20261012peek1"></script>
+  <script src="./js/diet-admin.js?v=20261012peek1"></script>
+  <script src="./js/app.js?v=20261012peek1"></script>
 </body>
 </html>

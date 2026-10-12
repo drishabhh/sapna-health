@@ -176,8 +176,9 @@
       const kcalPct = pct(diet.kcal, diet.targetKcal);
       const proPct = pct(diet.protein, diet.targetProtein);
       const liftPct = workout.liftsTotal ? pct(workout.liftsLogged, workout.liftsTotal) : 0;
-      const greet =
+      const greetBase =
         now.getHours() < 12 ? "Good morning" : now.getHours() < 18 ? "Good afternoon" : "Good evening";
+      const greet = `${greetBase}, Sapna Singh`;
 
       const heroDate = $("today-date-line");
       if (heroDate) heroDate.textContent = dateLabel;
@@ -303,6 +304,11 @@
     let sheetExercise = "";
     let sheetEditingId = null;
     let sheetScrollY = 0;
+    /* UI-only: peek next exercise without completing current */
+    let peekingNext = false;
+    let wheelsBuilt = false;
+    const WHEEL_ITEM_H = 40;
+    const WHEEL_PAD = 50;
     /* Guided session: idle | stretch | exercise | done */
     let session = {
       date: "",
@@ -447,6 +453,7 @@
 
     function adoptSessionFromStorage() {
       session = reconcileSession(readStoredSession());
+      peekingNext = false;
       persistSession();
     }
 
@@ -463,6 +470,7 @@
     function startGuidedSession() {
       const { stretch, main } = movesByKind();
       if (!stretch.length && !main.length) return;
+      peekingNext = false;
       if (stretch.length) {
         setSession({ phase: "stretch", exerciseIndex: 0, completedIds: [] });
       } else {
@@ -476,12 +484,14 @@
       if (!window.confirm("Restart today’s session from stretching? Progress on this phone for this session will reset.")) {
         return;
       }
+      peekingNext = false;
       setSession({ phase: "idle", exerciseIndex: 0, completedIds: [] });
       render();
     }
 
     function completeStretching() {
       const { main } = movesByKind();
+      peekingNext = false;
       if (!main.length) {
         setSession({ phase: "done", exerciseIndex: 0 });
       } else {
@@ -491,8 +501,25 @@
       $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
+    function openPeekNext() {
+      const { main } = movesByKind();
+      const idx = Math.min(session.exerciseIndex, Math.max(0, main.length - 1));
+      if (session.phase !== "exercise" || idx + 1 >= main.length) return;
+      peekingNext = true;
+      render();
+      $("guided-peek")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function closePeekNext() {
+      if (!peekingNext) return;
+      peekingNext = false;
+      render();
+      $("session-active")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
     function completeCurrentExercise() {
       const { main } = movesByKind();
+      peekingNext = false;
       if (!main.length) {
         setSession({ phase: "done", exerciseIndex: 0 });
         render();
@@ -506,6 +533,7 @@
       if (next >= main.length) {
         setSession({ phase: "done", exerciseIndex: main.length - 1, completedIds });
       } else {
+        /* Advance only on explicit Completed — never from peek */
         setSession({ phase: "exercise", exerciseIndex: next, completedIds });
       }
       render();
@@ -514,6 +542,41 @@
       } else {
         $("session-done-bar")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
+    }
+
+    function exerciseRailHtml(main, idx) {
+      if (!main.length) return "";
+      return `<ol class="guided-ex-rail" aria-label="Exercises — past steps stay locked">
+        ${main
+          .map((m, i) => {
+            const key = moveKey(m);
+            const done = session.completedIds.includes(key) || i < idx;
+            const current = i === idx && !done;
+            const upcoming = i > idx;
+            let cls = "guided-ex-rail-item";
+            if (done) cls += " is-done is-locked";
+            else if (current) cls += " is-current";
+            else if (upcoming) cls += " is-upcoming";
+            const label = done ? "Done · locked" : current ? "Now" : "Up next";
+            return `<li class="${cls}" aria-current="${current ? "step" : "false"}" title="${escapeHtml(label)}">
+              <span class="guided-ex-rail-num">${i + 1}</span>
+              <span class="guided-ex-rail-name">${escapeHtml(m.name || "Move")}</span>
+            </li>`;
+          })
+          .join("")}
+      </ol>`;
+    }
+
+    function peekCardHtml(move, n, nextIdx) {
+      return `<aside class="guided-peek" id="guided-peek" aria-label="Next exercise preview">
+        <p class="guided-peek-kicker">Next · preview only</p>
+        <h3 class="guided-peek-title">${escapeHtml(move.name || "Exercise")} <span class="move-group-tag">${nextIdx + 1}/${n}</span></h3>
+        <p class="move-rx">${escapeHtml(move.rx || "As prescribed")}</p>
+        ${remarksHtml(move)}
+        ${gifPreviewHtml(move)}
+        <p class="guided-peek-note">Still on the current lift — peek never marks it completed.</p>
+        <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back to current</button>
+      </aside>`;
     }
 
     function restNoteHtml() {
@@ -533,7 +596,7 @@
         .map((m, i) => `<li><span>${i + 1}.</span> ${escapeHtml(m.name || "Move")}</li>`)
         .join("");
       return `<div class="guided-idle" id="session-idle">
-        <p class="guided-idle-lede">When you start, Stretching opens first — then one lift at a time with a big Done.</p>
+        <p class="guided-idle-lede">When you start, Stretching opens first — then one lift at a time. Peek the next move anytime; Completed locks that step so you can’t go back.</p>
         ${
           stretch.length
             ? `<div class="guided-idle-block"><h2>Stretching <span class="move-group-tag">${stretch.length}</span></h2><p class="guided-idle-names">${stretchNames}</p></div>`
@@ -732,8 +795,11 @@
       if (restart) restart.hidden = !active;
       if (support) {
         if (phase === "stretch") support.textContent = "Warm up with every stretch, then tap Stretching completed.";
-        else if (phase === "exercise") support.textContent = "One exercise at a time — LOG weight if you need, then Done.";
-        else if (phase === "done") support.textContent = "Session complete. Restart only if you mean to begin again.";
+        else if (phase === "exercise") {
+          support.textContent = peekingNext
+            ? "Preview only — back out, then tap Completed when this lift is finished."
+            : "One exercise at a time — peek next without finishing, or tap Completed to lock and advance.";
+        } else if (phase === "done") support.textContent = "Session complete. Restart only if you mean to begin again.";
         else support.textContent = "Stretch first, then one exercise at a time. Resume stays on this phone.";
       }
     }
@@ -753,7 +819,8 @@
       } else if (phase === "exercise") {
         const n = main.length;
         const i = Math.min(session.exerciseIndex, Math.max(0, n - 1)) + 1;
-        el.innerHTML = `<p class="guided-progress-label">Exercise ${i} of ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done · LOG anytime</p>`;
+        const peekMeta = peekingNext ? " · peeking next" : "";
+        el.innerHTML = `<p class="guided-progress-label">Exercise ${i} of ${n}</p><p class="guided-progress-meta">${session.completedIds.length} done · past locked${peekMeta}</p>`;
       } else if (phase === "done") {
         el.innerHTML = `<p class="guided-progress-label">All done</p><p class="guided-progress-meta">${main.length} exercises · nice work</p>`;
       }
@@ -806,12 +873,37 @@
           html = `<p class="hint">No exercises left in today’s plan.</p>`;
         } else {
           const n = main.length;
+          const hasNext = idx + 1 < n;
+          const nextMove = hasNext ? main[idx + 1] : null;
+          if (peekingNext && !hasNext) peekingNext = false;
+          const peekBlock =
+            peekingNext && nextMove ? peekCardHtml(nextMove, n, idx + 1) : "";
+          const actions = peekingNext
+            ? `<div class="guided-ex-actions">
+                <button type="button" class="btn-ghost btn-peek-close" data-peek-close>Back to current</button>
+              </div>`
+            : `<div class="guided-ex-actions">
+                ${
+                  hasNext
+                    ? `<button type="button" class="btn-ghost btn-peek-next" id="peek-next" data-peek-next>See next</button>`
+                    : ""
+                }
+                <button type="button" class="btn-guided-done" id="exercise-done" data-exercise-done>Completed</button>
+              </div>`;
           html = `<div class="move-group session-active guided-phase" id="session-active">
             <h2>${escapeHtml(move.name || "Exercise")} <span class="move-group-tag">${idx + 1}/${n}</span></h2>
-            <p class="guided-phase-hint">Finish the sets, LOG if you want a record, then Done.</p>
-            ${cardHtml(move, { active: true })}
-            ${restNoteHtml()}
-            <button type="button" class="btn-guided-done" id="exercise-done" data-exercise-done>Done</button>
+            <p class="guided-phase-hint">${
+              peekingNext
+                ? "Preview of what’s next — your current lift stays open until you tap Completed."
+                : "Finish the sets, LOG if you want a record. See next to peek ahead; Completed locks this step."
+            }</p>
+            ${exerciseRailHtml(main, idx)}
+            ${peekBlock}
+            <div class="guided-current-block${peekingNext ? " is-dimmed-by-peek" : ""}" id="guided-current-block">
+              ${cardHtml(move, { active: true })}
+              ${restNoteHtml()}
+            </div>
+            ${actions}
           </div>`;
         }
       } else if (phase === "done") {
@@ -888,19 +980,211 @@
       });
     }
 
+    function labelForISODate(iso) {
+      const today = todayISO();
+      if (iso === today) return "Today";
+      const d = new Date(iso + "T12:00:00");
+      const y = new Date();
+      y.setHours(12, 0, 0, 0);
+      y.setDate(y.getDate() - 1);
+      if (iso === y.toISOString().slice(0, 10)) return "Yesterday";
+      if (Number.isNaN(d.getTime())) return iso;
+      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    }
+
+    function dateWheelOptions(extraIso) {
+      const seen = new Set();
+      const out = [];
+      const push = (iso) => {
+        if (!iso || seen.has(iso)) return;
+        seen.add(iso);
+        out.push({ value: iso, label: labelForISODate(iso) });
+      };
+      if (extraIso) push(extraIso);
+      for (let i = 21; i >= 0; i--) {
+        const d = new Date();
+        d.setHours(12, 0, 0, 0);
+        d.setDate(d.getDate() - i);
+        push(d.toISOString().slice(0, 10));
+      }
+      out.sort((a, b) => a.value.localeCompare(b.value));
+      return out;
+    }
+
+    function ensureWheelsBuilt() {
+      if (wheelsBuilt) return;
+      const kgList = $("log-wheel-kg");
+      const repsList = $("log-wheel-reps");
+      const setsList = $("log-wheel-sets");
+      const dateList = $("log-wheel-date");
+      if (!kgList || !repsList || !setsList || !dateList) return;
+
+      const kgItems = [];
+      for (let k = 0; k <= 200; k += 0.5) {
+        const v = Math.round(k * 10) / 10;
+        kgItems.push({ value: String(v), label: Number.isInteger(v) ? String(v) : v.toFixed(1) });
+      }
+      const fill = (ul, items) => {
+        ul.innerHTML = items
+          .map(
+            (it) =>
+              `<li class="log-wheel-item" role="option" data-value="${escapeHtml(it.value)}">${escapeHtml(it.label)}</li>`
+          )
+          .join("");
+      };
+      fill(kgList, kgItems);
+      fill(
+        repsList,
+        Array.from({ length: 40 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
+      );
+      fill(
+        setsList,
+        Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }))
+      );
+      fill(dateList, dateWheelOptions());
+
+      ["log-wheel-kg", "log-wheel-reps", "log-wheel-sets", "log-wheel-date"].forEach((id) => {
+        const ul = $(id);
+        const vp = ul?.closest(".log-wheel-viewport");
+        if (!vp || vp.dataset.wheelWired === "1") return;
+        vp.dataset.wheelWired = "1";
+        let timer = 0;
+        const sync = () => syncWheelFromScroll(vp);
+        vp.addEventListener(
+          "scroll",
+          () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(sync, 80);
+          },
+          { passive: true }
+        );
+        vp.addEventListener("scrollend", sync);
+      });
+      wheelsBuilt = true;
+    }
+
+    function wheelKeyForViewport(vp) {
+      const col = vp?.closest("[data-wheel]");
+      return col?.getAttribute("data-wheel") || "";
+    }
+
+    function hiddenIdForWheel(key) {
+      if (key === "kg") return "log-sheet-kg";
+      if (key === "reps") return "log-sheet-reps";
+      if (key === "sets") return "log-sheet-sets";
+      if (key === "date") return "log-sheet-date";
+      return "";
+    }
+
+    function syncWheelFromScroll(vp) {
+      if (!vp) return;
+      const items = [...vp.querySelectorAll(".log-wheel-item")];
+      if (!items.length) return;
+      const mid = vp.scrollTop + vp.clientHeight / 2;
+      let best = items[0];
+      let bestDist = Infinity;
+      items.forEach((li) => {
+        const center = li.offsetTop + li.offsetHeight / 2;
+        const dist = Math.abs(center - mid);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = li;
+        }
+      });
+      items.forEach((li) => li.classList.toggle("is-selected", li === best));
+      const key = wheelKeyForViewport(vp);
+      const hid = hiddenIdForWheel(key);
+      if (hid && $(hid)) $(hid).value = best.getAttribute("data-value") || "";
+    }
+
+    function setWheelValue(key, value) {
+      ensureWheelsBuilt();
+      const hid = hiddenIdForWheel(key);
+      const listId =
+        key === "kg" ? "log-wheel-kg" : key === "reps" ? "log-wheel-reps" : key === "sets" ? "log-wheel-sets" : "log-wheel-date";
+      const ul = $(listId);
+      const vp = ul?.closest(".log-wheel-viewport");
+      if (!ul || !vp) return;
+      let target = String(value);
+      if (key === "kg") {
+        const n = Number(value);
+        if (Number.isFinite(n)) target = String(Math.round(n * 2) / 2);
+      }
+      if (key === "date") {
+        /* Rebuild date labels so Today stays correct; include edit date if older */
+        const dateList = $("log-wheel-date");
+        if (dateList) {
+          dateList.innerHTML = dateWheelOptions(target)
+            .map(
+              (it) =>
+                `<li class="log-wheel-item" role="option" data-value="${escapeHtml(it.value)}">${escapeHtml(it.label)}</li>`
+            )
+            .join("");
+        }
+      }
+      const esc = (s) =>
+        typeof CSS !== "undefined" && CSS.escape ? CSS.escape(s) : String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+      let li = ul.querySelector(`.log-wheel-item[data-value="${esc(target)}"]`);
+      if (!li && key === "kg") {
+        /* snap to nearest 0.5 */
+        const n = Number(target);
+        if (Number.isFinite(n)) {
+          const snap = String(Math.round(n * 2) / 2);
+          li = ul.querySelector(`.log-wheel-item[data-value="${esc(snap)}"]`);
+          target = snap;
+        }
+      }
+      if (!li && key === "date") {
+        target = todayISO();
+        li = ul.querySelector(`.log-wheel-item[data-value="${esc(target)}"]`);
+      }
+      if (!li) li = ul.querySelector(".log-wheel-item");
+      if (!li) return;
+      const top = Math.max(0, li.offsetTop - (vp.clientHeight - li.offsetHeight) / 2);
+      vp.scrollTop = top;
+      ul.querySelectorAll(".log-wheel-item").forEach((el) => el.classList.toggle("is-selected", el === li));
+      if (hid && $(hid)) $(hid).value = li.getAttribute("data-value") || target;
+    }
+
+    function defaultWheelValues() {
+      const last = sheetExercise ? Weights.lastFor(sheetExercise) : null;
+      return {
+        kg: last && Number.isFinite(Number(last.weight)) ? Number(last.weight) : 20,
+        reps: last && Number.isFinite(Weights.entryReps(last)) ? Weights.entryReps(last) : 10,
+        sets: last && Number.isFinite(Weights.entrySets(last)) ? Weights.entrySets(last) : 3,
+        date: todayISO(),
+      };
+    }
+
+    function applyWheels(values) {
+      ensureWheelsBuilt();
+      const v = values || defaultWheelValues();
+      setWheelValue("kg", v.kg);
+      setWheelValue("reps", v.reps);
+      setWheelValue("sets", v.sets);
+      setWheelValue("date", v.date || todayISO());
+    }
+
+    function readWheels() {
+      ensureWheelsBuilt();
+      ["log-wheel-kg", "log-wheel-reps", "log-wheel-sets", "log-wheel-date"].forEach((id) => {
+        const vp = $(id)?.closest(".log-wheel-viewport");
+        if (vp) syncWheelFromScroll(vp);
+      });
+      return {
+        kg: Number($("log-sheet-kg")?.value),
+        reps: Number($("log-sheet-reps")?.value),
+        sets: Number($("log-sheet-sets")?.value),
+        date: String($("log-sheet-date")?.value || todayISO()),
+      };
+    }
+
     function clearSheetForm() {
-      if ($("log-sheet-kg")) $("log-sheet-kg").value = "";
-      if ($("log-sheet-sets")) $("log-sheet-sets").value = "";
-      if ($("log-sheet-reps")) $("log-sheet-reps").value = "";
       setSheetEditMode(null);
+      applyWheels(defaultWheelValues());
     }
 
     function blurSheetInputs() {
-      ["log-sheet-kg", "log-sheet-sets", "log-sheet-reps"].forEach((id) => {
-        try {
-          $(id)?.blur();
-        } catch (_) {}
-      });
       try {
         const active = document.activeElement;
         if (active && typeof active.blur === "function" && $("log-sheet")?.contains(active)) active.blur();
@@ -950,19 +1234,22 @@
     function selectSheetRow(id) {
       const entry = Weights.getEntry(id);
       if (!entry) return;
-      if ($("log-sheet-kg")) $("log-sheet-kg").value = String(entry.weight ?? "");
-      if ($("log-sheet-sets")) $("log-sheet-sets").value = String(Weights.entrySets(entry) ?? "");
-      if ($("log-sheet-reps")) $("log-sheet-reps").value = String(Weights.entryReps(entry) ?? "");
+      applyWheels({
+        kg: entry.weight ?? 20,
+        sets: Weights.entrySets(entry) ?? 3,
+        reps: Weights.entryReps(entry) ?? 10,
+        date: entry.date || todayISO(),
+      });
       setSheetEditMode(entry.id);
       fillSheetTable();
       const status = $("log-sheet-status");
       if (status) {
         status.hidden = false;
-        status.textContent = "Selected — change values & Update, or Delete.";
+        status.textContent = "Selected — spin the wheels & Update, or Delete.";
         status.className = "log-sheet-status is-ok";
       }
       try {
-        $("log-sheet-kg")?.focus({ preventScroll: true });
+        $("log-sheet-save")?.focus({ preventScroll: true });
       } catch (_) {}
     }
 
@@ -1010,6 +1297,7 @@
       if (!overlay || !name) return;
       sheetExercise = name;
       if (title) title.textContent = name;
+      ensureWheelsBuilt();
       fillSheetTable();
       const status = $("log-sheet-status");
       if (status) {
@@ -1024,11 +1312,12 @@
       document.body.style.top = `-${sheetScrollY}px`;
       syncSheetViewport();
       setTimeout(() => {
+        applyWheels(defaultWheelValues());
         try {
-          $("log-sheet-kg")?.focus({ preventScroll: true });
+          $("log-sheet-save")?.focus({ preventScroll: true });
         } catch {
           try {
-            $("log-sheet-kg")?.focus();
+            $("log-sheet-save")?.focus();
           } catch (_) {}
         }
       }, 80);
@@ -1072,14 +1361,32 @@
           completeStretching();
           return;
         }
+        const peekOpen = e.target.closest("[data-peek-next]");
+        if (peekOpen) {
+          e.preventDefault();
+          openPeekNext();
+          return;
+        }
+        const peekClose = e.target.closest("[data-peek-close]");
+        if (peekClose) {
+          e.preventDefault();
+          closePeekNext();
+          return;
+        }
         const exDone = e.target.closest("[data-exercise-done]");
         if (exDone) {
           e.preventDefault();
           completeCurrentExercise();
           return;
         }
+        /* Past rail steps are locked — ignore clicks on completed pills */
+        if (e.target.closest(".guided-ex-rail-item.is-locked")) {
+          e.preventDefault();
+          return;
+        }
         const btn = e.target.closest("[data-w-log-open]");
         if (!btn) return;
+        /* LOG on peek preview uses that move's name; current card still works */
         const card = btn.closest(".move-log-card");
         if (!card || card.getAttribute("data-kind") === "stretch") return;
         const name = card.getAttribute("data-move");
@@ -1098,14 +1405,12 @@
         });
         $("log-sheet-form")?.addEventListener("submit", (e) => {
           e.preventDefault();
-          const kg = Number($("log-sheet-kg")?.value);
-          const sets = Number($("log-sheet-sets")?.value);
-          const reps = Number($("log-sheet-reps")?.value);
+          const { kg, sets, reps, date } = readWheels();
           const status = $("log-sheet-status");
           if (!sheetExercise || !Number.isFinite(kg)) {
             if (status) {
               status.hidden = false;
-              status.textContent = "Enter kg.";
+              status.textContent = "Spin Kg to a value.";
               status.className = "log-sheet-status is-error";
             }
             return;
@@ -1113,13 +1418,14 @@
           if (!Number.isFinite(sets) || !Number.isFinite(reps)) {
             if (status) {
               status.hidden = false;
-              status.textContent = "Enter sets and reps.";
+              status.textContent = "Spin Sets and Reps.";
               status.className = "log-sheet-status is-error";
             }
             return;
           }
+          const logDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayISO();
           if (sheetEditingId != null) {
-            const ok = Weights.updateEntry(sheetEditingId, { weight: kg, sets, reps });
+            const ok = Weights.updateEntry(sheetEditingId, { weight: kg, sets, reps, date: logDate });
             if (!ok) {
               if (status) {
                 status.hidden = false;
@@ -1140,7 +1446,7 @@
               sets,
               reps,
               kind: "main",
-              date: todayISO(),
+              date: logDate,
             });
             if (status) {
               status.hidden = false;
@@ -1153,7 +1459,7 @@
           refreshCardSummaries();
           updateSessionSteps();
           try {
-            $("log-sheet-kg")?.focus({ preventScroll: true });
+            $("log-sheet-save")?.focus({ preventScroll: true });
           } catch (_) {}
         });
         $("log-sheet-cancel")?.addEventListener("click", (e) => {
