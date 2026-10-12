@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261012guide1";
+  const PROFILE_ASSET_V = "20261012back1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
 
@@ -3831,6 +3831,8 @@ ${JSON.stringify(example, null, 2)}`;
     let state = loadJSON(LS.profile, empty());
     let step = 0;
     let wired = false;
+    let historyPushed = false;
+    let ignorePop = false;
 
     function persist() {
       saveJSON(LS.profile, state);
@@ -4038,12 +4040,33 @@ ${JSON.stringify(example, null, 2)}`;
       }
     }
 
+    function isOpen() {
+      const overlay = $("profile-sheet");
+      return !!(overlay && !overlay.hidden);
+    }
+
+    function setBackVisible(on) {
+      ["profile-back", "profile-head-back"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        el.hidden = !on;
+        if (on) el.removeAttribute("hidden");
+        else el.setAttribute("hidden", "");
+      });
+    }
+
     function showStep(n) {
       step = Math.max(0, Math.min(STEPS.length - 1, n));
       document.querySelectorAll(".profile-step").forEach((sec) => {
         const i = Number(sec.getAttribute("data-profile-step"));
         const on = i === step;
-        sec.hidden = !on;
+        if (on) {
+          sec.hidden = false;
+          sec.removeAttribute("hidden");
+        } else {
+          sec.hidden = true;
+          sec.setAttribute("hidden", "");
+        }
         sec.classList.toggle("is-active", on);
       });
       const label = $("profile-step-label");
@@ -4052,39 +4075,86 @@ ${JSON.stringify(example, null, 2)}`;
       if (prog) {
         prog.innerHTML = STEPS.map((_, i) => `<span class="profile-dot${i === step ? " is-on" : i < step ? " is-done" : ""}"></span>`).join("");
       }
-      const back = $("profile-back");
       const next = $("profile-next");
       const save = $("profile-save");
       const skip = $("profile-skip-step");
-      if (back) back.hidden = step === 0;
-      if (next) next.hidden = step >= STEPS.length - 1;
-      if (save) save.hidden = step < STEPS.length - 1;
-      if (skip) skip.hidden = step >= STEPS.length - 1;
+      setBackVisible(step > 0);
+      if (next) {
+        next.hidden = step >= STEPS.length - 1;
+        if (next.hidden) next.setAttribute("hidden", "");
+        else next.removeAttribute("hidden");
+      }
+      if (save) {
+        save.hidden = step < STEPS.length - 1;
+        if (save.hidden) save.setAttribute("hidden", "");
+        else save.removeAttribute("hidden");
+      }
+      if (skip) {
+        skip.hidden = step >= STEPS.length - 1;
+        if (skip.hidden) skip.setAttribute("hidden", "");
+        else skip.removeAttribute("hidden");
+      }
       if (step === STEPS.length - 1) updateLiveMetrics();
       const sheet = $("profile-sheet")?.querySelector(".profile-sheet");
       if (sheet) sheet.scrollTop = 0;
+    }
+
+    function pushSheetHistory() {
+      if (historyPushed) return;
+      try {
+        history.pushState({ sapnaProfile: 1 }, "", location.href);
+        historyPushed = true;
+      } catch (_) {
+        historyPushed = false;
+      }
+    }
+
+    function clearSheetHistory() {
+      if (!historyPushed) return;
+      historyPushed = false;
+      ignorePop = true;
+      try {
+        history.back();
+      } catch (_) {}
+      setTimeout(() => {
+        ignorePop = false;
+      }, 100);
+    }
+
+    function goBackStep() {
+      state = readFormInto(state);
+      if (step > 0) {
+        showStep(step - 1);
+        return true;
+      }
+      close();
+      return false;
     }
 
     function close() {
       const overlay = $("profile-sheet");
       if (!overlay) return;
       overlay.hidden = true;
+      overlay.setAttribute("hidden", "");
       overlay.classList.remove("is-open");
       overlay.style.cssText = "";
       document.body.classList.remove("modal-open", "profile-sheet-open");
+      clearSheetHistory();
     }
 
     function open(opts) {
       const overlay = $("profile-sheet");
       if (!overlay) return;
       fillForm(state);
-      showStep(opts?.step != null ? opts.step : isComplete(state) ? 0 : 0);
+      showStep(opts?.step != null ? opts.step : 0);
       overlay.hidden = false;
+      overlay.removeAttribute("hidden");
       overlay.classList.add("is-open");
       overlay.style.cssText = "display:flex !important;";
       document.body.classList.add("modal-open", "profile-sheet-open");
       setStatus($("profile-status"), "");
       updateLiveMetrics();
+      pushSheetHistory();
     }
 
     function applyToDiet() {
@@ -4271,10 +4341,13 @@ ${JSON.stringify(example, null, 2)}`;
         $(id)?.addEventListener("change", () => updateLiveMetrics());
       });
       $("profile-close")?.addEventListener("click", () => close());
-      $("profile-back")?.addEventListener("click", () => {
-        state = readFormInto(state);
-        showStep(step - 1);
-      });
+      const onBackClick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goBackStep();
+      };
+      $("profile-back")?.addEventListener("click", onBackClick);
+      $("profile-head-back")?.addEventListener("click", onBackClick);
       $("profile-next")?.addEventListener("click", () => {
         state = readFormInto(state);
         showStep(step + 1);
@@ -4302,6 +4375,35 @@ ${JSON.stringify(example, null, 2)}`;
       });
       $("profile-sheet")?.addEventListener("click", (e) => {
         if (e.target === $("profile-sheet")) close();
+      });
+      /* Phone system Back / browser Back → previous step, then close */
+      window.addEventListener("popstate", () => {
+        if (ignorePop) return;
+        if (!isOpen()) {
+          historyPushed = false;
+          return;
+        }
+        historyPushed = false;
+        if (step > 0) {
+          state = readFormInto(state);
+          showStep(step - 1);
+          pushSheetHistory();
+        } else {
+          const overlay = $("profile-sheet");
+          if (!overlay) return;
+          overlay.hidden = true;
+          overlay.setAttribute("hidden", "");
+          overlay.classList.remove("is-open");
+          overlay.style.cssText = "";
+          document.body.classList.remove("modal-open", "profile-sheet-open");
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (!isOpen()) return;
+        if (e.key === "Escape") {
+          e.preventDefault();
+          goBackStep();
+        }
       });
     }
 

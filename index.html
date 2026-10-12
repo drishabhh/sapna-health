@@ -130,11 +130,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261012peek3"></script>
+  <script src="./js/admin-auth.js?v=20261012back1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261012peek3" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261012back1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -517,7 +517,8 @@
   <div class="overlay profile-overlay" id="profile-sheet" hidden>
     <div class="sheet profile-sheet" role="dialog" aria-modal="true" aria-labelledby="profile-sheet-title">
       <header class="sheet-head profile-sheet-head">
-        <div>
+        <div class="profile-sheet-head-main">
+          <button type="button" class="btn-ghost profile-head-back" id="profile-head-back" hidden aria-label="Go back">‹ Back</button>
           <p class="profile-sheet-brand">Sapna Singh</p>
           <h2 id="profile-sheet-title">Your profile</h2>
           <p class="hint profile-step-label" id="profile-step-label">About you</p>
@@ -676,7 +677,7 @@
       </form>
 
       <div class="profile-sheet-actions">
-        <button type="button" class="btn-ghost" id="profile-back" hidden>Back</button>
+        <button type="button" class="btn-ghost profile-footer-back" id="profile-back" hidden>‹ Back</button>
         <button type="button" class="btn-ghost" id="profile-skip-step">Skip</button>
         <button type="button" class="btn-primary" id="profile-next">Continue</button>
         <button type="button" class="btn-primary" id="profile-save" hidden>Save profile</button>
@@ -1169,8 +1170,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261012peek3"></script>
-  <script src="./js/diet-admin.js?v=20261012peek3"></script>
-  <script src="./js/app.js?v=20261012peek3"></script>
+  <script src="./js/workout-admin.js?v=20261012back1"></script>
+  <script src="./js/diet-admin.js?v=20261012back1"></script>
+  <script src="./js/app.js?v=20261012back1"></script>
 </body>
 </html>

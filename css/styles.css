@@ -4005,15 +4005,39 @@ body.token-setup-open {
   color: #31463a;
 }
 
+.profile-sheet-head-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-head-back {
+  margin: 0 0 0.35rem;
+  min-height: 40px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.88rem;
+}
+
+.profile-step[hidden] {
+  display: none !important;
+}
+
 .profile-sheet-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: 0.5rem;
   margin-top: 1rem;
   position: sticky;
   bottom: 0;
-  padding-top: 0.65rem;
+  z-index: 2;
+  padding: 0.65rem 0 calc(0.55rem + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, transparent, #eef6f1 28%);
+}
+
+.profile-sheet-actions .profile-footer-back {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  min-height: 48px;
 }
 
 .profile-sheet-actions .btn-primary {
@@ -4024,6 +4048,8 @@ body.token-setup-open {
 }
 
 .profile-sheet-actions [hidden],
+.profile-head-back[hidden],
+.profile-step[hidden],
 .profile-nudge[hidden],
 .diet-profile-summary[hidden],
 .profile-overlay[hidden] {
