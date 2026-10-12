@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261012back1";
+  const PROFILE_ASSET_V = "20261012back2";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
 
@@ -3831,8 +3831,6 @@ ${JSON.stringify(example, null, 2)}`;
     let state = loadJSON(LS.profile, empty());
     let step = 0;
     let wired = false;
-    let historyPushed = false;
-    let ignorePop = false;
 
     function persist() {
       saveJSON(LS.profile, state);
@@ -4042,32 +4040,30 @@ ${JSON.stringify(example, null, 2)}`;
 
     function isOpen() {
       const overlay = $("profile-sheet");
-      return !!(overlay && !overlay.hidden);
+      return !!(overlay && !overlay.hidden && overlay.classList.contains("is-open"));
     }
 
-    function setBackVisible(on) {
-      ["profile-back", "profile-head-back"].forEach((id) => {
-        const el = $(id);
-        if (!el) return;
-        el.hidden = !on;
-        if (on) el.removeAttribute("hidden");
-        else el.setAttribute("hidden", "");
-      });
+    function setCtrlVisible(el, on) {
+      if (!el) return;
+      if (on) {
+        el.hidden = false;
+        el.removeAttribute("hidden");
+      } else {
+        el.hidden = true;
+        el.setAttribute("hidden", "");
+      }
     }
 
     function showStep(n) {
-      step = Math.max(0, Math.min(STEPS.length - 1, n));
+      const nextStep = Math.max(0, Math.min(STEPS.length - 1, Number(n) || 0));
+      step = nextStep;
+      /* Class-only panes — do NOT toggle [hidden] (fights CSS) or run fadeUp (iOS opacity:0 trap) */
       document.querySelectorAll(".profile-step").forEach((sec) => {
         const i = Number(sec.getAttribute("data-profile-step"));
         const on = i === step;
-        if (on) {
-          sec.hidden = false;
-          sec.removeAttribute("hidden");
-        } else {
-          sec.hidden = true;
-          sec.setAttribute("hidden", "");
-        }
         sec.classList.toggle("is-active", on);
+        sec.removeAttribute("hidden");
+        sec.setAttribute("aria-hidden", on ? "false" : "true");
       });
       const label = $("profile-step-label");
       if (label) label.textContent = `${STEPS[step]} · ${step + 1}/${STEPS.length}`;
@@ -4075,54 +4071,25 @@ ${JSON.stringify(example, null, 2)}`;
       if (prog) {
         prog.innerHTML = STEPS.map((_, i) => `<span class="profile-dot${i === step ? " is-on" : i < step ? " is-done" : ""}"></span>`).join("");
       }
-      const next = $("profile-next");
-      const save = $("profile-save");
-      const skip = $("profile-skip-step");
-      setBackVisible(step > 0);
-      if (next) {
-        next.hidden = step >= STEPS.length - 1;
-        if (next.hidden) next.setAttribute("hidden", "");
-        else next.removeAttribute("hidden");
-      }
-      if (save) {
-        save.hidden = step < STEPS.length - 1;
-        if (save.hidden) save.setAttribute("hidden", "");
-        else save.removeAttribute("hidden");
-      }
-      if (skip) {
-        skip.hidden = step >= STEPS.length - 1;
-        if (skip.hidden) skip.setAttribute("hidden", "");
-        else skip.removeAttribute("hidden");
-      }
+      setCtrlVisible($("profile-back"), step > 0);
+      setCtrlVisible($("profile-head-back"), step > 0);
+      setCtrlVisible($("profile-next"), step < STEPS.length - 1);
+      setCtrlVisible($("profile-save"), step >= STEPS.length - 1);
+      setCtrlVisible($("profile-skip-step"), step < STEPS.length - 1);
       if (step === STEPS.length - 1) updateLiveMetrics();
       const sheet = $("profile-sheet")?.querySelector(".profile-sheet");
-      if (sheet) sheet.scrollTop = 0;
-    }
-
-    function pushSheetHistory() {
-      if (historyPushed) return;
-      try {
-        history.pushState({ sapnaProfile: 1 }, "", location.href);
-        historyPushed = true;
-      } catch (_) {
-        historyPushed = false;
+      if (sheet) {
+        try {
+          sheet.scrollTop = 0;
+        } catch (_) {}
       }
-    }
-
-    function clearSheetHistory() {
-      if (!historyPushed) return;
-      historyPushed = false;
-      ignorePop = true;
-      try {
-        history.back();
-      } catch (_) {}
-      setTimeout(() => {
-        ignorePop = false;
-      }, 100);
     }
 
     function goBackStep() {
-      state = readFormInto(state);
+      if (!isOpen()) return false;
+      try {
+        state = readFormInto(state);
+      } catch (_) {}
       if (step > 0) {
         showStep(step - 1);
         return true;
@@ -4139,7 +4106,6 @@ ${JSON.stringify(example, null, 2)}`;
       overlay.classList.remove("is-open");
       overlay.style.cssText = "";
       document.body.classList.remove("modal-open", "profile-sheet-open");
-      clearSheetHistory();
     }
 
     function open(opts) {
@@ -4150,11 +4116,10 @@ ${JSON.stringify(example, null, 2)}`;
       overlay.hidden = false;
       overlay.removeAttribute("hidden");
       overlay.classList.add("is-open");
-      overlay.style.cssText = "display:flex !important;";
+      overlay.style.cssText = "display:flex !important; pointer-events:auto !important;";
       document.body.classList.add("modal-open", "profile-sheet-open");
       setStatus($("profile-status"), "");
       updateLiveMetrics();
-      pushSheetHistory();
     }
 
     function applyToDiet() {
@@ -4340,24 +4305,43 @@ ${JSON.stringify(example, null, 2)}`;
         $(id)?.addEventListener("input", () => updateLiveMetrics());
         $(id)?.addEventListener("change", () => updateLiveMetrics());
       });
-      $("profile-close")?.addEventListener("click", () => close());
+      $("profile-close")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+      });
+      let backLockUntil = 0;
       const onBackClick = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        const now = Date.now();
+        if (now < backLockUntil) return;
+        backLockUntil = now + 450; /* avoid touchend+click double-step on iOS */
         goBackStep();
       };
-      $("profile-back")?.addEventListener("click", onBackClick);
-      $("profile-head-back")?.addEventListener("click", onBackClick);
-      $("profile-next")?.addEventListener("click", () => {
+      /* click + touchend — iOS sometimes drops click on sticky footer controls */
+      ["profile-back", "profile-head-back"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        el.addEventListener("click", onBackClick);
+        el.addEventListener("touchend", onBackClick, { passive: false });
+      });
+      $("profile-next")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         state = readFormInto(state);
         showStep(step + 1);
       });
-      $("profile-skip-step")?.addEventListener("click", () => {
+      $("profile-skip-step")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         state = readFormInto(state);
         if (step >= STEPS.length - 1) skipSession();
         else showStep(step + 1);
       });
-      $("profile-save")?.addEventListener("click", () => {
+      $("profile-save")?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         save();
       });
       document.addEventListener("click", (e) => {
@@ -4375,28 +4359,6 @@ ${JSON.stringify(example, null, 2)}`;
       });
       $("profile-sheet")?.addEventListener("click", (e) => {
         if (e.target === $("profile-sheet")) close();
-      });
-      /* Phone system Back / browser Back → previous step, then close */
-      window.addEventListener("popstate", () => {
-        if (ignorePop) return;
-        if (!isOpen()) {
-          historyPushed = false;
-          return;
-        }
-        historyPushed = false;
-        if (step > 0) {
-          state = readFormInto(state);
-          showStep(step - 1);
-          pushSheetHistory();
-        } else {
-          const overlay = $("profile-sheet");
-          if (!overlay) return;
-          overlay.hidden = true;
-          overlay.setAttribute("hidden", "");
-          overlay.classList.remove("is-open");
-          overlay.style.cssText = "";
-          document.body.classList.remove("modal-open", "profile-sheet-open");
-        }
       });
       document.addEventListener("keydown", (e) => {
         if (!isOpen()) return;

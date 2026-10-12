@@ -3810,10 +3810,12 @@ body.token-setup-open {
   z-index: 100050;
   align-items: flex-end;
   background: rgba(18, 28, 24, 0.55);
+  pointer-events: auto !important;
 }
 
 .profile-overlay.is-open {
   display: flex !important;
+  pointer-events: auto !important;
 }
 
 .profile-sheet {
@@ -3821,6 +3823,7 @@ body.token-setup-open {
   width: min(100%, 480px);
   max-height: min(92vh, 860px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 1.1rem 1.15rem 1.35rem;
   border-radius: 22px 22px 0 0;
   background:
@@ -3828,6 +3831,9 @@ body.token-setup-open {
     linear-gradient(180deg, #f4faf6 0%, #eef6f1 45%, #f7f3ec 100%);
   box-shadow: 0 -12px 40px rgba(20, 40, 32, 0.18);
   animation: profileSheetUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes profileSheetUp {
@@ -3895,12 +3901,19 @@ body.token-setup-open {
 }
 
 .profile-form {
-  display: grid;
-  gap: 0.75rem;
+  display: block;
 }
 
+/* Class-based panes only — never fadeUp/both (iOS Safari left opacity:0 after Back) */
 .profile-step {
-  animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  display: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
+.profile-step.is-active {
+  display: block !important;
 }
 
 .profile-field-label {
@@ -4017,10 +4030,6 @@ body.token-setup-open {
   font-size: 0.88rem;
 }
 
-.profile-step[hidden] {
-  display: none !important;
-}
-
 .profile-sheet-actions {
   display: flex;
   flex-wrap: nowrap;
@@ -4029,9 +4038,22 @@ body.token-setup-open {
   margin-top: 1rem;
   position: sticky;
   bottom: 0;
-  z-index: 2;
+  z-index: 5;
   padding: 0.65rem 0 calc(0.55rem + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, transparent, #eef6f1 28%);
+  pointer-events: auto !important;
+}
+
+.profile-sheet-actions .profile-footer-back,
+.profile-sheet-actions .btn-ghost,
+.profile-sheet-actions .btn-primary,
+.profile-head-back {
+  position: relative;
+  z-index: 6;
+  pointer-events: auto !important;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
 }
 
 .profile-sheet-actions .profile-footer-back {
@@ -4049,7 +4071,6 @@ body.token-setup-open {
 
 .profile-sheet-actions [hidden],
 .profile-head-back[hidden],
-.profile-step[hidden],
 .profile-nudge[hidden],
 .diet-profile-summary[hidden],
 .profile-overlay[hidden] {
