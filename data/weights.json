@@ -1,7 +1,83 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T05:41:00.000Z",
+  "updatedAt": "2026-10-13T06:44:51.668Z",
   "label": "Sapna lift logs — synced across her phones via Pages.",
-  "entries": [],
-  "deletedIds": []
+  "entries": [
+    {
+      "id": 1791385449972,
+      "exercise": "Chest press flat bench",
+      "weight": 15,
+      "date": "2026-10-07",
+      "sets": null,
+      "reps": null,
+      "rx": "1 23",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791388754230,
+      "exercise": "Chest press flat bench",
+      "weight": 5,
+      "date": "2026-10-07",
+      "sets": 0,
+      "reps": 0,
+      "rx": "0 × 0",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791388773194,
+      "exercise": "Chest press flat bench",
+      "weight": 5,
+      "date": "2026-10-07",
+      "sets": 2,
+      "reps": 12,
+      "rx": "2 × 12",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791771522554,
+      "exercise": "Chest press flat bench",
+      "weight": 5,
+      "date": "2026-10-12",
+      "sets": 1,
+      "reps": 10,
+      "rx": "1 × 10",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791781347187,
+      "exercise": "Shoulder press",
+      "weight": 5,
+      "date": "2026-10-12",
+      "sets": 1,
+      "reps": 8,
+      "rx": "1 × 8",
+      "note": "",
+      "kind": "main"
+    },
+    {
+      "id": 1791781347430,
+      "exercise": "Shoulder press",
+      "weight": 5,
+      "date": "2026-10-12",
+      "sets": 2,
+      "reps": 8,
+      "rx": "2 × 8",
+      "note": "",
+      "kind": "main"
+    }
+  ],
+  "deletedIds": [
+    "1791719664143",
+    "1791719702086",
+    "1791719200148",
+    "1791719154887",
+    "1791718597336",
+    "1791718116972",
+    "1791718107492",
+    "1791385430950"
+  ]
 }
