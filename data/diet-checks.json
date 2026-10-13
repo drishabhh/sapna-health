@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T17:00:53.590Z",
+  "updatedAt": "2026-10-13T17:01:53.237Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -33,7 +33,8 @@
         "extra-mv6h3zzn-bp3": 100,
         "extra-mv6h6ffx-4py": 120,
         "extra-mv6xe6jx-wdc": 50,
-        "extra-mv6xelmn-5da": 120
+        "extra-mv6xelmn-5da": 120,
+        "extra-mv6xhp06-o6h": 250
       },
       "deletedIds": [
         "extra-mv6clemk-0jz",
@@ -108,6 +109,22 @@
           "grams": 120,
           "amount": 120,
           "amountLabel": "3 servings",
+          "kind": "packaged"
+        },
+        {
+          "id": "extra-mv6xhp06-o6h",
+          "foodId": "dal-bowl",
+          "meal": "dinner",
+          "name": "Dal (1 bowl)",
+          "kcal": 180,
+          "protein": 12,
+          "servings": 1.25,
+          "servingGrams": 200,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 250,
+          "amount": 250,
+          "amountLabel": "250 g",
           "kind": "packaged"
         }
       ],
