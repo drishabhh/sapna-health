@@ -1,11 +1,12 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T06:51:30.549Z",
+  "updatedAt": "2026-10-13T07:14:58.800Z",
   "days": {
     "2026-10-11": {
       "done": {
         "ln-roti-sabzi": false
       },
+      "amounts": {},
       "extras": [],
       "breakfast": [],
       "lunch": [],
@@ -17,6 +18,7 @@
         "ln-roti-sabzi": false,
         "ln-dal": false
       },
+      "amounts": {},
       "extras": [],
       "breakfast": [],
       "lunch": [],
@@ -25,6 +27,7 @@
     },
     "2026-10-13": {
       "done": {},
+      "amounts": {},
       "extras": [
         {
           "id": "extra-mv6bok5r-jdu",
