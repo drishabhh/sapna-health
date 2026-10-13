@@ -4852,8 +4852,14 @@ body.kb-open .admin-sheet,
 body.kb-open .profile-sheet,
 body.kb-open .token-setup-sheet,
 body.kb-open .diet-add-sheet,
-body.kb-open .plan-browse-sheet {
-  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px) + var(--kb-inset, 0px));
+body.kb-open .plan-browse-sheet,
+body.kb-open .log-sheet {
+  max-height: 100% !important;
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+body.kb-open .overlay.is-open,
+body.kb-open .log-sheet-overlay.is-open {
+  align-items: flex-end;
 }
 body.kb-open .log-sheet-scroll,
 body.kb-open .plan-browse-body,
