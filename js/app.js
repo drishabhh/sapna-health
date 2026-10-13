@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013self1";
+  const PROFILE_ASSET_V = "20261013del1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -2769,6 +2769,8 @@ ${JSON.stringify(example, null, 2)}`;
       done: {},
       /** Personal eaten grams overlays — keyed by plan item id or extra id */
       amounts: {},
+      /** Tombstones so sync merge never resurrects deleted meal items */
+      deletedIds: [],
     });
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
@@ -2785,40 +2787,75 @@ ${JSON.stringify(example, null, 2)}`;
     /** @type {null | { kind:'plan'|'extra', id:string, meal?:string }} */
     let gramsPending = null;
 
+    function normalizeDeletedIds(list) {
+      const out = [];
+      const seen = new Set();
+      (Array.isArray(list) ? list : []).forEach((id) => {
+        const key = String(id || "").trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(key);
+      });
+      return out;
+    }
+
+    function filterDeadItems(list, deleted) {
+      const dead = deleted instanceof Set ? deleted : new Set(normalizeDeletedIds(deleted));
+      return (Array.isArray(list) ? list : []).filter((item) => {
+        if (!item) return false;
+        if (item.id != null && dead.has(String(item.id))) return false;
+        return true;
+      });
+    }
+
     function ensureDay() {
       const d = todayISO();
       if (!state.day || state.day.date !== d) {
         const saved = state.checksByDate?.[d];
+        const deletedIds = normalizeDeletedIds(saved?.deletedIds);
+        const dead = new Set(deletedIds);
         state.day = {
           ...emptyDay(),
           date: d,
           done: { ...(saved?.done || {}) },
           amounts: { ...(saved?.amounts || {}) },
-          extras: Array.isArray(saved?.extras) ? saved.extras.slice() : [],
+          deletedIds,
+          extras: filterDeadItems(saved?.extras, dead),
           /* legacy free-form diary slots still count as extras if present */
-          breakfast: saved?.breakfast || [],
-          lunch: saved?.lunch || [],
-          dinner: saved?.dinner || [],
-          snacks: saved?.snacks || [],
+          breakfast: filterDeadItems(saved?.breakfast, dead),
+          lunch: filterDeadItems(saved?.lunch, dead),
+          dinner: filterDeadItems(saved?.dinner, dead),
+          snacks: filterDeadItems(saved?.snacks, dead),
         };
+        /* Drop amount overlays for tombstoned ids */
+        Object.keys(state.day.amounts || {}).forEach((k) => {
+          if (dead.has(String(k))) delete state.day.amounts[k];
+        });
         persist();
       }
       if (!state.day.done) state.day.done = {};
       if (!state.day.amounts || typeof state.day.amounts !== "object") state.day.amounts = {};
       if (!Array.isArray(state.day.extras)) state.day.extras = [];
+      if (!Array.isArray(state.day.deletedIds)) state.day.deletedIds = [];
     }
 
     function persistChecksSnapshot() {
       ensureDay();
+      const dead = new Set(normalizeDeletedIds(state.day.deletedIds));
+      const amounts = { ...(state.day.amounts || {}) };
+      Object.keys(amounts).forEach((k) => {
+        if (dead.has(String(k))) delete amounts[k];
+      });
       state.checksByDate = state.checksByDate || {};
       state.checksByDate[state.day.date] = {
         done: { ...(state.day.done || {}) },
-        amounts: { ...(state.day.amounts || {}) },
-        extras: (state.day.extras || []).slice(),
-        breakfast: (state.day.breakfast || []).slice(),
-        lunch: (state.day.lunch || []).slice(),
-        dinner: (state.day.dinner || []).slice(),
-        snacks: (state.day.snacks || []).slice(),
+        amounts,
+        deletedIds: normalizeDeletedIds(state.day.deletedIds),
+        extras: filterDeadItems(state.day.extras, dead),
+        breakfast: filterDeadItems(state.day.breakfast, dead),
+        lunch: filterDeadItems(state.day.lunch, dead),
+        dinner: filterDeadItems(state.day.dinner, dead),
+        snacks: filterDeadItems(state.day.snacks, dead),
       };
     }
 
@@ -3202,8 +3239,9 @@ ${JSON.stringify(example, null, 2)}`;
 
     function extrasInMeal(meal) {
       ensureDay();
-      const fromExtras = (state.day.extras || []).filter((x) => (x.meal || "snacks") === meal);
-      const legacy = state.day[meal] || [];
+      const dead = new Set(normalizeDeletedIds(state.day.deletedIds));
+      const fromExtras = filterDeadItems(state.day.extras, dead).filter((x) => (x.meal || "snacks") === meal);
+      const legacy = filterDeadItems(state.day[meal], dead);
       return [...fromExtras, ...legacy];
     }
 
@@ -3292,6 +3330,8 @@ ${JSON.stringify(example, null, 2)}`;
       state.day.extras.push(entry);
       state.day.amounts = state.day.amounts || {};
       state.day.amounts[entry.id] = entry.grams;
+      /* Re-adding a food always uses a new id; still clear any stale tombstone match */
+      state.day.deletedIds = normalizeDeletedIds(state.day.deletedIds).filter((id) => id !== entry.id);
       pushRecent(food.id);
       markDietLogged(state.day.date || todayISO());
       persist();
@@ -3321,15 +3361,27 @@ ${JSON.stringify(example, null, 2)}`;
       setStatus($("diet-status"), `Added ${name}`, "ok");
     }
 
-    function removeExtra(extraId) {
+    function tombstoneMealId(extraId) {
       ensureDay();
-      state.day.extras = (state.day.extras || []).filter((x) => x.id !== extraId);
+      const key = String(extraId || "").trim();
+      if (!key) return false;
+      state.day.deletedIds = normalizeDeletedIds([...(state.day.deletedIds || []), key]);
+      state.day.extras = (state.day.extras || []).filter((x) => String(x.id) !== key);
       MEALS.forEach(({ id }) => {
-        state.day[id] = (state.day[id] || []).filter((x) => x.id !== extraId);
+        state.day[id] = (state.day[id] || []).filter((x) => String(x?.id) !== key);
       });
+      if (state.day.amounts && state.day.amounts[key] != null) delete state.day.amounts[key];
+      if (state.day.done && state.day.done[key] != null) delete state.day.done[key];
+      return true;
+    }
+
+    function removeExtra(extraId) {
+      if (!tombstoneMealId(extraId)) return;
       persist();
       render();
-      maybeAutoSyncChecks();
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+      if (typeof Today !== "undefined" && Today.render) Today.render();
+      maybeAutoSyncChecks({ urgent: true });
     }
 
     function addPackagedAmount(food, meal, mode, amount) {
@@ -3348,15 +3400,19 @@ ${JSON.stringify(example, null, 2)}`;
       const list = extrasInMeal(meal);
       const item = list[index];
       if (!item) return;
-      if (item.id && (state.day.extras || []).some((x) => x.id === item.id)) {
+      if (item.id) {
         removeExtra(item.id);
         return;
       }
+      /* Legacy rows without id — drop from meal slot and sync */
       state.day[meal] = state.day[meal] || [];
-      const li = state.day[meal].findIndex((x) => x === item || x.id === item.id);
+      const li = state.day[meal].findIndex((x) => x === item);
       if (li >= 0) state.day[meal].splice(li, 1);
       persist();
       render();
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+      if (typeof Today !== "undefined" && Today.render) Today.render();
+      maybeAutoSyncChecks({ urgent: true });
     }
 
     function localMatches(query) {
@@ -3909,11 +3965,13 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-pkg-cancel")?.addEventListener("click", () => closePkgSheet());
     }
 
-    function mergeExtras(a, b) {
+    function mergeExtras(a, b, deleted) {
+      const dead = deleted instanceof Set ? deleted : new Set(normalizeDeletedIds(deleted));
       const out = [];
       const seen = new Set();
       const push = (item) => {
         if (!item) return;
+        if (item.id != null && dead.has(String(item.id))) return;
         const key =
           item.id != null
             ? `id:${item.id}`
@@ -3927,11 +3985,13 @@ ${JSON.stringify(example, null, 2)}`;
       return out;
     }
 
-    function mergeAmounts(a, b) {
-      /* Union of overlays; local wins on conflict (she just edited this phone). Never drop remote-only keys. */
+    function mergeAmounts(a, b, deleted) {
+      /* Union of overlays; local wins on conflict. Drop tombstoned ids. */
+      const dead = deleted instanceof Set ? deleted : new Set(normalizeDeletedIds(deleted));
       const out = { ...(a && typeof a === "object" ? a : {}), ...(b && typeof b === "object" ? b : {}) };
       const clean = {};
       Object.keys(out).forEach((k) => {
+        if (dead.has(String(k))) return;
         const g = Number(out[k]);
         if (Number.isFinite(g) && g > 0) clean[k] = Math.round(g);
       });
@@ -3941,19 +4001,26 @@ ${JSON.stringify(example, null, 2)}`;
     function mergeOneDay(localDay, remoteDay) {
       const L = localDay || {};
       const R = remoteDay || {};
+      const deletedIds = normalizeDeletedIds([...(R.deletedIds || []), ...(L.deletedIds || [])]);
+      const dead = new Set(deletedIds);
       const done = { ...(R.done || {}), ...(L.done || {}) };
-      /* true wins if either side checked */
+      /* true wins if either side checked — but never for tombstoned ids */
       Object.keys({ ...(R.done || {}), ...(L.done || {}) }).forEach((k) => {
+        if (dead.has(String(k))) {
+          delete done[k];
+          return;
+        }
         done[k] = !!(L.done?.[k] || R.done?.[k]);
       });
       return {
         done,
-        amounts: mergeAmounts(R.amounts, L.amounts),
-        extras: mergeExtras(L.extras, R.extras),
-        breakfast: mergeExtras(L.breakfast, R.breakfast),
-        lunch: mergeExtras(L.lunch, R.lunch),
-        dinner: mergeExtras(L.dinner, R.dinner),
-        snacks: mergeExtras(L.snacks, R.snacks),
+        deletedIds,
+        amounts: mergeAmounts(R.amounts, L.amounts, dead),
+        extras: mergeExtras(L.extras, R.extras, dead),
+        breakfast: mergeExtras(L.breakfast, R.breakfast, dead),
+        lunch: mergeExtras(L.lunch, R.lunch, dead),
+        dinner: mergeExtras(L.dinner, R.dinner, dead),
+        snacks: mergeExtras(L.snacks, R.snacks, dead),
       };
     }
 
@@ -3973,16 +4040,18 @@ ${JSON.stringify(example, null, 2)}`;
       state.checksByDate = next;
       const d = todayISO();
       if (next[d]) {
+        const dead = new Set(normalizeDeletedIds(next[d].deletedIds));
         state.day = {
           ...emptyDay(),
           date: d,
           done: { ...(next[d].done || {}) },
           amounts: { ...(next[d].amounts || {}) },
-          extras: Array.isArray(next[d].extras) ? next[d].extras.slice() : [],
-          breakfast: next[d].breakfast || [],
-          lunch: next[d].lunch || [],
-          dinner: next[d].dinner || [],
-          snacks: next[d].snacks || [],
+          deletedIds: normalizeDeletedIds(next[d].deletedIds),
+          extras: filterDeadItems(next[d].extras, dead),
+          breakfast: filterDeadItems(next[d].breakfast, dead),
+          lunch: filterDeadItems(next[d].lunch, dead),
+          dinner: filterDeadItems(next[d].dinner, dead),
+          snacks: filterDeadItems(next[d].snacks, dead),
         };
       }
       persist();
@@ -4007,6 +4076,7 @@ ${JSON.stringify(example, null, 2)}`;
         if (Object.keys(done).some((id) => done[id])) return true;
         const amounts = day.amounts || {};
         if (Object.keys(amounts).some((id) => Number(amounts[id]) > 0)) return true;
+        if ((day.deletedIds || []).length) return true;
         if ((day.extras || []).length) return true;
         if ((day.breakfast || []).length || (day.lunch || []).length || (day.dinner || []).length || (day.snacks || []).length)
           return true;
@@ -4023,9 +4093,10 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus(statusEl, "Save a GitHub PAT first (Connect this phone).", "error");
         return false;
       }
-      setStatus(statusEl, "Syncing checkmarks…", "info");
+      setStatus(statusEl, "Syncing meals…", "info");
       try {
-        /* Merge remote (API) first so an empty phone never wipes the other */
+        /* Merge remote (API) first so an empty phone never wipes the other.
+           Tombstones keep deleted items from coming back during this merge. */
         try {
           const remote = await githubGetJson(DIET_CHECKS_PATH, token);
           if (remote) mergeChecksCloud(remote);
@@ -4033,18 +4104,19 @@ ${JSON.stringify(example, null, 2)}`;
           await pullChecks({ quiet: true });
         }
         const payload = checksPayload();
-        /* Never overwrite non-empty remote with a truly empty local payload */
+        /* Never overwrite non-empty remote with a truly empty local payload —
+           but DO push when we only have tombstones (deletes must propagate). */
         if (!hasLocalChecks() && payload.days && Object.keys(payload.days).length === 0) {
-          setStatus(statusEl, "Nothing to upload yet — checks stay local until you mark meals.", "info");
+          setStatus(statusEl, "Nothing to upload yet — log a meal first.", "info");
           return true;
         }
         await githubPutFile(
           DIET_CHECKS_PATH,
           b64EncodeUnicode(JSON.stringify(payload, null, 2) + "\n"),
-          `Sync diet checkmarks (${todayISO()})`,
+          `Sync diet meals (${todayISO()})`,
           token
         );
-        setStatus(statusEl, "Checkmarks synced. Pages ~30–60s.", "ok");
+        setStatus(statusEl, "Meals synced. Pages ~30–60s.", "ok");
         return true;
       } catch (e) {
         setStatus(statusEl, e.message || String(e), "error");
@@ -4053,12 +4125,13 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     let autoSyncTimer = null;
-    function maybeAutoSyncChecks() {
+    function maybeAutoSyncChecks({ urgent } = {}) {
       if (!getSavedToken()) return;
       clearTimeout(autoSyncTimer);
+      const delay = urgent ? 300 : 300;
       autoSyncTimer = setTimeout(() => {
         publishChecks($("diet-sync-status"));
-      }, 2500);
+      }, delay);
     }
 
     async function pullChecks({ quiet } = {}) {
@@ -4188,10 +4261,24 @@ ${JSON.stringify(example, null, 2)}`;
       });
       $("diet-clear-day")?.addEventListener("click", () => {
         if (!confirm("Clear today’s food log?")) return;
-        state.day = emptyDay();
-        if (state.checksByDate) delete state.checksByDate[todayISO()];
+        ensureDay();
+        const ids = new Set(normalizeDeletedIds(state.day.deletedIds));
+        (state.day.extras || []).forEach((x) => {
+          if (x?.id != null) ids.add(String(x.id));
+        });
+        MEALS.forEach(({ id }) => {
+          (state.day[id] || []).forEach((x) => {
+            if (x?.id != null) ids.add(String(x.id));
+          });
+        });
+        state.day = {
+          ...emptyDay(),
+          date: todayISO(),
+          deletedIds: [...ids],
+        };
         persist();
         render();
+        maybeAutoSyncChecks({ urgent: true });
         setStatus($("diet-status"), "Today’s log cleared.", "info");
       });
       $("diet-meals")?.addEventListener("click", (e) => {
