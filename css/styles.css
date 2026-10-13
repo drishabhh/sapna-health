@@ -4291,8 +4291,78 @@ body.kb-open .diet-export-sheet {
   margin-top: 0.1rem;
   flex-wrap: wrap;
 }
+.diet-export-all-block {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(90, 60, 30, 0.12);
+}
+.diet-export-all-block .hint {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+}
+.diet-export-all-block .btn-diet {
+  width: 100%;
+}
 #diet-export-status {
   margin: 0;
+}
+
+.diet-pkg-macro-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.55rem 0 0.15rem;
+}
+.diet-pkg-macro-row .field {
+  margin: 0;
+  min-width: 0;
+}
+.diet-pkg-macro-row input {
+  width: 100%;
+  min-height: 40px;
+}
+.diet-pkg-actions {
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.steps-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  margin: 0.55rem 1rem 0.15rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 250, 242, 0.92), rgba(236, 244, 238, 0.88));
+  border: 1px solid rgba(40, 70, 55, 0.08);
+}
+.steps-entry-diet {
+  margin: 0.55rem 0 0.85rem;
+}
+.steps-entry-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: rgba(30, 45, 38, 0.85);
+}
+.steps-entry-label input {
+  width: 6.5rem;
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(40, 70, 55, 0.16);
+  padding: 0.35rem 0.55rem;
+  font-size: 1rem;
+  font-weight: 650;
+  background: #fff;
+}
+.steps-entry-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(40, 60, 50, 0.65);
 }
 
 .profile-nudge {
@@ -5707,9 +5777,14 @@ body.is-admin section.ai-admin-only {
 /* ── Today summary metrics (streak / burn / diet) ── */
 .prog-summary-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
   margin-bottom: 0.85rem;
+}
+@media (min-width: 520px) {
+  .prog-summary-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 .prog-metric {
   padding: 0.65rem 0.55rem;

@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013kcal2";
+  const PROFILE_ASSET_V = "20261013lib3";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3005,6 +3005,8 @@ ${JSON.stringify(example, null, 2)}`;
       amounts: {},
       /** Tombstones so sync merge never resurrects deleted meal items */
       deletedIds: [],
+      /** Manual steps for the day (syncs with diet-checks) */
+      steps: null,
     });
     let foods = [];
     let defaults = { targets: { kcal: 1200, protein: 100 } };
@@ -3017,7 +3019,7 @@ ${JSON.stringify(example, null, 2)}`;
       recentFoodIds: [],
       checksByDate: {},
     });
-    let pkgPending = null; /* { food, mode: 'grams'|'servings' } */
+    let pkgPending = null; /* { food, mode, macrosLocked, baseMacros } */
     /** @type {null | { kind:'plan'|'extra', id:string, meal?:string }} */
     let gramsPending = null;
 
@@ -3048,6 +3050,7 @@ ${JSON.stringify(example, null, 2)}`;
         const saved = state.checksByDate?.[d];
         const deletedIds = normalizeDeletedIds(saved?.deletedIds);
         const dead = new Set(deletedIds);
+        const savedSteps = Number(saved?.steps);
         state.day = {
           ...emptyDay(),
           date: d,
@@ -3061,6 +3064,7 @@ ${JSON.stringify(example, null, 2)}`;
           lunch: filterDeadItems(saved?.lunch, dead),
           dinner: filterDeadItems(saved?.dinner, dead),
           snacks: filterDeadItems(saved?.snacks, dead),
+          steps: Number.isFinite(savedSteps) && savedSteps >= 0 ? Math.round(savedSteps) : null,
         };
         /* Drop amount overlays for tombstoned ids */
         Object.keys(state.day.amounts || {}).forEach((k) => {
@@ -3072,6 +3076,10 @@ ${JSON.stringify(example, null, 2)}`;
       if (!state.day.amounts || typeof state.day.amounts !== "object") state.day.amounts = {};
       if (!Array.isArray(state.day.extras)) state.day.extras = [];
       if (!Array.isArray(state.day.deletedIds)) state.day.deletedIds = [];
+      if (state.day.steps == null && state.checksByDate?.[state.day.date]?.steps != null) {
+        const s = Number(state.checksByDate[state.day.date].steps);
+        if (Number.isFinite(s) && s >= 0) state.day.steps = Math.round(s);
+      }
     }
 
     function touchDay(ts) {
@@ -3088,6 +3096,7 @@ ${JSON.stringify(example, null, 2)}`;
         if (dead.has(String(k))) delete amounts[k];
       });
       state.checksByDate = state.checksByDate || {};
+      const stepsN = Number(state.day.steps);
       state.checksByDate[state.day.date] = {
         done: { ...(state.day.done || {}) },
         amounts,
@@ -3098,6 +3107,7 @@ ${JSON.stringify(example, null, 2)}`;
         lunch: filterDeadItems(state.day.lunch, dead),
         dinner: filterDeadItems(state.day.dinner, dead),
         snacks: filterDeadItems(state.day.snacks, dead),
+        steps: Number.isFinite(stepsN) && stepsN >= 0 ? Math.round(stepsN) : null,
       };
     }
 
@@ -3105,6 +3115,56 @@ ${JSON.stringify(example, null, 2)}`;
       if (state.targets) return state.targets;
       if (publishedPlan?.targets) return publishedPlan.targets;
       return defaults.targets || { kcal: 1200, protein: 100 };
+    }
+
+    function getTodaySteps() {
+      ensureDay();
+      const n = Number(state.day.steps);
+      return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
+    }
+
+    function setTodaySteps(raw) {
+      ensureDay();
+      const n = Number(raw);
+      state.day.steps = Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+      persistLocal();
+      maybeAutoSyncChecks();
+      return getTodaySteps();
+    }
+
+    /** Body weight kg from profile when available. */
+    function profileWeightKg() {
+      try {
+        const w = Number(typeof Profile !== "undefined" && Profile.getState ? Profile.getState()?.weightKg : null);
+        return Number.isFinite(w) && w > 0 ? w : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    /**
+     * Step burn: ~0.0005 kcal × kg × steps (≈0.04 kcal/step at 80 kg).
+     * Falls back to 0.04 kcal/step without weight.
+     */
+    function estimateStepBurnKcal(stepsOverride) {
+      const steps = stepsOverride != null ? Number(stepsOverride) : getTodaySteps();
+      if (!Number.isFinite(steps) || steps <= 0) return 0;
+      const kg = profileWeightKg();
+      const per = kg != null ? kg * 0.0005 : 0.04;
+      return Math.round(Math.max(0, Math.min(steps * per, 1500)));
+    }
+
+    /** Base diet target + step burn (walking raises daily need). */
+    function adjustedTargets() {
+      const base = targets();
+      const stepBurn = estimateStepBurnKcal();
+      return {
+        ...base,
+        kcal: Math.round(Number(base.kcal) || 0) + stepBurn,
+        baseKcal: Math.round(Number(base.kcal) || 0),
+        stepBurn,
+        steps: getTodaySteps(),
+      };
     }
 
     function persist(opts = {}) {
@@ -3159,7 +3219,10 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function allFoods() {
-      return [...foods, ...(state.customFoods || [])];
+      /* Custom / saved-from-add overrides published foods.json by id */
+      const custom = state.customFoods || [];
+      const customIds = new Set(custom.map((f) => f.id).filter(Boolean));
+      return [...custom, ...foods.filter((f) => !customIds.has(f.id))];
     }
 
     function findFood(id) {
@@ -3541,12 +3604,136 @@ ${JSON.stringify(example, null, 2)}`;
     function savePackagedFood(food) {
       state.customFoods = state.customFoods || [];
       const existing = state.customFoods.findIndex(
-        (x) => x.id === food.id || (x.kind === "packaged" && x.name === food.name)
+        (x) => x.id === food.id || (x.kind === "packaged" && x.name === food.name) || x.name === food.name
       );
       if (existing >= 0) state.customFoods[existing] = { ...state.customFoods[existing], ...food };
       else state.customFoods.push(food);
+      /* Keep in-memory published list in sync when same id */
+      const fi = foods.findIndex((f) => f.id === food.id);
+      if (fi >= 0) foods[fi] = { ...foods[fi], ...food };
       persist();
       return food;
+    }
+
+    /** Publish upsert into data/foods.json when PAT is available (merge-safe). */
+    async function publishFoodLibraryItem(food, statusEl) {
+      savePackagedFood(food);
+      const token = getSavedToken();
+      if (!token) {
+        if (statusEl) setStatus(statusEl, `Saved “${food.name}” on this phone (no sync token).`, "ok");
+        return { local: true, published: false };
+      }
+      try {
+        if (statusEl) setStatus(statusEl, "Saving to library…", "info");
+        const remote = (await githubGetJson("data/foods.json", token)) || {
+          version: 2,
+          updatedAt: todayISO(),
+          foods: [],
+        };
+        const list = Array.isArray(remote.foods) ? remote.foods.slice() : [];
+        const idx = list.findIndex((f) => f.id === food.id || f.name === food.name);
+        const row = { ...food };
+        if (idx >= 0) list[idx] = { ...list[idx], ...row };
+        else list.push(row);
+        remote.foods = list;
+        remote.updatedAt = todayISO();
+        await githubPutFile(
+          "data/foods.json",
+          b64EncodeUnicode(JSON.stringify(remote, null, 2) + "\n"),
+          `Update food library: ${food.name}`,
+          token
+        );
+        foods = list;
+        if (statusEl) setStatus(statusEl, `Saved “${food.name}” to library.`, "ok");
+        return { local: true, published: true };
+      } catch (e) {
+        if (statusEl) setStatus(statusEl, e.message || "Library publish failed — kept on this phone.", "error");
+        return { local: true, published: false, error: e };
+      }
+    }
+
+    function buildEditedEntryFromPkg() {
+      if (!pkgPending?.food) throw new Error("Pick a food first.");
+      const mode = pkgPending.mode || "grams";
+      const amountRaw = $("diet-pkg-amount")?.value;
+      const factor = scaleFactor(pkgPending.food, mode, amountRaw);
+      const a = Number(amountRaw);
+      const unit = foodMeasureUnit(pkgPending.food);
+      const baseG = foodServingAmount(pkgPending.food);
+      const grams = mode === "grams" || mode === "amount" || mode === "ml" ? a : roundn(baseG * a, 1);
+      const macros = readPkgMacroFields();
+      if (macros.kcal == null || !Number.isFinite(macros.kcal)) throw new Error("Enter calories.");
+      const amountLabel =
+        mode === "grams" || mode === "amount" || mode === "ml"
+          ? formatAmountLabel(a, unit)
+          : `${roundn(a, 2)} serving${a === 1 ? "" : "s"}`;
+      const food = {
+        ...pkgPending.food,
+        kcal: roundn(macros.kcal, 1),
+        protein: roundn(macros.protein || 0, 2),
+      };
+      if (macros.carbs != null) food.carbs = roundn(macros.carbs, 2);
+      if (macros.fat != null) food.fat = roundn(macros.fat, 2);
+      return { food, meal: $("diet-meal")?.value || "breakfast", factor, grams, unit, amountLabel, macros };
+    }
+
+    function libraryFoodFromEdit(edit) {
+      const unit = edit.unit || "g";
+      const serving = Math.max(1, Math.round(Number(edit.grams) || foodServingAmount(edit.food)));
+      return {
+        ...edit.food,
+        servingGrams: serving,
+        servingAmount: serving,
+        servingUnit: unit,
+        servingSize: formatAmountLabel(serving, unit),
+        kcal: edit.macros.kcal,
+        protein: edit.macros.protein || 0,
+        carbs: edit.macros.carbs,
+        fat: edit.macros.fat,
+        tags: Array.from(new Set([...(edit.food.tags || []), "library-edit"])),
+      };
+    }
+
+    async function confirmPkgAdd({ saveToLibrary } = {}) {
+      const st = $("diet-status");
+      try {
+        const edit = buildEditedEntryFromPkg();
+        let libraryFood = edit.food;
+        if (saveToLibrary) {
+          libraryFood = libraryFoodFromEdit(edit);
+          await publishFoodLibraryItem(libraryFood, st);
+        }
+        /* Log uses her edited macros as the baseline for this amount (factor 1) */
+        const logFood = {
+          ...libraryFood,
+          kcal: edit.macros.kcal,
+          protein: edit.macros.protein || 0,
+          carbs: edit.macros.carbs,
+          fat: edit.macros.fat,
+          servingGrams: edit.grams,
+          servingAmount: edit.grams,
+          servingUnit: edit.unit,
+        };
+        addItem(logFood, edit.meal, 1, {
+          amountLabel: edit.amountLabel,
+          kind: libraryFood.kind || edit.food.kind,
+          grams: edit.grams,
+          amount: edit.grams,
+          unit: edit.unit,
+        });
+        Haptics.ok();
+        if (!saveToLibrary) {
+          setStatus(st, `Added ${edit.food.name} (${edit.amountLabel}) → ${edit.macros.kcal} kcal`, "ok");
+        } else {
+          setStatus(st, `Saved & added ${edit.food.name} (${edit.amountLabel})`, "ok");
+        }
+        closePkgSheet();
+        if ($("diet-search")) $("diet-search").value = "";
+        closeAddSheet();
+        renderFoodPick("");
+      } catch (e) {
+        setStatus(st, e.message || String(e), "error");
+      }
     }
 
     function extrasInMeal(meal) {
@@ -3941,6 +4128,91 @@ ${JSON.stringify(example, null, 2)}`;
       }
     }
 
+    /** Full site backup JSON — never includes GitHub token or API keys. */
+    function exportAllSiteData() {
+      const st = $("diet-export-status");
+      try {
+        persistChecksSnapshot();
+        let profileBasics = null;
+        try {
+          const p = typeof Profile !== "undefined" && Profile.getState ? Profile.getState() : null;
+          if (p) {
+            profileBasics = {
+              weightKg: p.weightKg ?? null,
+              heightCm: p.heightCm ?? null,
+              age: p.age ?? null,
+              sex: p.sex ?? null,
+              goal: p.goal ?? null,
+              activity: p.activity ?? null,
+              workoutDays: p.workoutDays ?? null,
+              workoutType: p.workoutType ?? null,
+              dietStyles: p.dietStyles || [],
+              mealsPerDay: p.mealsPerDay ?? null,
+              paceKgPerWeek: p.paceKgPerWeek ?? null,
+              targetWeightKg: p.targetWeightKg ?? null,
+              completedAt: p.completedAt ?? null,
+            };
+          }
+        } catch (_) {}
+        let weights = null;
+        let periods = null;
+        let guided = null;
+        let coach = null;
+        try {
+          weights = loadJSON(LS.weights, null);
+        } catch (_) {}
+        try {
+          periods = loadJSON(LS.periods, null);
+        } catch (_) {}
+        try {
+          guided = loadJSON(LS.guided, null);
+        } catch (_) {}
+        try {
+          coach = loadJSON(LS.coach, null);
+        } catch (_) {}
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          app: "sapna-health",
+          version: typeof window !== "undefined" ? window.SAPNA_APP_V || PROFILE_ASSET_V : PROFILE_ASSET_V,
+          diet: {
+            targets: state.targets,
+            day: state.day,
+            checksByDate: state.checksByDate || {},
+            customFoods: state.customFoods || [],
+            recentFoodIds: state.recentFoodIds || [],
+            loggedDates: state.loggedDates || {},
+          },
+          weights,
+          periods,
+          profile: profileBasics,
+          guidedSession: guided,
+          coachLast: coach
+            ? {
+                at: coach.at || coach.updatedAt || null,
+                source: coach.source || null,
+                /* omit any accidental key fields */
+                summary: coach.summary || coach.text || coach.body || null,
+              }
+            : null,
+          notes: "Tokens and API keys are never exported.",
+        };
+        const json = JSON.stringify(payload, null, 2);
+        const blob = new Blob([json], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `sapna-health-backup-${todayISO()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        setStatus(st, "Downloaded full site data (no tokens).", "ok");
+        Haptics.ok?.();
+      } catch (e) {
+        setStatus(st, e.message || "Export failed.", "error");
+      }
+    }
+
     function totals() {
       ensureDay();
       let kcal = 0;
@@ -4289,14 +4561,15 @@ ${JSON.stringify(example, null, 2)}`;
 
     function render() {
       ensureDay();
-      const t = targets();
+      const baseT = targets();
+      const t = adjustedTargets();
       const tot = totals();
       const left = Math.max(0, Math.round(t.kcal - tot.kcal));
       const over = tot.kcal > t.kcal;
       const kcalEl = $("diet-target-kcal");
       const proEl = $("diet-target-protein");
-      if (kcalEl && document.activeElement !== kcalEl) kcalEl.value = t.kcal;
-      if (proEl && document.activeElement !== proEl) proEl.value = t.protein;
+      if (kcalEl && document.activeElement !== kcalEl) kcalEl.value = baseT.kcal;
+      if (proEl && document.activeElement !== proEl) proEl.value = baseT.protein;
 
       if ($("diet-plan-headline")) {
         $("diet-plan-headline").textContent = "Today’s plate";
@@ -4311,13 +4584,17 @@ ${JSON.stringify(example, null, 2)}`;
         planSt.hidden = anyLogged;
         planSt.textContent = anyLogged
           ? ""
-          : "Tap + Add on a meal · pick from the library · edit grams if you ate less or more.";
+          : "Tap + Add on a meal · pick from the library · edit amount + macros · Save & add if you want it in the library.";
       }
 
       const totalsRoot = $("diet-totals");
       if (totalsRoot) {
         const kcalPct = Math.max(0, Math.min(100, Math.round((tot.kcal / (t.kcal || 1)) * 100)));
         const proPct = Math.max(0, Math.min(100, Math.round((tot.protein / (t.protein || 1)) * 100)));
+        const stepNote =
+          t.stepBurn > 0
+            ? `<span>need <b>${t.kcal}</b> <em>(${t.baseKcal}+${t.stepBurn} walk)</em></span>`
+            : `<span>your log</span>`;
         totalsRoot.innerHTML = `
           <div class="hf-remain-card ${over ? "is-over" : ""}">
             <p class="hf-remain-kicker">${over ? "Over target" : "Diet taken"}</p>
@@ -4326,7 +4603,7 @@ ${JSON.stringify(example, null, 2)}`;
             <div class="hf-remain-meta">
               <span><b>${over ? "+" + (tot.kcal - t.kcal) : left}</b> ${over ? "over" : "left"}</span>
               <span><b>${tot.protein}g</b> / ${t.protein}g protein</span>
-              <span>your log</span>
+              ${stepNote}
             </div>
             <div class="hf-remain-bars" aria-hidden="true">
               <div class="hf-bar"><i style="width:${kcalPct}%"></i></div>
@@ -4334,6 +4611,7 @@ ${JSON.stringify(example, null, 2)}`;
             </div>
           </div>`;
       }
+      paintStepsInputs();
 
       const mealsRoot = $("diet-meals");
       if (mealsRoot) {
@@ -4385,21 +4663,46 @@ ${JSON.stringify(example, null, 2)}`;
 
     let aiProductDraft = null;
 
+    function readPkgMacroFields() {
+      const num = (id) => {
+        const v = Number($(id)?.value);
+        return Number.isFinite(v) ? v : null;
+      };
+      return {
+        kcal: num("diet-pkg-kcal"),
+        protein: num("diet-pkg-protein"),
+        carbs: num("diet-pkg-carbs"),
+        fat: num("diet-pkg-fat"),
+      };
+    }
+
+    function writePkgMacroFields(m) {
+      if ($("diet-pkg-kcal") && m.kcal != null) $("diet-pkg-kcal").value = String(roundn(m.kcal, 1));
+      if ($("diet-pkg-protein") && m.protein != null) $("diet-pkg-protein").value = String(roundn(m.protein, 2));
+      if ($("diet-pkg-carbs")) $("diet-pkg-carbs").value = m.carbs != null ? String(roundn(m.carbs, 2)) : "";
+      if ($("diet-pkg-fat")) $("diet-pkg-fat").value = m.fat != null ? String(roundn(m.fat, 2)) : "";
+    }
+
     function updatePkgPreview() {
       if (!pkgPending?.food) return;
       const mode = pkgPending.mode || "grams";
       const amount = $("diet-pkg-amount")?.value;
+      const el = $("diet-pkg-preview");
       try {
         const factor = scaleFactor(pkgPending.food, mode, amount);
-        const m = scaledMacros(pkgPending.food, factor);
-        const el = $("diet-pkg-preview");
+        if (!pkgPending.macrosLocked) {
+          writePkgMacroFields(scaledMacros(pkgPending.food, factor));
+        }
+        const cur = readPkgMacroFields();
         if (el) {
-          el.textContent = `→ ${m.kcal} kcal · ${m.protein}g protein` +
-            (m.carbs != null ? ` · ${m.carbs}g carbs` : "") +
-            (m.fat != null ? ` · ${m.fat}g fat` : "");
+          const note = pkgPending.macrosLocked ? " · custom macros" : " · scaled";
+          el.textContent =
+            `→ ${cur.kcal != null ? cur.kcal : "—"} kcal · ${cur.protein != null ? cur.protein : "—"}g P` +
+            (cur.carbs != null ? ` · ${cur.carbs}g C` : "") +
+            (cur.fat != null ? ` · ${cur.fat}g F` : "") +
+            note;
         }
       } catch (e) {
-        const el = $("diet-pkg-preview");
         if (el) el.textContent = e.message || "Enter amount";
       }
     }
@@ -4407,19 +4710,21 @@ ${JSON.stringify(example, null, 2)}`;
     function openPkgSheet(food) {
       const unit = foodMeasureUnit(food);
       const baseAmt = foodServingAmount(food);
+      const hasG = !!(food.servingGrams || food.servingAmount || parseServingGrams(food.servingSize) || baseAmt);
       pkgPending = {
         food,
-        mode: food.servingGrams || food.servingAmount || parseServingGrams(food.servingSize) ? "grams" : "servings",
+        mode: hasG ? "grams" : "servings",
+        macrosLocked: false,
       };
       const sheet = $("diet-pkg-sheet");
       if (sheet) sheet.hidden = false;
       if ($("diet-pkg-name")) $("diet-pkg-name").textContent = food.name;
       if ($("diet-pkg-base")) {
         $("diet-pkg-base").textContent =
-          `Label: ${food.servingSize || formatAmountLabel(baseAmt, unit) || "1 serving"} = ${food.kcal} kcal · ${food.protein}g protein` +
-          (food.carbs != null ? ` · ${food.carbs}g carbs` : "");
+          `Library: ${food.servingSize || formatAmountLabel(baseAmt, unit) || "1 serving"} = ${food.kcal} kcal · ${food.protein}g protein` +
+          (food.carbs != null ? ` · ${food.carbs}g carbs` : "") +
+          (food.fat != null ? ` · ${food.fat}g fat` : "");
       }
-      const hasG = !!(food.servingGrams || food.servingAmount || parseServingGrams(food.servingSize));
       $("diet-pkg-mode-g")?.classList.toggle("is-active", pkgPending.mode === "grams");
       $("diet-pkg-mode-s")?.classList.toggle("is-active", pkgPending.mode === "servings");
       if ($("diet-pkg-mode-g")) {
@@ -4427,8 +4732,9 @@ ${JSON.stringify(example, null, 2)}`;
         $("diet-pkg-mode-g").textContent = unit === "ml" ? "ml" : "Grams";
       }
       if ($("diet-pkg-amount")) {
+        /* Default to library serving so she can bump 50→100 easily */
         $("diet-pkg-amount").value =
-          pkgPending.mode === "grams" ? String(Math.min(unit === "ml" ? 250 : 50, baseAmt || 50)) : "1";
+          pkgPending.mode === "grams" ? String(Math.round(baseAmt || (unit === "ml" ? 250 : 100))) : "1";
         $("diet-pkg-amount").step = pkgPending.mode === "grams" ? "1" : "0.25";
       }
       if ($("diet-pkg-amount-label")) {
@@ -4436,6 +4742,12 @@ ${JSON.stringify(example, null, 2)}`;
           pkgPending.mode === "grams" ? `Amount (${unit})` : "Servings";
       }
       if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = true;
+      writePkgMacroFields({
+        kcal: food.kcal,
+        protein: food.protein,
+        carbs: food.carbs,
+        fat: food.fat,
+      });
       updatePkgPreview();
       /* Don’t autofocus amount — keyboard only on user tap */
       try {
@@ -4735,6 +5047,7 @@ ${JSON.stringify(example, null, 2)}`;
         if (modeBtn && pkgPending) {
           if (modeBtn.disabled) return;
           pkgPending.mode = modeBtn.getAttribute("data-pkg-mode");
+          pkgPending.macrosLocked = false; /* mode switch → rescale from library facts */
           $("diet-pkg-mode-g")?.classList.toggle("is-active", pkgPending.mode === "grams");
           $("diet-pkg-mode-s")?.classList.toggle("is-active", pkgPending.mode === "servings");
           if ($("diet-pkg-amount-label")) {
@@ -4750,29 +5063,19 @@ ${JSON.stringify(example, null, 2)}`;
           return;
         }
       });
-      $("diet-pkg-amount")?.addEventListener("input", updatePkgPreview);
-      $("diet-pkg-confirm")?.addEventListener("click", () => {
-        if (!pkgPending?.food) return;
-        try {
-          const meal = $("diet-meal")?.value || "breakfast";
-          const { amountLabel, macros } = addPackagedAmount(
-            pkgPending.food,
-            meal,
-            pkgPending.mode,
-            $("diet-pkg-amount")?.value
-          );
-          setStatus(
-            $("diet-status"),
-            `Added ${pkgPending.food.name} (${amountLabel}) → ${macros.kcal} kcal`,
-            "ok"
-          );
-          closePkgSheet();
-          if ($("diet-search")) $("diet-search").value = "";
-          closeAddSheet();
-        } catch (e) {
-          setStatus($("diet-status"), e.message || String(e), "error");
-        }
+      $("diet-pkg-amount")?.addEventListener("input", () => {
+        /* Amount change re-scales unless she overrode macros by hand */
+        updatePkgPreview();
       });
+      ["diet-pkg-kcal", "diet-pkg-protein", "diet-pkg-carbs", "diet-pkg-fat"].forEach((id) => {
+        $(id)?.addEventListener("input", () => {
+          if (!pkgPending) return;
+          pkgPending.macrosLocked = true;
+          updatePkgPreview();
+        });
+      });
+      $("diet-pkg-confirm")?.addEventListener("click", () => confirmPkgAdd({ saveToLibrary: false }));
+      $("diet-pkg-save-add")?.addEventListener("click", () => confirmPkgAdd({ saveToLibrary: true }));
       $("diet-pkg-cancel")?.addEventListener("click", () => closePkgSheet());
     }
 
@@ -4857,6 +5160,7 @@ ${JSON.stringify(example, null, 2)}`;
         if (dead.has(String(k))) return;
         done[k] = !!src.done[k];
       });
+      const stepsN = Number(src.steps);
       return {
         done,
         deletedIds,
@@ -4867,7 +5171,19 @@ ${JSON.stringify(example, null, 2)}`;
         lunch: filterDeadItems(src.lunch, dead),
         dinner: filterDeadItems(src.dinner, dead),
         snacks: filterDeadItems(src.snacks, dead),
+        steps: Number.isFinite(stepsN) && stepsN >= 0 ? Math.round(stepsN) : null,
       };
+    }
+
+    function mergeSteps(a, b) {
+      const na = Number(a);
+      const nb = Number(b);
+      const aOk = Number.isFinite(na) && na >= 0;
+      const bOk = Number.isFinite(nb) && nb >= 0;
+      if (aOk && bOk) return Math.max(Math.round(na), Math.round(nb));
+      if (aOk) return Math.round(na);
+      if (bOk) return Math.round(nb);
+      return null;
     }
 
     function mergeOneDay(localDay, remoteDay) {
@@ -4876,22 +5192,26 @@ ${JSON.stringify(example, null, 2)}`;
       const deletedIds = normalizeDeletedIds([...(R.deletedIds || []), ...(L.deletedIds || [])]);
       const lHas = dayHasMealContent(L);
       const rHas = dayHasMealContent(R);
+      const withMergedSteps = (snap) => {
+        snap.steps = mergeSteps(L.steps, R.steps);
+        return snap;
+      };
       /* Never let an empty side overwrite a full one */
-      if (lHas && !rHas) return snapshotDayFrom(L, deletedIds);
-      if (rHas && !lHas) return snapshotDayFrom(R, deletedIds);
+      if (lHas && !rHas) return withMergedSteps(snapshotDayFrom(L, deletedIds));
+      if (rHas && !lHas) return withMergedSteps(snapshotDayFrom(R, deletedIds));
       const lTs = dayUpdatedAtMs(L);
       const rTs = dayUpdatedAtMs(R);
-      /* Newer day wins wholesale (combined tombstones still apply) */
-      if (lTs > rTs) return snapshotDayFrom(L, deletedIds);
-      if (rTs > lTs) return snapshotDayFrom(R, deletedIds);
+      /* Newer day wins wholesale (combined tombstones still apply) — steps still merge */
+      if (lTs > rTs) return withMergedSteps(snapshotDayFrom(L, deletedIds));
+      if (rTs > lTs) return withMergedSteps(snapshotDayFrom(R, deletedIds));
       /* Same/missing timestamps: prefer strict subset (phone ~1200 vs inflated 1650) */
       const lIds = extrasIdSet(L);
       const rIds = extrasIdSet(R);
       if (lIds.size && rIds.size && lIds.size < rIds.size && isIdSubset(lIds, rIds)) {
-        return snapshotDayFrom(L, deletedIds);
+        return withMergedSteps(snapshotDayFrom(L, deletedIds));
       }
       if (lIds.size && rIds.size && rIds.size < lIds.size && isIdSubset(rIds, lIds)) {
-        return snapshotDayFrom(R, deletedIds);
+        return withMergedSteps(snapshotDayFrom(R, deletedIds));
       }
       const dead = new Set(deletedIds);
       const done = { ...(R.done || {}), ...(L.done || {}) };
@@ -4912,6 +5232,7 @@ ${JSON.stringify(example, null, 2)}`;
         lunch: mergeExtras(L.lunch, R.lunch, dead),
         dinner: mergeExtras(L.dinner, R.dinner, dead),
         snacks: mergeExtras(L.snacks, R.snacks, dead),
+        steps: mergeSteps(L.steps, R.steps),
       };
     }
 
@@ -4932,6 +5253,7 @@ ${JSON.stringify(example, null, 2)}`;
       const d = todayISO();
       if (next[d]) {
         const dead = new Set(normalizeDeletedIds(next[d].deletedIds));
+        const stepsN = Number(next[d].steps);
         state.day = {
           ...emptyDay(),
           date: d,
@@ -4944,6 +5266,7 @@ ${JSON.stringify(example, null, 2)}`;
           lunch: filterDeadItems(next[d].lunch, dead),
           dinner: filterDeadItems(next[d].dinner, dead),
           snacks: filterDeadItems(next[d].snacks, dead),
+          steps: Number.isFinite(stepsN) && stepsN >= 0 ? Math.round(stepsN) : null,
         };
       }
       persist();
@@ -4972,6 +5295,7 @@ ${JSON.stringify(example, null, 2)}`;
         if ((day.extras || []).length) return true;
         if ((day.breakfast || []).length || (day.lunch || []).length || (day.dinner || []).length || (day.snacks || []).length)
           return true;
+        if (Number(day.steps) > 0) return true;
         return false;
       });
     }
@@ -5090,6 +5414,8 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-export-csv")?.addEventListener("click", () => runDietExport("csv"));
       $("diet-export-copy")?.addEventListener("click", () => runDietExport("copy"));
       $("diet-export-share")?.addEventListener("click", () => runDietExport("share"));
+      $("diet-export-all-data")?.addEventListener("click", () => exportAllSiteData());
+      wireStepsInputs();
       $("diet-regular-run")?.addEventListener("click", () => {
         if (!isAdminUnlocked()) {
           setStatus($("diet-regular-status"), "Admin only.", "error");
@@ -5169,23 +5495,9 @@ ${JSON.stringify(example, null, 2)}`;
           return;
         }
         setSearchDropdownOpen(false);
-        if (isPackaged(food)) {
-          /* Keep sheet open — amount picker is inside it */
-          if ($("diet-search")) $("diet-search").value = food.name || "";
-          openPkgSheet(food);
-          return;
-        }
-        const meal = $("diet-meal")?.value || "breakfast";
-        const servings = $("diet-servings")?.value || 1;
-        const entry = addItem(food, meal, servings);
-        setStatus($("diet-status"), `Added ${food.name}`, "ok");
-        if ($("diet-search")) $("diet-search").value = "";
-        closeAddSheet();
-        /* Offer gram tweak right away (e.g. library 150g → she ate 100g) */
-        if (entry?.id) {
-          const idx = extrasInMeal(meal).findIndex((x) => x.id === entry.id);
-          openGramsSheet({ kind: "extra", id: entry.id, meal, idx: idx >= 0 ? idx : 0 });
-        }
+        /* Always open edit sheet — amount + kcal/protein, then Add / Save & add */
+        if ($("diet-search")) $("diet-search").value = food.name || "";
+        openPkgSheet(food);
       });
       wirePackagedProductUi();
       $("diet-add-custom")?.addEventListener("click", () => {
@@ -5447,7 +5759,7 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function snapshot() {
-      const tg = targets();
+      const tg = adjustedTargets();
       const tot = totals();
       const left = Math.max(0, Math.round(tg.kcal - tot.kcal));
       ensureDay();
@@ -5460,12 +5772,56 @@ ${JSON.stringify(example, null, 2)}`;
         protein: tot.protein,
         targetKcal: tg.kcal,
         targetProtein: tg.protein,
+        baseTargetKcal: tg.baseKcal,
+        stepBurn: tg.stepBurn,
+        steps: tg.steps,
         left,
         over: tot.kcal > tg.kcal,
         mealFill,
         planHeadline: "Today’s plate",
         waitingAdmin: false,
       };
+    }
+
+    function paintStepsInputs() {
+      const steps = getTodaySteps();
+      const burn = estimateStepBurnKcal(steps);
+      const hint = steps
+        ? `${steps.toLocaleString()} steps · ~${burn} kcal walk`
+        : "Manual — syncs with meals";
+      ["today-steps-input", "diet-steps-input"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        if (document.activeElement === el) return;
+        el.value = steps ? String(steps) : "";
+      });
+      ["today-steps-hint", "diet-steps-hint"].forEach((id) => {
+        const el = $(id);
+        if (el) el.textContent = hint;
+      });
+    }
+
+    function wireStepsInputs() {
+      const onCommit = (el) => {
+        setTodaySteps(el.value);
+        paintStepsInputs();
+        render();
+        if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+        if (typeof Today !== "undefined" && Today.render) Today.render();
+      };
+      ["today-steps-input", "diet-steps-input"].forEach((id) => {
+        const el = $(id);
+        if (!el || el.dataset.stepsWired === "1") return;
+        el.dataset.stepsWired = "1";
+        el.addEventListener("change", () => onCommit(el));
+        el.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            el.blur();
+            onCommit(el);
+          }
+        });
+      });
     }
 
     return {
@@ -5484,6 +5840,12 @@ ${JSON.stringify(example, null, 2)}`;
       publishChecks,
       pullChecks,
       hasLocalChecks,
+      getTodaySteps,
+      setTodaySteps,
+      estimateStepBurnKcal,
+      adjustedTargets,
+      paintStepsInputs,
+      wireStepsInputs,
     };
   })();
 
@@ -7324,7 +7686,7 @@ ${JSON.stringify(example, null, 2)}`;
       return dailyStreak(set);
     }
 
-    function estimateBurnKcal() {
+    function estimateLiftBurnKcal() {
       const today = localDayISO();
       const entries = liftEntries().filter((e) => String(e.date || "").slice(0, 10) === today);
       let kcal = 0;
@@ -7346,6 +7708,13 @@ ${JSON.stringify(example, null, 2)}`;
         kcal += 25; /* session overhead */
       }
       return Math.round(Math.max(0, Math.min(kcal, 1200)));
+    }
+
+    function estimateBurnKcal() {
+      const lifts = estimateLiftBurnKcal();
+      const steps =
+        typeof Diet !== "undefined" && Diet.estimateStepBurnKcal ? Diet.estimateStepBurnKcal() : 0;
+      return Math.round(Math.max(0, Math.min(lifts + steps, 2500)));
     }
 
     function chartSvg(series, selectedKey) {
@@ -7411,10 +7780,20 @@ ${JSON.stringify(example, null, 2)}`;
       const selected = series.find((s) => s.key === selectedWeekKey) || series[series.length - 1];
       const dietN = dietStreak();
       const burn = estimateBurnKcal();
-      const dietSnap = Diet.snapshot ? Diet.snapshot() : { kcal: 0, targetKcal: 1200 };
+      const liftBurn = estimateLiftBurnKcal();
+      const dietSnap = Diet.snapshot
+        ? Diet.snapshot()
+        : { kcal: 0, targetKcal: 1200, left: 0, stepBurn: 0, steps: 0 };
       const eaten = Math.round(dietSnap.kcal || 0);
       const dietGoal = Math.round(dietSnap.targetKcal || 1200);
+      const left = dietSnap.left != null ? dietSnap.left : Math.max(0, dietGoal - eaten);
+      const stepBurn = Math.round(dietSnap.stepBurn || 0);
       const dietPct = Math.max(0, Math.min(100, Math.round((eaten / (dietGoal || 1)) * 100)));
+      const burnHint = stepBurn
+        ? `lifts ${liftBurn || 0} + walk ${stepBurn}`
+        : burn
+          ? "kcal est."
+          : "log lifts / steps";
 
       if (streakRoot) {
         streakRoot.innerHTML = `
@@ -7428,12 +7807,17 @@ ${JSON.stringify(example, null, 2)}`;
             <div class="prog-metric">
               <em>Burned</em>
               <strong>${burn || "—"}</strong>
-              <span>kcal est.${burn ? "" : " · log lifts"}</span>
+              <span>${escapeHtml(burnHint)}</span>
             </div>
             <div class="prog-metric">
               <em>Diet taken</em>
               <strong>${eaten}</strong>
               <span>/ ${dietGoal} kcal · ${dietPct}%</span>
+            </div>
+            <div class="prog-metric">
+              <em>${dietSnap.over ? "Over" : "Left"}</em>
+              <strong>${dietSnap.over ? Math.round(eaten - dietGoal) : left}</strong>
+              <span>kcal · need ${dietGoal}</span>
             </div>
           </div>
           <div class="prog-streak-head">

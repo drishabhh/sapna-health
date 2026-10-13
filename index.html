@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261013kcal2";
+      var APP_V = "20261013lib3";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261013kcal2"></script>
+  <script src="./js/admin-auth.js?v=20261013lib3"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261013kcal2" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261013lib3" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -194,6 +194,12 @@
     <!-- Profile onboarding nudge suppressed — use Profile button if needed -->
     <div class="profile-nudge" id="today-profile-nudge" hidden aria-hidden="true"></div>
     <div class="today-strip-wrap" id="today-strip" aria-label="Today at a glance"></div>
+    <div class="steps-entry" id="today-steps-entry">
+      <label class="steps-entry-label" for="today-steps-input">Steps
+        <input type="number" id="today-steps-input" min="0" max="100000" step="100" inputmode="numeric" placeholder="0" autocomplete="off" />
+      </label>
+      <p class="steps-entry-hint" id="today-steps-hint" aria-live="polite"></p>
+    </div>
     <!-- Progress streak sits high; week graph below tracker cards so first viewport isn’t clipped -->
     <div class="progress-root" id="progress-root" aria-label="Workout streak"></div>
     <div class="today-grid" id="today-overview" aria-live="polite">
@@ -282,6 +288,12 @@
     <div class="panel-inner diet-inner">
       <div class="diet-profile-summary" id="diet-profile-summary" hidden></div>
       <div class="diet-rings hf-diet-totals" id="diet-totals" aria-label="Calories eaten vs plan"></div>
+      <div class="steps-entry steps-entry-diet" id="diet-steps-entry">
+        <label class="steps-entry-label" for="diet-steps-input">Steps
+          <input type="number" id="diet-steps-input" min="0" max="100000" step="100" inputmode="numeric" placeholder="0" autocomplete="off" />
+        </label>
+        <p class="steps-entry-hint" id="diet-steps-hint" aria-live="polite"></p>
+      </div>
       <p class="hint" id="diet-plan-status">Loading…</p>
 
       <div class="diet-meals-wrap hf-meals diet-plan-check-wrap" id="diet-meals" aria-label="Your meals today"></div>
@@ -338,11 +350,26 @@
               <button type="button" class="meal-chip" data-pkg-mode="servings" id="diet-pkg-mode-s">Servings</button>
             </div>
             <label class="field" for="diet-pkg-amount"><span id="diet-pkg-amount-label">Amount (g)</span>
-              <input type="number" id="diet-pkg-amount" min="1" step="1" value="50" />
+              <input type="number" id="diet-pkg-amount" min="1" step="1" value="50" inputmode="decimal" />
             </label>
+            <div class="field-row diet-pkg-macro-row" id="diet-pkg-macro-row">
+              <label class="field">kcal
+                <input type="number" id="diet-pkg-kcal" min="0" step="1" inputmode="decimal" />
+              </label>
+              <label class="field">Protein
+                <input type="number" id="diet-pkg-protein" min="0" step="0.1" inputmode="decimal" />
+              </label>
+              <label class="field">Carbs
+                <input type="number" id="diet-pkg-carbs" min="0" step="0.1" inputmode="decimal" />
+              </label>
+              <label class="field">Fat
+                <input type="number" id="diet-pkg-fat" min="0" step="0.1" inputmode="decimal" />
+              </label>
+            </div>
             <p class="diet-pkg-preview" id="diet-pkg-preview" aria-live="polite"></p>
-            <div class="actions">
-              <button type="button" class="btn-diet" id="diet-pkg-confirm">Add to meal</button>
+            <div class="actions diet-pkg-actions">
+              <button type="button" class="btn-diet" id="diet-pkg-confirm">Add to today</button>
+              <button type="button" class="btn-diet" id="diet-pkg-save-add">Save &amp; add</button>
               <button type="button" class="btn-diet-ghost" id="diet-pkg-cancel">Cancel</button>
             </div>
           </div>
@@ -387,6 +414,10 @@
             <button type="button" class="btn-diet" id="diet-export-csv">Download CSV</button>
             <button type="button" class="btn-diet-ghost" id="diet-export-copy">Copy summary</button>
             <button type="button" class="btn-diet-ghost" id="diet-export-share" hidden>Share</button>
+          </div>
+          <div class="diet-export-all-block">
+            <p class="hint">Full backup — meals, weights, periods, profile basics, steps, targets. No tokens or API keys.</p>
+            <button type="button" class="btn-diet" id="diet-export-all-data">Export all site data</button>
           </div>
           <p class="status" id="diet-export-status" hidden></p>
         </div>
@@ -1228,8 +1259,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261013kcal2"></script>
-  <script src="./js/diet-admin.js?v=20261013kcal2"></script>
-  <script src="./js/app.js?v=20261013kcal2"></script>
+  <script src="./js/workout-admin.js?v=20261013lib3"></script>
+  <script src="./js/diet-admin.js?v=20261013lib3"></script>
+  <script src="./js/app.js?v=20261013lib3"></script>
 </body>
 </html>
