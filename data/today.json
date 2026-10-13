@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-10-12T05:41:00.000Z",
-  "planDate": null,
-  "headline": "",
-  "support": "",
+  "updatedAt": "2026-10-13T17:11:34.678Z",
+  "planDate": "2026-10-13",
+  "headline": "Test exercise",
+  "support": "Stretch · lift · log",
   "restNote": {
     "title": "Rest & water",
     "body": "Rest 1–1.5 min between sets. Drink water — not cold; warm or room temp, sip by sip.",
@@ -15,7 +15,32 @@
       "title": "Stretching",
       "subtitle": "Easy and controlled",
       "kind": "stretch",
-      "moves": []
+      "moves": [
+        {
+          "id": "baby-sit-mv6xs402-6ids",
+          "name": "Baby sit",
+          "rx": "10 reps",
+          "remarks": "",
+          "gif": "media/custom-baby-sit-mv3vcrf6.gif",
+          "demo": "img"
+        },
+        {
+          "id": "spine-stretch-mv6xsmta-wmjz",
+          "name": "Spine Stretch",
+          "rx": "10 reps",
+          "remarks": "",
+          "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/spine/spine-stretch.gif",
+          "demo": "img"
+        },
+        {
+          "id": "arm-circles-mv6xssdh-m3ox",
+          "name": "Arm circles",
+          "rx": "10 reps",
+          "remarks": "",
+          "gif": "media/arm-circles.gif",
+          "demo": "img"
+        }
+      ]
     },
     {
       "id": "exercise",
@@ -23,9 +48,16 @@
       "title": "Exercise",
       "subtitle": "Follow the prescriptions",
       "kind": "main",
-      "moves": []
+      "moves": [
+        {
+          "id": "chest-press-flat-bench-mv6xtzpo-gt7j",
+          "name": "Chest press flat bench",
+          "rx": "2 × 12",
+          "remarks": "",
+          "gif": "media/chest-press.gif",
+          "demo": "img"
+        }
+      ]
     }
-  ],
-  "empty": true,
-  "note": "Waiting for Admin to publish the first exercise plan."
+  ]
 }
