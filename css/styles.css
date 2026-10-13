@@ -5630,7 +5630,9 @@ body.is-admin section.ai-admin-only {
   color: rgba(40, 60, 50, 0.55);
   line-height: 1.35;
 }
-.diet-grams-chip {
+/* Beat .food-list button { color: var(--danger) } — grams must stay quiet */
+.food-list .diet-grams-chip,
+.diet-extra-list .diet-grams-chip {
   flex: 0 0 auto;
   align-self: center;
   min-width: 3.25rem;
@@ -5646,7 +5648,8 @@ body.is-admin section.ai-admin-only {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.diet-grams-chip:active {
+.food-list .diet-grams-chip:active,
+.diet-extra-list .diet-grams-chip:active {
   background: rgba(61, 143, 98, 0.1);
   color: rgba(29, 58, 46, 0.85);
 }
@@ -5669,7 +5672,8 @@ body.is-admin section.ai-admin-only {
   gap: 0.1rem;
   margin-top: 0.15rem;
 }
-.diet-remove-btn {
+.food-list .diet-remove-btn,
+.diet-extra-list .diet-remove-btn {
   flex: 0 0 auto;
   align-self: center;
   min-width: 2rem;
@@ -5677,13 +5681,15 @@ body.is-admin section.ai-admin-only {
   padding: 0.25rem;
   border: none;
   background: transparent;
-  color: rgba(180, 70, 60, 0.55);
+  color: rgba(180, 70, 60, 0.5);
   font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.diet-remove-btn:active {
-  color: rgba(180, 70, 60, 0.9);
+.food-list .diet-remove-btn:active,
+.diet-extra-list .diet-remove-btn:active {
+  color: rgba(180, 70, 60, 0.85);
 }
 .diet-grams-sheet {
   margin: 0.85rem 0 1.1rem;
