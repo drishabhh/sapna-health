@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T18:37:35.211Z",
+  "updatedAt": "2026-10-13T18:37:46.097Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -35,7 +35,8 @@
         "extra-mv6h3zzn-bp3": 100,
         "extra-mv6h6ffx-4py": 120,
         "extra-mv6xe6jx-wdc": 50,
-        "extra-mv6xelmn-5da": 120
+        "extra-mv6xelmn-5da": 120,
+        "extra-mv70wzut-w8v": 220
       },
       "deletedIds": [
         "extra-mv6bofik-526",
@@ -45,7 +46,7 @@
         "extra-mv6xhp06-o6h",
         "extra-mv6xlf3d-9od"
       ],
-      "updatedAt": "2026-10-13T18:09:28.972675Z",
+      "updatedAt": "2026-10-13T18:37:45.222Z",
       "extras": [
         {
           "id": "extra-mv6bok5r-jdu",
@@ -114,6 +115,23 @@
           "amount": 120,
           "amountLabel": "3 servings",
           "kind": "packaged"
+        },
+        {
+          "id": "extra-mv70wzut-w8v",
+          "foodId": "gfood-aloo-gobi-220g--220",
+          "meal": "dinner",
+          "name": "Aloo Gobi (220g)",
+          "kcal": 220,
+          "protein": 6,
+          "servings": 1,
+          "servingGrams": 220,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 220,
+          "amount": 220,
+          "carbs": 32,
+          "fat": 8,
+          "amountLabel": "220 g"
         }
       ],
       "breakfast": [],
