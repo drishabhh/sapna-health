@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013grams1";
+  const PROFILE_ASSET_V = "20261013self1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -245,8 +245,8 @@
           </button>
           <button type="button" class="dash-pill" data-nav="diet">
             <em>Diet</em>
-            <strong>${diet.waitingAdmin ? "—" : diet.over ? `+${Math.round(diet.kcal - diet.targetKcal)}` : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
-            <span>${diet.waitingAdmin ? "no plan yet" : diet.over ? "kcal over" : "kcal left"}</span>
+            <strong>${diet.over ? `+${Math.round(diet.kcal - diet.targetKcal)}` : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
+            <span>${diet.over ? "kcal over" : "kcal left"}</span>
           </button>
           <button type="button" class="dash-pill" data-nav="periods">
             <em>Cycle</em>
@@ -285,13 +285,9 @@
           <div class="today-card today-card-diet dash-card">
             <div class="dash-card-top">
               <p class="today-kicker">Diet tracker</p>
-              <span class="dash-badge">${diet.waitingAdmin ? "—" : `${kcalPct}%`}</span>
+              <span class="dash-badge">${kcalPct}%</span>
             </div>
-            ${
-              diet.waitingAdmin
-                ? `<p class="empty-teach">No meal plan yet — waiting for Admin to publish.</p>
-            <a class="today-cta" href="#diet" data-nav="diet">Open Diet</a>`
-                : `<p class="hf-today-left"><strong>${diet.over ? Math.round(diet.kcal - diet.targetKcal) : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
+            <p class="hf-today-left"><strong>${diet.over ? Math.round(diet.kcal - diet.targetKcal) : diet.left != null ? diet.left : Math.max(0, Math.round((diet.targetKcal || 0) - (diet.kcal || 0)))}</strong>
               <span>${diet.over ? "kcal over" : "kcal left"}</span></p>
             <p class="hf-today-meals">${["breakfast","lunch","dinner","snacks"].map((m) => {
               const on = diet.mealFill && diet.mealFill[m];
@@ -300,8 +296,7 @@
             }).join("")}</p>
             ${barHtml("Eaten", Math.round(diet.kcal), diet.targetKcal, "jade")}
             ${barHtml("Protein g", Math.round(diet.protein), diet.targetProtein, "jade")}
-            <a class="today-cta" href="#diet" data-nav="diet">Log food</a>`
-            }
+            <a class="today-cta" href="#diet" data-nav="diet">Log food</a>
           </div>
 
           <a class="today-card today-card-periods dash-card dash-card-${periodTone}" href="#periods" data-nav="periods">
@@ -3216,13 +3211,8 @@ ${JSON.stringify(example, null, 2)}`;
       ensureDay();
       let kcal = 0;
       let protein = 0;
+      /* Sapna self-log only — no admin pre-built plan in totals */
       MEALS.forEach(({ id }) => {
-        planItems(id).forEach((item) => {
-          if (!isDone(item.id)) return;
-          const s = scaledPlanItem(item);
-          kcal += Number(s.kcal) || 0;
-          protein += Number(s.protein) || 0;
-        });
         extrasInMeal(id).forEach((item) => {
           const s = scaledExtra(item);
           kcal += Number(s.kcal) || 0;
@@ -3235,9 +3225,6 @@ ${JSON.stringify(example, null, 2)}`;
     function slotKcal(slot) {
       ensureDay();
       let n = 0;
-      planItems(slot).forEach((item) => {
-        if (isDone(item.id)) n += Number(scaledPlanItem(item).kcal) || 0;
-      });
       extrasInMeal(slot).forEach((item) => {
         n += Number(scaledExtra(item).kcal) || 0;
       });
@@ -3311,6 +3298,7 @@ ${JSON.stringify(example, null, 2)}`;
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
       maybeAutoSyncChecks();
+      return entry;
     }
 
     function addQuickExtra() {
@@ -3420,10 +3408,10 @@ ${JSON.stringify(example, null, 2)}`;
         : "";
       const localHtml = local.length
         ? local.map(foodButtonHtml).join("")
-        : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}. Try Custom food below.</p>`;
+        : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}. Ask Admin to add it, or quick-add kcal below.</p>`;
       const mealLabel = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
       root.innerHTML = `${recentHtml}<div class="food-pick-group">
-        <p class="food-pick-label">Food library <span class="food-pick-hint">→ ${escapeHtml(mealLabel)}</span></p>
+        <p class="food-pick-label">Library <span class="food-pick-hint">→ ${escapeHtml(mealLabel)}</span></p>
         ${localHtml}
       </div>`;
     }
@@ -3439,7 +3427,7 @@ ${JSON.stringify(example, null, 2)}`;
       const hint = $("diet-add-meal-hint");
       if (hint) {
         const label = MEALS.find((m) => m.id === meal)?.label || meal;
-        hint.textContent = `Extra · ${label}`;
+        hint.textContent = `Add · ${label}`;
       }
       renderFoodPick($("diet-search")?.value || "");
       /* No autofocus — keyboard only when Sapna taps a real text/number field */
@@ -3464,23 +3452,19 @@ ${JSON.stringify(example, null, 2)}`;
       if (proEl && document.activeElement !== proEl) proEl.value = t.protein;
 
       if ($("diet-plan-headline")) {
-        $("diet-plan-headline").textContent = publishedPlan?.headline || "Today’s plate";
+        $("diet-plan-headline").textContent = "Today’s plate";
       }
       if ($("diet-plan-support")) {
-        const support = String(publishedPlan?.support || "").trim();
-        $("diet-plan-support").textContent = support;
-        $("diet-plan-support").hidden = !support;
+        $("diet-plan-support").textContent = "Add breakfast · lunch · dinner · snacks";
+        $("diet-plan-support").hidden = false;
       }
       const planSt = $("diet-plan-status");
       if (planSt) {
-        if (!publishedPlan) {
-          planSt.hidden = false;
-          planSt.textContent =
-            "No meal plan yet — waiting for Admin to publish. You can still quick-add foods below.";
-        } else {
-          planSt.hidden = true;
-          planSt.textContent = "";
-        }
+        const anyLogged = MEALS.some(({ id }) => extrasInMeal(id).length > 0);
+        planSt.hidden = anyLogged;
+        planSt.textContent = anyLogged
+          ? ""
+          : "Tap + Add on a meal · pick from the library · edit grams if you ate less or more.";
       }
 
       const totalsRoot = $("diet-totals");
@@ -3489,13 +3473,13 @@ ${JSON.stringify(example, null, 2)}`;
         const proPct = Math.max(0, Math.min(100, Math.round((tot.protein / (t.protein || 1)) * 100)));
         totalsRoot.innerHTML = `
           <div class="hf-remain-card ${over ? "is-over" : ""}">
-            <p class="hf-remain-kicker">${over ? "Over plan" : "Diet taken"}</p>
+            <p class="hf-remain-kicker">${over ? "Over target" : "Diet taken"}</p>
             <p class="hf-remain-num"><strong>${tot.kcal}</strong>
               <span>/ ${t.kcal} kcal</span></p>
             <div class="hf-remain-meta">
               <span><b>${over ? "+" + (tot.kcal - t.kcal) : left}</b> ${over ? "over" : "left"}</span>
               <span><b>${tot.protein}g</b> / ${t.protein}g protein</span>
-              <span>checked + extras</span>
+              <span>your log</span>
             </div>
             <div class="hf-remain-bars" aria-hidden="true">
               <div class="hf-bar"><i style="width:${kcalPct}%"></i></div>
@@ -3507,43 +3491,16 @@ ${JSON.stringify(example, null, 2)}`;
       const mealsRoot = $("diet-meals");
       if (mealsRoot) {
         mealsRoot.innerHTML = MEALS.map(({ id, label }) => {
-          const planned = planItems(id);
-          const extras = extrasInMeal(id);
+          const items = extrasInMeal(id);
           const sk = slotKcal(id);
-          const checkedN = planned.filter((it) => isDone(it.id)).length;
-          const planLis = planned.length
-            ? planned
-                .map((item) => {
-                  const on = isDone(item.id);
-                  const s = scaledPlanItem(item);
-                  const noteBit = item.note && !parseServingGrams(item.note) ? ` · ${escapeHtml(item.note)}` : "";
-                  return `<li class="diet-check-row${on ? " is-done" : ""}">
-                    <button type="button" class="diet-check-toggle" data-check-id="${escapeHtml(item.id)}" aria-pressed="${on ? "true" : "false"}" aria-label="${on ? "Unmark" : "Mark eaten"}">
-                      <span class="diet-check-box" aria-hidden="true">${on ? "✓" : ""}</span>
-                      <span class="diet-check-copy">
-                        <strong>${escapeHtml(item.name)}</strong>
-                        <em>${macroLine(s)}${noteBit}</em>
-                        ${ingredientsHtml(s.ingredients)}
-                      </span>
-                    </button>
-                    <button type="button" class="diet-grams-chip" data-edit-grams="${escapeHtml(item.id)}" data-grams-kind="plan" aria-label="Edit grams">
-                      ${roundn(s.grams, 0)}&nbsp;g
-                    </button>
-                  </li>`;
-                })
-                .join("")
-            : `<li class="hf-meal-empty">${
-                publishedPlan
-                  ? "No items in this meal — quick-add below."
-                  : "Waiting for Admin plan — or quick-add below."
-              }</li>`;
-          const extraLis = extras
-            .map((item, i) => {
-              const s = scaledExtra(item);
-              const gid = item.id || `legacy-${id}-${i}`;
-              return `<li class="diet-extra-row">
+          const rows = items.length
+            ? items
+                .map((item, i) => {
+                  const s = scaledExtra(item);
+                  const gid = item.id || `legacy-${id}-${i}`;
+                  return `<li class="diet-extra-row diet-log-row">
                 <div class="diet-extra-main">
-                  <div>${escapeHtml(item.name)} <span class="diet-extra-tag">extra</span></div>
+                  <div><strong>${escapeHtml(item.name)}</strong></div>
                   <div class="meta">${macroLine(s)}</div>
                   ${ingredientsHtml(s.ingredients)}
                 </div>
@@ -3552,18 +3509,18 @@ ${JSON.stringify(example, null, 2)}`;
                 </button>
                 <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
               </li>`;
-            })
-            .join("");
+                })
+                .join("")
+            : `<li class="hf-meal-empty">Nothing yet — tap + Add</li>`;
           return `<section class="hf-meal-card meal-slot" data-meal-slot="${id}">
             <header class="hf-meal-head">
               <div>
                 <h3>${label}</h3>
-                <p class="hf-meal-kcal">${sk} kcal · ${checkedN}/${planned.length} checked${extras.length ? ` · ${extras.length} extra` : ""}</p>
+                <p class="hf-meal-kcal">${sk} kcal · ${items.length} item${items.length === 1 ? "" : "s"}</p>
               </div>
-              <button type="button" class="hf-add-btn" data-add-meal="${id}">+ Extra</button>
+              <button type="button" class="hf-add-btn" data-add-meal="${id}">+ Add</button>
             </header>
-            <ul class="food-list diet-check-list">${planLis}</ul>
-            ${extraLis ? `<ul class="food-list diet-extra-list">${extraLis}</ul>` : ""}
+            <ul class="food-list diet-extra-list">${rows}</ul>
           </section>`;
         }).join("");
       }
@@ -3571,7 +3528,7 @@ ${JSON.stringify(example, null, 2)}`;
       const hint = $("diet-add-meal-hint");
       if (hint) {
         const label = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
-        hint.textContent = `Extra · ${label}`;
+        hint.textContent = `Add · ${label}`;
       }
       renderFoodPick($("diet-search")?.value || "");
       if (typeof Today !== "undefined" && Today.render && document.body.dataset.section === "today") {
@@ -4170,18 +4127,29 @@ ${JSON.stringify(example, null, 2)}`;
         }
         const meal = $("diet-meal")?.value || "breakfast";
         const servings = $("diet-servings")?.value || 1;
-        addItem(food, meal, servings);
+        const entry = addItem(food, meal, servings);
         setStatus($("diet-status"), `Added ${food.name}`, "ok");
         if ($("diet-search")) $("diet-search").value = "";
         renderFoodPick("");
+        /* Offer gram tweak right away (e.g. library 150g → she ate 100g) */
+        if (entry?.id) {
+          const idx = extrasInMeal(meal).findIndex((x) => x.id === entry.id);
+          openGramsSheet({ kind: "extra", id: entry.id, meal, idx: idx >= 0 ? idx : 0 });
+        }
       });
       wirePackagedProductUi();
       $("diet-add-custom")?.addEventListener("click", () => {
+        const st = $("diet-library-status") || $("diet-status");
+        if (!isAdminUnlocked()) {
+          setStatus(st, "Admin only.", "error");
+          return;
+        }
         const name = $("diet-custom-name")?.value.trim();
         const kcal = Number($("diet-custom-kcal")?.value);
         const protein = Number($("diet-custom-protein")?.value);
+        const grams = Number($("diet-custom-grams")?.value);
         if (!name || !Number.isFinite(kcal)) {
-          setStatus($("diet-status"), "Name and kcal required.", "error");
+          setStatus(st, "Name and kcal required.", "error");
           return;
         }
         const food = {
@@ -4189,14 +4157,24 @@ ${JSON.stringify(example, null, 2)}`;
           name,
           kcal,
           protein: Number.isFinite(protein) ? protein : 0,
-          tags: ["custom"],
+          tags: ["custom", "admin-library"],
         };
+        if (Number.isFinite(grams) && grams > 0) {
+          food.servingGrams = grams;
+          food.servingSize = `${grams}g`;
+        } else {
+          const parsed = parseServingGrams(name);
+          if (parsed) food.servingGrams = parsed;
+        }
         state.customFoods = state.customFoods || [];
         state.customFoods.push(food);
         persist();
-        addItem(food, $("diet-meal")?.value || "snacks", $("diet-servings")?.value || 1);
-        $("diet-custom-name").value = "";
-        setStatus($("diet-status"), "Custom food added.", "ok");
+        if ($("diet-custom-name")) $("diet-custom-name").value = "";
+        if ($("diet-custom-kcal")) $("diet-custom-kcal").value = "";
+        if ($("diet-custom-protein")) $("diet-custom-protein").value = "";
+        if ($("diet-custom-grams")) $("diet-custom-grams").value = "";
+        setStatus(st, `Added “${name}” to library on this phone.`, "ok");
+        renderFoodPick($("diet-search")?.value || "");
       });
       $("diet-save-targets")?.addEventListener("click", () => {
         state.targets = {
@@ -4209,12 +4187,12 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus($("diet-status"), "Targets saved on this phone.", "ok");
       });
       $("diet-clear-day")?.addEventListener("click", () => {
-        if (!confirm("Clear today’s checkmarks and extras?")) return;
+        if (!confirm("Clear today’s food log?")) return;
         state.day = emptyDay();
         if (state.checksByDate) delete state.checksByDate[todayISO()];
         persist();
         render();
-        setStatus($("diet-status"), "Today’s checkmarks cleared.", "info");
+        setStatus($("diet-status"), "Today’s log cleared.", "info");
       });
       $("diet-meals")?.addEventListener("click", (e) => {
         const gramsBtn = e.target.closest("[data-edit-grams]");
@@ -4222,16 +4200,11 @@ ${JSON.stringify(example, null, 2)}`;
           e.preventDefault();
           e.stopPropagation();
           openGramsSheet({
-            kind: gramsBtn.getAttribute("data-grams-kind") === "extra" ? "extra" : "plan",
+            kind: "extra",
             id: gramsBtn.getAttribute("data-edit-grams"),
             meal: gramsBtn.getAttribute("data-extra-meal") || undefined,
             idx: gramsBtn.getAttribute("data-extra-idx"),
           });
-          return;
-        }
-        const check = e.target.closest("[data-check-id]");
-        if (check) {
-          toggleDone(check.getAttribute("data-check-id"));
           return;
         }
         const add = e.target.closest("[data-add-meal]");
@@ -4286,17 +4259,6 @@ ${JSON.stringify(example, null, 2)}`;
       ensureDay();
       const out = [];
       MEALS.forEach(({ id, label }) => {
-        planItems(id).forEach((item) => {
-          if (!isDone(item.id)) return;
-          const s = scaledPlanItem(item);
-          out.push({
-            meal: label,
-            name: item.name,
-            kcal: Math.round(Number(s.kcal) || 0),
-            protein: Math.round((Number(s.protein) || 0) * 10) / 10,
-            grams: s.grams,
-          });
-        });
         extrasInMeal(id).forEach((item) => {
           const s = scaledExtra(item);
           out.push({
@@ -4391,9 +4353,7 @@ ${JSON.stringify(example, null, 2)}`;
       ensureDay();
       const mealFill = {};
       MEALS.forEach(({ id }) => {
-        const planned = planItems(id);
-        const anyChecked = planned.some((it) => isDone(it.id));
-        mealFill[id] = anyChecked || extrasInMeal(id).length > 0;
+        mealFill[id] = extrasInMeal(id).length > 0;
       });
       return {
         kcal: tot.kcal,
@@ -4403,8 +4363,8 @@ ${JSON.stringify(example, null, 2)}`;
         left,
         over: tot.kcal > tg.kcal,
         mealFill,
-        planHeadline: publishedPlan?.headline || "",
-        waitingAdmin: !publishedPlan,
+        planHeadline: "Today’s plate",
+        waitingAdmin: false,
       };
     }
 

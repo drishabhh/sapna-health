@@ -5714,6 +5714,14 @@ body.is-admin section.ai-admin-only {
   flex: 1;
   min-width: 0;
 }
+.diet-log-row {
+  background: rgba(255, 252, 248, 0.95);
+  border: 1px solid rgba(40, 80, 55, 0.12);
+}
+.diet-log-row strong {
+  font-size: 0.95rem;
+  color: #1d3a2e;
+}
 .diet-extra-tag {
   display: inline-block;
   margin-left: 0.35rem;

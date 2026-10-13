@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261013grams1";
+      var APP_V = "20261013self1";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261013grams1"></script>
+  <script src="./js/admin-auth.js?v=20261013self1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261013grams1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261013self1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -258,12 +258,12 @@
     </div>
   </section>
 
-  <!-- DIET — Sapna: checkmarks on admin plan + simple extras -->
+  <!-- DIET — Sapna logs her own meals from the Admin food library -->
   <section class="panel panel-diet" id="panel-diet" data-panel="diet">
     <div class="diet-hero diet-hero-compact hf-diet-hero">
       <p class="hf-diet-eyebrow">Diet</p>
       <h1 class="diet-title" id="diet-plan-headline">Today’s plate</h1>
-      <p class="diet-lede" id="diet-plan-support" hidden></p>
+      <p class="diet-lede" id="diet-plan-support">Add breakfast · lunch · dinner · snacks</p>
       <div class="profile-entry-row">
         <button type="button" class="btn-diet-ghost profile-open-btn" data-profile-open>Profile</button>
       </div>
@@ -281,9 +281,9 @@
     <div class="panel-inner diet-inner">
       <div class="diet-profile-summary" id="diet-profile-summary" hidden></div>
       <div class="diet-rings hf-diet-totals" id="diet-totals" aria-label="Calories eaten vs plan"></div>
-      <p class="hint" id="diet-plan-status">Loading today’s meal plan…</p>
+      <p class="hint" id="diet-plan-status">Loading…</p>
 
-      <div class="diet-meals-wrap hf-meals diet-plan-check-wrap" id="diet-meals" aria-label="Meal plan checkmarks"></div>
+      <div class="diet-meals-wrap hf-meals diet-plan-check-wrap" id="diet-meals" aria-label="Your meals today"></div>
 
       <div class="diet-grams-sheet" id="diet-grams-sheet" hidden>
         <p class="diet-grams-name" id="diet-grams-name"></p>
@@ -308,28 +308,16 @@
         <option value="snacks">Snacks</option>
       </select>
 
-      <!-- Sapna quick add (no AI) -->
+      <!-- Sapna add food (library / quick kcal — no AI, no library write) -->
       <div class="diet-card diet-add-card hf-add-card diet-quick-add-card" id="diet-add-card">
         <div class="hf-add-head">
-          <h2>Quick add</h2>
-          <p class="hf-add-meal-hint" id="diet-add-meal-hint">Extra · Breakfast</p>
+          <h2>Add food</h2>
+          <p class="hf-add-meal-hint" id="diet-add-meal-hint">Add · Breakfast</p>
         </div>
-        <div class="field-row diet-quick-row">
-          <label class="field field-grow">Name
-            <input type="text" id="diet-quick-name" placeholder="e.g. Samosa, latte…" autocomplete="off" />
-          </label>
-          <label class="field">kcal
-            <input type="number" id="diet-quick-kcal" min="0" step="10" inputmode="numeric" />
-          </label>
-          <label class="field">Protein
-            <input type="number" id="diet-quick-protein" min="0" step="0.5" inputmode="decimal" placeholder="g" />
-          </label>
-        </div>
-        <button type="button" class="btn-diet diet-quick-save" id="diet-quick-add">Add extra</button>
-        <label class="field">Or search library
-          <input type="search" id="diet-search" placeholder="Roti, bread, curd…" enterkeyhint="search" autocomplete="off" />
+        <label class="field">Search library
+          <input type="search" id="diet-search" placeholder="Thatte idli, roti, curd…" enterkeyhint="search" autocomplete="off" />
         </label>
-        <label class="field field-inline-servings" id="diet-servings-wrap">Servings
+        <label class="field field-inline-servings" id="diet-servings-wrap" hidden>Servings
           <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
         </label>
         <div class="food-pick" id="diet-food-pick"></div>
@@ -351,27 +339,28 @@
           </div>
         </div>
 
-        <details class="diet-custom">
-          <summary>Custom food → library</summary>
-          <div class="field-row">
-            <label class="field">Name
-              <input type="text" id="diet-custom-name" placeholder="e.g. Homemade sandwich" />
+        <details class="diet-custom diet-quick-oneoff">
+          <summary>Not in library? Quick kcal</summary>
+          <div class="field-row diet-quick-row">
+            <label class="field field-grow">Name
+              <input type="text" id="diet-quick-name" placeholder="e.g. Samosa, latte…" autocomplete="off" />
             </label>
-            <label class="field">kcal / serving
-              <input type="number" id="diet-custom-kcal" min="0" step="1" />
+            <label class="field">kcal
+              <input type="number" id="diet-quick-kcal" min="0" step="10" inputmode="numeric" />
+            </label>
+            <label class="field">Protein
+              <input type="number" id="diet-quick-protein" min="0" step="0.5" inputmode="decimal" placeholder="g" />
             </label>
           </div>
-          <label class="field">Protein g / serving
-            <input type="number" id="diet-custom-protein" min="0" step="0.1" />
-          </label>
-          <button type="button" class="btn-diet" id="diet-add-custom">Save &amp; add</button>
+          <button type="button" class="btn-diet diet-quick-save" id="diet-quick-add">Add to meal</button>
+          <p class="hint">One-off only — does not add to the shared library (Admin does that).</p>
         </details>
         <p class="status" id="diet-status" hidden></p>
       </div>
 
       <details class="diet-card diet-sync-card">
         <summary class="diet-card-head">
-          <h2>Sync checkmarks</h2>
+          <h2>Sync meals</h2>
           <span class="diet-chip">optional</span>
         </summary>
         <p class="hint">Same GitHub PAT · <code>data/diet-checks.json</code></p>
@@ -813,67 +802,54 @@
 
       <hr class="admin-sep" />
 
-      <section class="admin-block plan-launch diet-plan-launch">
-        <h3 class="admin-subhead">Diet plans</h3>
-        <p class="hint">Cart → Publish · Sapna checkmarks</p>
-        <div class="actions plan-launch-actions">
-          <button type="button" class="btn-primary" id="diet-edit-current">Edit today’s diet</button>
-          <button type="button" class="btn-ghost" id="diet-create-new">New diet day</button>
+      <section class="admin-block" id="admin-food-library">
+        <h3 class="admin-subhead">Food library</h3>
+        <p class="hint">Admin only — Sapna picks from this library when she logs meals. No pre-built daily plan.</p>
+        <div class="field-row">
+          <label class="field">Name
+            <input type="text" id="diet-custom-name" placeholder="e.g. Thatte idli (1 large)" />
+          </label>
+          <label class="field">Serving g
+            <input type="number" id="diet-custom-grams" min="1" step="1" placeholder="150" />
+          </label>
         </div>
-        <div class="actions plan-launch-actions">
-          <button type="button" class="btn-primary" id="diet-ai-suggest">AI fill plan</button>
-          <button type="button" class="btn-ghost" id="diet-ai-suggest-puter">Puter Grok fill</button>
+        <div class="field-row">
+          <label class="field">kcal / serving
+            <input type="number" id="diet-custom-kcal" min="0" step="1" />
+          </label>
+          <label class="field">Protein g
+            <input type="number" id="diet-custom-protein" min="0" step="0.1" />
+          </label>
         </div>
-        <p class="status" id="diet-ai-suggest-status" hidden></p>
+        <button type="button" class="btn-primary" id="diet-add-custom">Add to library</button>
+        <p class="status" id="diet-library-status" hidden></p>
       </section>
 
+      <!-- Legacy diet-plan builder kept hidden (wiring); Sapna no longer uses published plans -->
       <div id="diet-plan-builder" class="plan-builder diet-plan-builder" hidden>
-        <section class="admin-block plan-cart-block">
-          <p class="plan-builder-meta" id="diet-plan-builder-meta" hidden></p>
-          <div class="admin-block-head">
-            <h3 class="admin-subhead">Diet cart (<span data-diet-cart-count>0</span>)</h3>
-            <button type="button" class="btn-ghost" id="diet-plan-browse-open">Browse foods</button>
-          </div>
-          <p class="hint" id="diet-plan-cart-empty">Cart empty — Browse foods or AI fill, then Publish.</p>
-          <div id="diet-plan-cart-list" class="plan-cart-list diet-plan-cart-list" hidden></div>
-          <details class="plan-copy-details" open>
-            <summary>Headline &amp; targets</summary>
-            <label class="field">Headline
-              <input type="text" id="diet-edit-headline" placeholder="Balanced plate" />
-            </label>
-            <label class="field">Support line
-              <input type="text" id="diet-edit-support" placeholder="Check what you ate" />
-            </label>
-            <div class="field-row">
-              <label class="field">Target kcal
-                <input type="number" id="diet-edit-kcal" min="800" step="50" />
-              </label>
-              <label class="field">Target protein
-                <input type="number" id="diet-edit-protein" min="20" step="5" />
-              </label>
-            </div>
-          </details>
-          <p class="admin-status" id="diet-publish-status" hidden></p>
-          <div class="actions admin-publish-actions plan-checkout-actions">
-            <button type="button" class="btn-primary" id="publish-diet-plan" disabled>Publish diet plan</button>
-          </div>
-        </section>
-        <hr class="admin-sep" />
+        <button type="button" id="diet-edit-current" hidden></button>
+        <button type="button" id="diet-create-new" hidden></button>
+        <button type="button" id="diet-ai-suggest" hidden></button>
+        <button type="button" id="diet-ai-suggest-puter" hidden></button>
+        <button type="button" id="diet-plan-browse-open" hidden></button>
+        <button type="button" id="publish-diet-plan" hidden></button>
+        <button type="button" id="diet-plan-history-refresh" hidden></button>
+        <input type="text" id="diet-edit-headline" hidden />
+        <input type="text" id="diet-edit-support" hidden />
+        <input type="number" id="diet-edit-kcal" hidden />
+        <input type="number" id="diet-edit-protein" hidden />
+        <div id="diet-plan-cart-list" hidden></div>
+        <p id="diet-plan-cart-empty" hidden></p>
+        <p id="diet-plan-builder-meta" hidden></p>
+        <p id="diet-publish-status" hidden></p>
+        <p id="diet-ai-suggest-status" hidden></p>
+        <div id="diet-plan-history-list" hidden></div>
       </div>
-
-      <section class="admin-block">
-        <div class="admin-block-head">
-          <h3 class="admin-subhead">Previous diet plans</h3>
-          <button type="button" class="btn-ghost" id="diet-plan-history-refresh">Refresh</button>
-        </div>
-        <p class="hint">Saved on GitHub when you Publish — works across phones.</p>
-        <div id="diet-plan-history-list" class="plan-history-list"></div>
-      </section>
 
       <hr class="admin-sep" />
 
       <section class="admin-block">
-        <h3 class="admin-subhead">Diet defaults</h3>
+        <h3 class="admin-subhead">Diet targets (defaults)</h3>
         <div class="field-row">
           <label class="field">Default kcal
             <input type="number" id="admin-kcal" min="800" step="50" />
@@ -886,7 +862,7 @@
 
       <section class="admin-block ai-admin-only" id="admin-diet-ai-tools">
         <h3 class="admin-subhead">Food AI tools</h3>
-        <p class="hint">Packaged product fill + batch library — Admin only. Sapna never sees these buttons.</p>
+        <p class="hint">Packaged product fill + batch library — Admin only. Sapna never sees these.</p>
         <details class="diet-custom diet-add-product" id="diet-packaged-card" open>
           <summary>Add product (AI)</summary>
           <div class="field-row">
@@ -1208,8 +1184,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261013grams1"></script>
-  <script src="./js/diet-admin.js?v=20261013grams1"></script>
-  <script src="./js/app.js?v=20261013grams1"></script>
+  <script src="./js/workout-admin.js?v=20261013self1"></script>
+  <script src="./js/diet-admin.js?v=20261013self1"></script>
+  <script src="./js/app.js?v=20261013self1"></script>
 </body>
 </html>
