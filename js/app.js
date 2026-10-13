@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013del1";
+  const PROFILE_ASSET_V = "20261013kcal1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3215,6 +3215,17 @@ ${JSON.stringify(example, null, 2)}`;
       return line;
     }
 
+    /** Row meta: calories emphasized; other macros quiet */
+    function macroRowHtml(m, note) {
+      let rest = `${roundn(m.protein, 1)}g P`;
+      if (m.carbs != null) rest += ` · ${roundn(m.carbs, 1)}g C`;
+      if (m.fat != null) rest += ` · ${roundn(m.fat, 1)}g F`;
+      if (m.fiber != null) rest += ` · ${roundn(m.fiber, 1)}g fi`;
+      if (note) rest += ` · ${note}`;
+      return `<span class="diet-kcal-hl">${Math.round(m.kcal)} kcal</span>` +
+        `<span class="diet-macro-rest"> · ${rest}</span>`;
+    }
+
     function ingredientsHtml(ings) {
       if (!ings?.length) return "";
       const bits = ings
@@ -3557,13 +3568,13 @@ ${JSON.stringify(example, null, 2)}`;
                   return `<li class="diet-extra-row diet-log-row">
                 <div class="diet-extra-main">
                   <div><strong>${escapeHtml(item.name)}</strong></div>
-                  <div class="meta">${macroLine(s)}</div>
+                  <div class="meta diet-macro-meta">${macroRowHtml(s)}</div>
                   ${ingredientsHtml(s.ingredients)}
                 </div>
                 <button type="button" class="diet-grams-chip" data-edit-grams="${escapeHtml(gid)}" data-grams-kind="extra" data-extra-meal="${id}" data-extra-idx="${i}" aria-label="Edit grams">
                   ${roundn(s.grams, 0)}&nbsp;g
                 </button>
-                <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
+                <button type="button" class="diet-remove-btn" data-remove="${id}:${i}" aria-label="Remove">✕</button>
               </li>`;
                 })
                 .join("")
@@ -4125,13 +4136,24 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     let autoSyncTimer = null;
+    let autoSyncInFlight = null;
     function maybeAutoSyncChecks({ urgent } = {}) {
       if (!getSavedToken()) return;
       clearTimeout(autoSyncTimer);
-      const delay = urgent ? 300 : 300;
+      /* ~300ms debounce — deletes/adds/grams all flush; never drop a delete */
       autoSyncTimer = setTimeout(() => {
-        publishChecks($("diet-sync-status"));
-      }, delay);
+        const run = () => {
+          autoSyncInFlight = publishChecks($("diet-sync-status")).finally(() => {
+            autoSyncInFlight = null;
+          });
+          return autoSyncInFlight;
+        };
+        if (autoSyncInFlight) {
+          autoSyncInFlight.finally(run);
+        } else {
+          run();
+        }
+      }, urgent ? 300 : 300);
     }
 
     async function pullChecks({ quiet } = {}) {
