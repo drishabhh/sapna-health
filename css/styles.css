@@ -4929,6 +4929,7 @@ body.kb-open .admin-sheet,
 body.kb-open .profile-sheet,
 body.kb-open .token-setup-sheet,
 body.kb-open .diet-add-sheet,
+body.kb-open .diet-export-sheet,
 body.kb-open .plan-browse-sheet,
 body.kb-open .log-sheet {
   max-height: 100% !important;
