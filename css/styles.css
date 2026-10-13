@@ -3823,6 +3823,58 @@ body.gif-lightbox-open {
   gap: 0.5rem;
 }
 
+
+/* Sync connect banners (GitHub token — not profile onboarding) */
+.sync-connect-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(196, 122, 58, 0.14), rgba(26, 20, 18, 0.04));
+  border: 1px solid rgba(196, 122, 58, 0.35);
+}
+.sync-connect-banner[hidden] {
+  display: none !important;
+}
+.sync-connect-copy {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.sync-connect-title {
+  margin: 0.15rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: #1a1412;
+}
+.sync-connect-banner .btn-primary,
+.sync-connect-banner .btn-diet {
+  flex: 0 0 auto;
+  min-height: 44px;
+}
+.sync-connect-banner-diet {
+  margin: 0 0 0.85rem;
+  background: linear-gradient(135deg, rgba(46, 125, 90, 0.12), rgba(26, 20, 18, 0.03));
+  border-color: rgba(46, 125, 90, 0.3);
+}
+.sync-status-line {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  color: #5c534c;
+}
+.sync-status-line[hidden] {
+  display: none !important;
+}
+.token-setup-offline-note {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  color: #6b625a;
+}
+
 /* First-visit token setup */
 .token-setup-overlay {
   z-index: 100001;

@@ -365,6 +365,9 @@
     if (id === "diet") Diet.render();
     if (id === "periods") Periods.render();
     if (id === "logs") Weights.render();
+    try {
+      if (typeof TokenSetup !== "undefined" && TokenSetup.promptOnSection) TokenSetup.promptOnSection(id);
+    } catch (_) {}
   }
   window.showPanel = showPanel;
 
@@ -3051,6 +3054,7 @@ ${JSON.stringify(example, null, 2)}`;
           done: { ...(saved?.done || {}) },
           amounts: { ...(saved?.amounts || {}) },
           deletedIds,
+          updatedAt: saved?.updatedAt || null,
           extras: filterDeadItems(saved?.extras, dead),
           /* legacy free-form diary slots still count as extras if present */
           breakfast: filterDeadItems(saved?.breakfast, dead),
@@ -3070,8 +3074,14 @@ ${JSON.stringify(example, null, 2)}`;
       if (!Array.isArray(state.day.deletedIds)) state.day.deletedIds = [];
     }
 
-    function persistChecksSnapshot() {
+    function touchDay(ts) {
       ensureDay();
+      state.day.updatedAt = ts || new Date().toISOString();
+    }
+
+    function persistChecksSnapshot({ touch } = {}) {
+      ensureDay();
+      if (touch) touchDay();
       const dead = new Set(normalizeDeletedIds(state.day.deletedIds));
       const amounts = { ...(state.day.amounts || {}) };
       Object.keys(amounts).forEach((k) => {
@@ -3082,6 +3092,7 @@ ${JSON.stringify(example, null, 2)}`;
         done: { ...(state.day.done || {}) },
         amounts,
         deletedIds: normalizeDeletedIds(state.day.deletedIds),
+        updatedAt: state.day.updatedAt || null,
         extras: filterDeadItems(state.day.extras, dead),
         breakfast: filterDeadItems(state.day.breakfast, dead),
         lunch: filterDeadItems(state.day.lunch, dead),
@@ -3096,9 +3107,13 @@ ${JSON.stringify(example, null, 2)}`;
       return defaults.targets || { kcal: 1800, protein: 100 };
     }
 
-    function persist() {
-      persistChecksSnapshot();
+    function persist(opts = {}) {
+      persistChecksSnapshot({ touch: !!opts.touch });
       saveJSON(LS.diet, state);
+    }
+
+    function persistLocal() {
+      persist({ touch: true });
     }
 
     function dietPlanHasItems(plan) {
@@ -3137,7 +3152,7 @@ ${JSON.stringify(example, null, 2)}`;
       state.day.done[itemId] = !state.day.done[itemId];
       if (state.day.done[itemId]) markDietLogged(state.day.date);
       Haptics.light();
-      persist();
+      persistLocal();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
       maybeAutoSyncChecks();
@@ -4022,7 +4037,7 @@ ${JSON.stringify(example, null, 2)}`;
       state.day.deletedIds = normalizeDeletedIds(state.day.deletedIds).filter((id) => id !== entry.id);
       pushRecent(food.id);
       markDietLogged(state.day.date || todayISO());
-      persist();
+      persistLocal();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
       maybeAutoSyncChecks();
@@ -4066,7 +4081,7 @@ ${JSON.stringify(example, null, 2)}`;
 
     function removeExtra(extraId) {
       if (!tombstoneMealId(extraId)) return;
-      persist();
+      persistLocal();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
       if (typeof Today !== "undefined" && Today.render) Today.render();
@@ -4100,7 +4115,7 @@ ${JSON.stringify(example, null, 2)}`;
       state.day[meal] = state.day[meal] || [];
       const li = state.day[meal].findIndex((x) => x === item);
       if (li >= 0) state.day[meal].splice(li, 1);
-      persist();
+      persistLocal();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
       if (typeof Today !== "undefined" && Today.render) Today.render();
@@ -4563,7 +4578,7 @@ ${JSON.stringify(example, null, 2)}`;
         else setGramsOverlay(gramsPending.id, g);
       }
       Haptics.light();
-      persist();
+      persistLocal();
       closeGramsSheet();
       render();
       if (typeof Progress !== "undefined" && Progress.render) Progress.render();
@@ -4782,7 +4797,7 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function mergeAmounts(a, b, deleted) {
-      /* Union of overlays; local wins on conflict. Drop tombstoned ids. */
+      /* Union of overlays; later arg wins on conflict. Drop tombstoned ids. */
       const dead = deleted instanceof Set ? deleted : new Set(normalizeDeletedIds(deleted));
       const out = { ...(a && typeof a === "object" ? a : {}), ...(b && typeof b === "object" ? b : {}) };
       const clean = {};
@@ -4794,13 +4809,92 @@ ${JSON.stringify(example, null, 2)}`;
       return clean;
     }
 
+    function dayHasMealContent(day) {
+      if (!day || typeof day !== "object") return false;
+      if ((day.extras || []).length) return true;
+      if ((day.breakfast || []).length || (day.lunch || []).length || (day.dinner || []).length || (day.snacks || []).length)
+        return true;
+      const done = day.done || {};
+      if (Object.keys(done).some((id) => done[id])) return true;
+      const amounts = day.amounts || {};
+      if (Object.keys(amounts).some((id) => Number(amounts[id]) > 0)) return true;
+      if ((day.deletedIds || []).length) return true;
+      return false;
+    }
+
+    function dayUpdatedAtMs(day) {
+      if (!day || typeof day !== "object") return 0;
+      const t = Date.parse(day.updatedAt || "");
+      return Number.isFinite(t) ? t : 0;
+    }
+
+    function extrasIdSet(day) {
+      const ids = new Set();
+      const push = (list) => {
+        (Array.isArray(list) ? list : []).forEach((item) => {
+          if (item?.id != null) ids.add(String(item.id));
+        });
+      };
+      push(day?.extras);
+      push(day?.breakfast);
+      push(day?.lunch);
+      push(day?.dinner);
+      push(day?.snacks);
+      return ids;
+    }
+
+    function isIdSubset(small, large) {
+      for (const id of small) {
+        if (!large.has(id)) return false;
+      }
+      return true;
+    }
+
+    function snapshotDayFrom(src, deletedIds) {
+      const dead = new Set(deletedIds);
+      const done = {};
+      Object.keys(src.done || {}).forEach((k) => {
+        if (dead.has(String(k))) return;
+        done[k] = !!src.done[k];
+      });
+      return {
+        done,
+        deletedIds,
+        updatedAt: src.updatedAt || null,
+        amounts: mergeAmounts({}, src.amounts, dead),
+        extras: filterDeadItems(src.extras, dead),
+        breakfast: filterDeadItems(src.breakfast, dead),
+        lunch: filterDeadItems(src.lunch, dead),
+        dinner: filterDeadItems(src.dinner, dead),
+        snacks: filterDeadItems(src.snacks, dead),
+      };
+    }
+
     function mergeOneDay(localDay, remoteDay) {
       const L = localDay || {};
       const R = remoteDay || {};
       const deletedIds = normalizeDeletedIds([...(R.deletedIds || []), ...(L.deletedIds || [])]);
+      const lHas = dayHasMealContent(L);
+      const rHas = dayHasMealContent(R);
+      /* Never let an empty side overwrite a full one */
+      if (lHas && !rHas) return snapshotDayFrom(L, deletedIds);
+      if (rHas && !lHas) return snapshotDayFrom(R, deletedIds);
+      const lTs = dayUpdatedAtMs(L);
+      const rTs = dayUpdatedAtMs(R);
+      /* Newer day wins wholesale (combined tombstones still apply) */
+      if (lTs > rTs) return snapshotDayFrom(L, deletedIds);
+      if (rTs > lTs) return snapshotDayFrom(R, deletedIds);
+      /* Same/missing timestamps: prefer strict subset (phone ~1200 vs inflated 1650) */
+      const lIds = extrasIdSet(L);
+      const rIds = extrasIdSet(R);
+      if (lIds.size && rIds.size && lIds.size < rIds.size && isIdSubset(lIds, rIds)) {
+        return snapshotDayFrom(L, deletedIds);
+      }
+      if (lIds.size && rIds.size && rIds.size < lIds.size && isIdSubset(rIds, lIds)) {
+        return snapshotDayFrom(R, deletedIds);
+      }
       const dead = new Set(deletedIds);
       const done = { ...(R.done || {}), ...(L.done || {}) };
-      /* true wins if either side checked — but never for tombstoned ids */
       Object.keys({ ...(R.done || {}), ...(L.done || {}) }).forEach((k) => {
         if (dead.has(String(k))) {
           delete done[k];
@@ -4811,6 +4905,7 @@ ${JSON.stringify(example, null, 2)}`;
       return {
         done,
         deletedIds,
+        updatedAt: L.updatedAt || R.updatedAt || null,
         amounts: mergeAmounts(R.amounts, L.amounts, dead),
         extras: mergeExtras(L.extras, R.extras, dead),
         breakfast: mergeExtras(L.breakfast, R.breakfast, dead),
@@ -4843,6 +4938,7 @@ ${JSON.stringify(example, null, 2)}`;
           done: { ...(next[d].done || {}) },
           amounts: { ...(next[d].amounts || {}) },
           deletedIds: normalizeDeletedIds(next[d].deletedIds),
+          updatedAt: next[d].updatedAt || null,
           extras: filterDeadItems(next[d].extras, dead),
           breakfast: filterDeadItems(next[d].breakfast, dead),
           lunch: filterDeadItems(next[d].lunch, dead),
@@ -4891,8 +4987,9 @@ ${JSON.stringify(example, null, 2)}`;
       }
       setStatus(statusEl, "Syncing meals…", "info");
       try {
+        persistChecksSnapshot();
         /* Merge remote (API) first so an empty phone never wipes the other.
-           Tombstones keep deleted items from coming back during this merge. */
+           Tombstones + newer updatedAt / subset rule keep phone truth from ballooning. */
         try {
           const remote = await githubGetJson(DIET_CHECKS_PATH, token);
           if (remote) mergeChecksCloud(remote);
@@ -5165,7 +5262,7 @@ ${JSON.stringify(example, null, 2)}`;
           date: todayISO(),
           deletedIds: [...ids],
         };
-        persist();
+        persistLocal();
         render();
         maybeAutoSyncChecks({ urgent: true });
         setStatus($("diet-status"), "Today’s log cleared.", "info");
@@ -5488,11 +5585,8 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function needsNudge() {
-      if (isComplete(state)) return false;
-      try {
-        if (sessionStorage.getItem(SS_SKIP) === "1") return false;
-      } catch (_) {}
-      return true;
+      /* Profile onboarding suppressed — GitHub sync token is the only first-run prompt. */
+      return false;
     }
 
     function chipValues(group) {
@@ -5864,9 +5958,14 @@ ${JSON.stringify(example, null, 2)}`;
     function paintSummaries() {
       const nudgeToday = $("today-profile-nudge");
       const nudgeDiet = $("diet-profile-nudge");
-      const showNudge = needsNudge();
-      if (nudgeToday) nudgeToday.hidden = !showNudge;
-      if (nudgeDiet) nudgeDiet.hidden = !showNudge;
+      if (nudgeToday) {
+        nudgeToday.hidden = true;
+        nudgeToday.setAttribute("aria-hidden", "true");
+      }
+      if (nudgeDiet) {
+        nudgeDiet.hidden = true;
+        nudgeDiet.setAttribute("aria-hidden", "true");
+      }
 
       const d = state.derived || derive(state);
       const sum = $("diet-profile-summary");
@@ -6036,19 +6135,7 @@ ${JSON.stringify(example, null, 2)}`;
     function promptIfNeeded() {
       wire();
       paintSummaries();
-      if (!needsNudge()) return;
-      const tryOpen = () => {
-        if (tokenSheetOpen()) {
-          setTimeout(tryOpen, 600);
-          return;
-        }
-        paintSummaries();
-        /* Fresh handoff: open full profile when incomplete (Skip / Not now still available) */
-        if (needsNudge()) {
-          open({ step: 0 });
-        }
-      };
-      setTimeout(tryOpen, 500);
+      /* Do not auto-open profile onboarding — GitHub sync token sheet owns first-run UX */
     }
 
     function resetLocal() {
@@ -7747,6 +7834,9 @@ ${JSON.stringify(example, null, 2)}`;
         if (typeof Periods !== "undefined" && Periods.render) Periods.render();
         if (typeof Weights !== "undefined" && Weights.render) Weights.render();
         if (typeof Profile !== "undefined" && Profile.paintSummaries) Profile.paintSummaries();
+        try {
+          if (typeof TokenSetup !== "undefined" && TokenSetup.markSynced) TokenSetup.markSynced();
+        } catch (_) {}
         return true;
       } catch (e) {
         setStatus(statusEl, e.message || String(e), "error");
@@ -7757,19 +7847,92 @@ ${JSON.stringify(example, null, 2)}`;
     /** Boot: always pull public/API JSON; if PAT present, upload local-only data. */
     async function boot() {
       await pullAll();
-      if (!getSavedToken()) return;
+      if (!getSavedToken()) {
+        try {
+          if (typeof TokenSetup !== "undefined" && TokenSetup.paintStatus) TokenSetup.paintStatus();
+        } catch (_) {}
+        return;
+      }
       await pushLocals(null);
+      try {
+        if (typeof TokenSetup !== "undefined" && TokenSetup.markSynced) TokenSetup.markSynced();
+      } catch (_) {}
     }
 
     return { pullAll, pushLocals, afterTokenSaved, boot };
   })();
 
-  /* ───────── First-visit token setup (one PAT for everything) ───────── */
+  /* ───────── GitHub sync token setup (required for same data across phones) ───────── */
   const TokenSetup = (() => {
-    const SS_LATER = "sapna_token_setup_later";
+    const LS_LAST_SYNC = "sapna_last_sync_at";
+    const SS_SNOOZE = "sapna_token_setup_snooze_until";
+    const SNOOZE_MS = 3 * 60 * 1000; /* Browse offline only pauses the modal briefly */
 
     function hasToken() {
       return !!getSavedToken();
+    }
+
+    function snoozed() {
+      try {
+        const until = Number(sessionStorage.getItem(SS_SNOOZE) || 0);
+        return Number.isFinite(until) && Date.now() < until;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function clearSnooze() {
+      try {
+        sessionStorage.removeItem(SS_SNOOZE);
+        sessionStorage.removeItem("sapna_token_setup_later");
+      } catch (_) {}
+    }
+
+    function markSynced() {
+      try {
+        localStorage.setItem(LS_LAST_SYNC, new Date().toISOString());
+      } catch (_) {}
+      paintStatus();
+    }
+
+    function lastSyncedLabel() {
+      try {
+        const raw = localStorage.getItem(LS_LAST_SYNC);
+        if (!raw) return null;
+        const t = Date.parse(raw);
+        if (!Number.isFinite(t)) return null;
+        return new Date(t).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function paintStatus() {
+      const connected = hasToken();
+      const last = lastSyncedLabel();
+      ["sync-connect-banner", "diet-sync-connect-banner"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        el.hidden = connected;
+      });
+      ["sync-status-line", "diet-sync-status-line"].forEach((id) => {
+        const el = $(id);
+        if (!el) return;
+        if (!connected) {
+          el.hidden = true;
+          el.textContent = "";
+          return;
+        }
+        el.hidden = false;
+        el.textContent = last
+          ? `GitHub sync connected · last synced ${last}`
+          : "GitHub sync connected · waiting for first sync…";
+      });
     }
 
     function applyPlaceholders() {
@@ -7777,6 +7940,7 @@ ${JSON.stringify(example, null, 2)}`;
         const el = $(id);
         if (el && hasToken()) el.placeholder = "Token saved — paste to replace";
       });
+      paintStatus();
     }
 
     function close() {
@@ -7786,9 +7950,14 @@ ${JSON.stringify(example, null, 2)}`;
       overlay.classList.remove("is-open");
       overlay.style.cssText = "";
       document.body.classList.remove("modal-open", "token-setup-open");
+      paintStatus();
     }
 
-    function open() {
+    function open(opts = {}) {
+      if (hasToken() && !opts.force) {
+        paintStatus();
+        return;
+      }
       const overlay = $("token-setup");
       if (!overlay) return;
       overlay.hidden = false;
@@ -7797,7 +7966,6 @@ ${JSON.stringify(example, null, 2)}`;
       document.body.classList.add("modal-open", "token-setup-open");
       const input = $("token-setup-input");
       if (input) input.value = "";
-      /* No autofocus — keyboard only on intentional tap */
       setStatus($("token-setup-status"), "");
       if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(overlay);
     }
@@ -7805,37 +7973,67 @@ ${JSON.stringify(example, null, 2)}`;
     async function save() {
       const raw = ($("token-setup-input")?.value || "").trim();
       if (!raw) {
-        setStatus($("token-setup-status"), "Paste your GitHub token first.", "error");
+        setStatus($("token-setup-status"), "Paste your GitHub sync token first.", "error");
         return false;
       }
       if (raw.length < 20) {
-        setStatus($("token-setup-status"), "That doesn’t look like a GitHub token. Check and try again.", "error");
+        setStatus(
+          $("token-setup-status"),
+          "That doesn’t look like a GitHub token. Use a GitHub PAT (ghp_…), not a GPT key.",
+          "error"
+        );
         return false;
       }
       const result = await validateGithubToken(raw);
       if (!result.ok) {
-        setStatus($("token-setup-status"), result.message || "Token rejected by GitHub.", "error");
+        setStatus($("token-setup-status"), result.message || "GitHub rejected that token.", "error");
         return false;
       }
       localStorage.setItem(LS.token, raw);
-      try {
-        sessionStorage.removeItem(SS_LATER);
-      } catch (_) {}
+      clearSnooze();
       applyPlaceholders();
-      setStatus($("token-setup-status"), "Token OK — syncing this phone’s data…", "info");
-      await CloudSync.afterTokenSaved($("token-setup-status"));
-      setTimeout(close, 900);
-      return true;
+      setStatus($("token-setup-status"), "GitHub token OK — pulling then uploading…", "info");
+      const ok = await CloudSync.afterTokenSaved($("token-setup-status"));
+      if (ok) markSynced();
+      else paintStatus();
+      setTimeout(close, ok ? 900 : 1600);
+      return ok;
     }
 
     function later() {
       try {
-        sessionStorage.setItem(SS_LATER, "1");
+        sessionStorage.setItem(SS_SNOOZE, String(Date.now() + SNOOZE_MS));
       } catch (_) {}
       close();
+      paintStatus();
+      setTimeout(() => {
+        if (!hasToken()) open();
+      }, SNOOZE_MS + 500);
     }
 
+    function promptIfNeeded() {
+      wire();
+      applyPlaceholders();
+      if (hasToken()) return;
+      if (snoozed()) {
+        paintStatus();
+        return;
+      }
+      open();
+    }
+
+    function promptOnSection(section) {
+      paintStatus();
+      if (hasToken()) return;
+      if (section === "today" || section === "diet") {
+        if (!snoozed()) open();
+      }
+    }
+
+    let wired = false;
     function wire() {
+      if (wired) return;
+      wired = true;
       $("token-setup-save")?.addEventListener("click", () => save());
       $("token-setup-later")?.addEventListener("click", () => later());
       $("token-setup-input")?.addEventListener("keydown", (e) => {
@@ -7844,21 +8042,24 @@ ${JSON.stringify(example, null, 2)}`;
           save();
         }
       });
+      ["sync-connect-open", "diet-sync-connect-open"].forEach((id) => {
+        $(id)?.addEventListener("click", () => {
+          clearSnooze();
+          open({ force: true });
+        });
+      });
     }
 
-    function promptIfNeeded() {
-      wire();
-      applyPlaceholders();
-      if (hasToken()) return;
-      let skipped = false;
-      try {
-        skipped = sessionStorage.getItem(SS_LATER) === "1";
-      } catch (_) {}
-      if (skipped) return;
-      open();
-    }
-
-    return { promptIfNeeded, applyPlaceholders, hasToken };
+    return {
+      promptIfNeeded,
+      promptOnSection,
+      applyPlaceholders,
+      hasToken,
+      paintStatus,
+      markSynced,
+      open,
+      close,
+    };
   })();
 
   async function init() {
@@ -7882,7 +8083,7 @@ ${JSON.stringify(example, null, 2)}`;
     } catch (err) {
       console.error("Diet admin failed to wire", err);
     }
-    /* Ask for PAT first on a fresh phone — powers logs, periods, Admin */
+    /* Require GitHub sync token on a fresh phone — same data everywhere */
     TokenSetup.promptIfNeeded();
     await Weights.init();
     await Diet.init();

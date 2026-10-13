@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261013exp2";
+      var APP_V = "20261013sync2";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261013exp2"></script>
+  <script src="./js/admin-auth.js?v=20261013sync2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261013exp2" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261013sync2" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -183,16 +183,16 @@
         <button type="button" class="btn-ghost profile-open-btn" data-profile-open>Profile</button>
       </div>
     </div>
-    <div class="profile-nudge" id="today-profile-nudge" hidden>
-      <div class="profile-nudge-copy">
-        <p class="today-kicker">Sapna Singh · welcome</p>
-        <p class="profile-nudge-title">Let’s set up your profile — biometrics, goals, activity, diet prefs &amp; safety.</p>
+    <div class="sync-connect-banner" id="sync-connect-banner" hidden>
+      <div class="sync-connect-copy">
+        <p class="today-kicker">Same data on every phone</p>
+        <p class="sync-connect-title">Paste your <strong>GitHub sync token</strong> once to pull meals, weights &amp; periods.</p>
       </div>
-      <div class="profile-nudge-actions">
-        <button type="button" class="btn-primary" data-profile-open>Start profile</button>
-        <button type="button" class="btn-ghost" data-profile-skip>Not now</button>
-      </div>
+      <button type="button" class="btn-primary" id="sync-connect-open">Connect / Sync token</button>
     </div>
+    <p class="sync-status-line" id="sync-status-line" hidden></p>
+    <!-- Profile onboarding nudge suppressed — use Profile button if needed -->
+    <div class="profile-nudge" id="today-profile-nudge" hidden aria-hidden="true"></div>
     <div class="today-strip-wrap" id="today-strip" aria-label="Today at a glance"></div>
     <!-- Progress streak sits high; week graph below tracker cards so first viewport isn’t clipped -->
     <div class="progress-root" id="progress-root" aria-label="Workout streak"></div>
@@ -269,16 +269,16 @@
         <button type="button" class="btn-diet-ghost profile-open-btn" data-profile-open>Profile</button>
       </div>
     </div>
-    <div class="profile-nudge profile-nudge-diet" id="diet-profile-nudge" hidden>
-      <div class="profile-nudge-copy">
-        <p class="hf-diet-eyebrow">Sapna Singh · welcome</p>
-        <p class="profile-nudge-title">Complete your profile for calorie goals — biometrics through safety notes.</p>
+    <div class="sync-connect-banner sync-connect-banner-diet" id="diet-sync-connect-banner" hidden>
+      <div class="sync-connect-copy">
+        <p class="hf-diet-eyebrow">Diet sync</p>
+        <p class="sync-connect-title">Enter your <strong>GitHub sync token</strong> so today’s kcal matches your other phone.</p>
       </div>
-      <div class="profile-nudge-actions">
-        <button type="button" class="btn-diet" data-profile-open>Start profile</button>
-        <button type="button" class="btn-diet-ghost" data-profile-skip>Not now</button>
-      </div>
+      <button type="button" class="btn-diet" id="diet-sync-connect-open">Connect / Sync token</button>
     </div>
+    <p class="sync-status-line" id="diet-sync-status-line" hidden></p>
+    <!-- Profile onboarding nudge suppressed -->
+    <div class="profile-nudge profile-nudge-diet" id="diet-profile-nudge" hidden aria-hidden="true"></div>
     <div class="panel-inner diet-inner">
       <div class="diet-profile-summary" id="diet-profile-summary" hidden></div>
       <div class="diet-rings hf-diet-totals" id="diet-totals" aria-label="Calories eaten vs plan"></div>
@@ -400,7 +400,7 @@
           <h2>Sync meals</h2>
           <span class="diet-chip">optional</span>
         </summary>
-        <p class="hint">Same GitHub PAT · <code>data/diet-checks.json</code></p>
+        <p class="hint">Same <strong>GitHub sync token</strong> · <code>data/diet-checks.json</code></p>
         <div class="actions">
           <button type="button" class="btn-diet" id="diet-sync-checks">Sync now</button>
           <button type="button" class="btn-diet-ghost" id="diet-pull-checks">Refresh from cloud</button>
@@ -741,20 +741,21 @@
     </div>
   </div>
 
-  <!-- First-visit GitHub token setup (saved for Logs / Periods / Admin sync) -->
+  <!-- Required GitHub sync token (PAT) — not a GPT/Gemini key -->
   <div class="overlay token-setup-overlay" id="token-setup" hidden>
     <div class="sheet token-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="token-setup-title">
       <p class="brand token-setup-brand">Sapna Singh</p>
-      <h2 id="token-setup-title">Connect this phone</h2>
-      <p class="hint">Paste a GitHub PAT once — this phone uploads your logs/checks/profile and pulls the same on other phones. Saved here only.</p>
-      <label class="field">GitHub PAT (repo scope)
-        <input type="password" id="token-setup-input" autocomplete="off" placeholder="ghp_…" enterkeyhint="done" />
+      <h2 id="token-setup-title">Connect / Sync token</h2>
+      <p class="hint">Paste your <strong>GitHub sync token</strong> (personal access token with <code>repo</code> scope) once. This phone then pulls the same meals, weights &amp; periods as your other phones — then keeps them in sync. Saved on this device only. <em>Not</em> a GPT or Gemini API key.</p>
+      <label class="field">GitHub sync token (PAT)
+        <input type="password" id="token-setup-input" autocomplete="off" placeholder="ghp_… or github_pat_…" enterkeyhint="done" />
       </label>
-      <p class="hint token-setup-help">Create at GitHub → Settings → Developer settings → Personal access tokens. Enable <code>repo</code>.</p>
+      <p class="hint token-setup-help">GitHub → Settings → Developer settings → Personal access tokens. Enable <code>repo</code>. Same token on every phone.</p>
       <div class="actions">
-        <button type="button" class="btn-primary" id="token-setup-save">Save &amp; continue</button>
-        <button type="button" class="btn-ghost" id="token-setup-later">Later</button>
+        <button type="button" class="btn-primary" id="token-setup-save">Save &amp; sync</button>
+        <button type="button" class="btn-ghost" id="token-setup-later">Browse offline</button>
       </div>
+      <p class="hint token-setup-offline-note">“Browse offline” skips sync for a few minutes only — the Connect prompt returns on Today / Diet until a GitHub token is saved.</p>
       <p class="status" id="token-setup-status" hidden></p>
     </div>
   </div>
@@ -1227,8 +1228,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261013exp2"></script>
-  <script src="./js/diet-admin.js?v=20261013exp2"></script>
-  <script src="./js/app.js?v=20261013exp2"></script>
+  <script src="./js/workout-admin.js?v=20261013sync2"></script>
+  <script src="./js/diet-admin.js?v=20261013sync2"></script>
+  <script src="./js/app.js?v=20261013sync2"></script>
 </body>
 </html>
