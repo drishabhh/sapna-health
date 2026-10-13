@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013add3";
+  const PROFILE_ASSET_V = "20261013dd1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3475,26 +3475,68 @@ ${JSON.stringify(example, null, 2)}`;
       </button>`;
     }
 
+    function setSearchDropdownOpen(open) {
+      const root = $("diet-food-pick");
+      const input = $("diet-search");
+      if (!root) return;
+      root.hidden = !open;
+      root.classList.toggle("is-open", !!open);
+      if (input) input.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) syncDietAddDropdownHeight();
+    }
+
+    /** Fit sheet + autocomplete into visual viewport (above mobile keyboard). */
+    function syncDietAddViewport() {
+      const overlay = $("diet-add-overlay");
+      if (!overlay || overlay.hidden) return;
+      const vv = window.visualViewport;
+      if (!vv) {
+        overlay.style.cssText = "";
+        syncDietAddDropdownHeight();
+        return;
+      }
+      overlay.style.position = "fixed";
+      overlay.style.top = vv.offsetTop + "px";
+      overlay.style.left = vv.offsetLeft + "px";
+      overlay.style.width = vv.width + "px";
+      overlay.style.height = vv.height + "px";
+      overlay.style.right = "auto";
+      overlay.style.bottom = "auto";
+      syncDietAddDropdownHeight();
+    }
+
+    function syncDietAddDropdownHeight() {
+      const root = $("diet-food-pick");
+      const wrap = root?.closest(".diet-add-search-wrap");
+      const sheet = $("diet-add-overlay")?.querySelector(".diet-add-sheet");
+      if (!root || !wrap || !sheet || root.hidden) return;
+      const sheetRect = sheet.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const pad = 12;
+      const available = Math.max(96, sheetRect.bottom - wrapRect.bottom - pad);
+      const cap = Math.min(available, Math.round(window.innerHeight * 0.42), 260);
+      root.style.maxHeight = cap + "px";
+    }
+
     function renderFoodPick(query) {
       const root = $("diet-food-pick");
       if (!root) return;
       const q = String(query || "").trim();
+      /* Empty query → hide dropdown (classic autocomplete) */
+      if (!q) {
+        root.innerHTML = "";
+        setSearchDropdownOpen(false);
+        return;
+      }
       const local = localMatches(q);
-      const recent = !q ? recentFoods() : [];
-      const recentHtml = recent.length
-        ? `<div class="food-pick-group">
-            <p class="food-pick-label">Recent</p>
-            <div class="hf-recent-row">${recent.map(foodButtonHtml).join("")}</div>
-          </div>`
-        : "";
-      const localHtml = local.length
-        ? local.map(foodButtonHtml).join("")
-        : `<p class="food-pick-empty">No matches${q ? ` for “${escapeHtml(q)}”` : ""}. Try another name or Quick kcal.</p>`;
-      const mealLabel = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
-      root.innerHTML = `${recentHtml}<div class="food-pick-group">
-        <p class="food-pick-label">${q ? "Results" : "Library"} <span class="food-pick-hint">→ ${escapeHtml(mealLabel)}</span></p>
-        ${localHtml}
-      </div>`;
+      if (!local.length) {
+        root.innerHTML = `<p class="food-pick-empty diet-add-dd-empty">No matches</p>`;
+        setSearchDropdownOpen(true);
+        root.scrollTop = 0;
+        return;
+      }
+      root.innerHTML = local.map(foodButtonHtml).join("");
+      setSearchDropdownOpen(true);
       root.scrollTop = 0;
     }
 
@@ -3512,15 +3554,18 @@ ${JSON.stringify(example, null, 2)}`;
         hint.textContent = label;
       }
       if ($("diet-search")) $("diet-search").value = "";
+      if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = true;
       closePkgSheet();
       renderFoodPick("");
-      /* Focus search so keyboard + results show together */
+      syncDietAddViewport();
+      /* Focus search so keyboard + dropdown show together */
       setTimeout(() => {
         try {
           $("diet-search")?.focus({ preventScroll: true });
         } catch (_) {
           $("diet-search")?.focus();
         }
+        syncDietAddViewport();
       }, 80);
     }
 
@@ -3529,8 +3574,12 @@ ${JSON.stringify(example, null, 2)}`;
       if (overlay) {
         overlay.classList.remove("is-open");
         overlay.hidden = true;
+        overlay.style.cssText = "";
       }
       document.body.classList.remove("modal-open");
+      setSearchDropdownOpen(false);
+      const dd = $("diet-food-pick");
+      if (dd) dd.style.maxHeight = "";
       try {
         $("diet-search")?.blur();
       } catch (_) {}
@@ -4242,17 +4291,36 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-search")?.addEventListener("input", (e) => {
         renderFoodPick(e.target.value);
       });
+      $("diet-search")?.addEventListener("focus", (e) => {
+        if (String(e.target.value || "").trim()) renderFoodPick(e.target.value);
+        syncDietAddViewport();
+      });
       $("diet-add-close")?.addEventListener("click", () => closeAddSheet());
       $("diet-add-overlay")?.addEventListener("click", (e) => {
         if (e.target === $("diet-add-overlay")) closeAddSheet();
       });
+      const onDietAddVv = () => {
+        const overlay = $("diet-add-overlay");
+        if (!overlay || overlay.hidden) return;
+        syncDietAddViewport();
+      };
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", onDietAddVv);
+        window.visualViewport.addEventListener("scroll", onDietAddVv);
+      }
+      window.addEventListener("resize", onDietAddVv);
       document.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
         const overlay = $("diet-add-overlay");
-        if (overlay && !overlay.hidden) {
+        if (!overlay || overlay.hidden) return;
+        const dd = $("diet-food-pick");
+        if (dd && !dd.hidden) {
           e.preventDefault();
-          closeAddSheet();
+          setSearchDropdownOpen(false);
+          return;
         }
+        e.preventDefault();
+        closeAddSheet();
       });
       $("diet-food-pick")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-food-id]");
@@ -4262,8 +4330,10 @@ ${JSON.stringify(example, null, 2)}`;
           setStatus($("diet-status"), "That item has no usable kcal.", "error");
           return;
         }
+        setSearchDropdownOpen(false);
         if (isPackaged(food)) {
           /* Keep sheet open — amount picker is inside it */
+          if ($("diet-search")) $("diet-search").value = food.name || "";
           openPkgSheet(food);
           return;
         }

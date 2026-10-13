@@ -5898,37 +5898,73 @@ body.is-admin section.ai-admin-only {
   font-size: 0.82rem;
   color: rgba(40, 60, 50, 0.65);
 }
-.diet-add-search-field {
+.diet-add-search-wrap {
+  position: relative;
   flex: 0 0 auto;
+  z-index: 5;
+}
+.diet-add-search-field {
   margin: 0;
 }
 .diet-add-search-field input {
   min-height: 48px;
   font-size: 1.05rem;
 }
-.diet-add-results.food-pick,
-.diet-add-sheet .diet-add-results {
-  flex: 1 1 auto;
-  min-height: 10rem;
-  max-height: none;
+/* Classic autocomplete — overlays under SEARCH LIBRARY, not a RESULTS section */
+.diet-add-dropdown.food-pick,
+.diet-add-sheet .diet-add-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0.25rem;
+  max-height: min(42vh, 16rem);
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  border-radius: 12px;
+  border: 1px solid rgba(40, 80, 55, 0.16);
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(20, 40, 30, 0.16);
+}
+.diet-add-dropdown.food-pick.is-open,
+.diet-add-sheet .diet-add-dropdown.is-open {
+  display: flex;
+}
+.diet-add-dropdown.food-pick[hidden] {
+  display: none !important;
+}
+.diet-add-dropdown .diet-add-dd-empty,
+.diet-add-dropdown .food-pick-empty {
   margin: 0;
-  padding: 0.15rem 0 0.35rem;
-  display: grid;
-  gap: 0.45rem;
+  padding: 0.75rem 0.85rem;
+  font-size: 0.88rem;
+  color: rgba(40, 60, 50, 0.6);
 }
 .diet-add-sheet .hf-food-btn {
   width: 100%;
   text-align: left;
-  padding: 0.75rem 0.85rem;
-  border-radius: 12px;
-  border: 1px solid rgba(40, 80, 55, 0.12);
-  background: rgba(255, 255, 255, 0.95);
+  padding: 0.7rem 0.8rem;
+  border-radius: 10px;
+  border: none;
+  border-bottom: 1px solid rgba(40, 80, 55, 0.08);
+  background: transparent;
   cursor: pointer;
-  min-height: 52px;
+  min-height: 48px;
+}
+.diet-add-sheet .hf-food-btn:last-child {
+  border-bottom: none;
+}
+.diet-add-sheet .hf-food-btn:hover,
+.diet-add-sheet .hf-food-btn:focus-visible {
+  background: rgba(40, 100, 60, 0.07);
+  outline: none;
 }
 .diet-add-sheet .hf-food-btn .hf-food-name {
   display: block;
@@ -5938,13 +5974,15 @@ body.is-admin section.ai-admin-only {
 }
 .diet-add-sheet .hf-food-btn em {
   display: block;
-  margin-top: 0.15rem;
+  margin-top: 0.12rem;
   font-style: normal;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: rgba(40, 60, 50, 0.65);
 }
 .diet-add-sheet .hf-food-btn .diet-kcal-hl {
   font-size: inherit;
+  color: #c0392b;
+  font-weight: 650;
 }
 .diet-add-sheet .diet-pkg-sheet {
   flex: 0 0 auto;
@@ -5963,13 +6001,14 @@ body.is-admin section.ai-admin-only {
     max-height: min(92dvh, 100%);
   }
 }
-/* Keep results visible above mobile keyboard */
+/* Shorter viewport (keyboard open) — keep dropdown scrollable above keyboard */
 @media (max-height: 560px) {
   .diet-add-sheet {
     max-height: 96vh;
     max-height: 96dvh;
   }
-  .diet-add-results.food-pick {
-    min-height: 6.5rem;
+  .diet-add-dropdown.food-pick,
+  .diet-add-sheet .diet-add-dropdown {
+    max-height: min(36vh, 11rem);
   }
 }
