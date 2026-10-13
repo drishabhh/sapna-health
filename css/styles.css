@@ -5633,21 +5633,57 @@ body.is-admin section.ai-admin-only {
 .diet-grams-chip {
   flex: 0 0 auto;
   align-self: center;
-  min-width: 3.4rem;
-  min-height: 2.6rem;
-  padding: 0.35rem 0.55rem;
-  border-radius: 12px;
-  border: 1px solid rgba(40, 80, 55, 0.18);
-  background: rgba(255, 255, 255, 0.95);
-  color: #1d3a2e;
-  font-weight: 700;
-  font-size: 0.82rem;
+  min-width: 3.25rem;
+  min-height: 2.4rem;
+  padding: 0.3rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid rgba(40, 80, 55, 0.12);
+  background: rgba(248, 250, 248, 0.95);
+  color: rgba(40, 60, 50, 0.62);
+  font-weight: 600;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .diet-grams-chip:active {
-  background: rgba(61, 143, 98, 0.12);
+  background: rgba(61, 143, 98, 0.1);
+  color: rgba(29, 58, 46, 0.85);
+}
+.diet-kcal-hl {
+  color: #c23b2e;
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.diet-macro-rest {
+  color: rgba(40, 60, 50, 0.62);
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+.diet-macro-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem;
+  margin-top: 0.15rem;
+}
+.diet-remove-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: rgba(180, 70, 60, 0.55);
+  font-size: 0.95rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.diet-remove-btn:active {
+  color: rgba(180, 70, 60, 0.9);
 }
 .diet-grams-sheet {
   margin: 0.85rem 0 1.1rem;
@@ -5721,6 +5757,10 @@ body.is-admin section.ai-admin-only {
 .diet-log-row strong {
   font-size: 0.95rem;
   color: #1d3a2e;
+  font-weight: 650;
+}
+.diet-log-row .meta {
+  font-style: normal;
 }
 .diet-extra-tag {
   display: inline-block;
