@@ -1,6 +1,11 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12",
+  "updatedAt": "2026-10-13",
   "label": "Personal wellness dates for Sapna — period calendar dates (and optional short notes).",
-  "days": {}
+  "days": {
+    "2026-10-10": {
+      "period": true,
+      "note": "9 oct ( night ) -11 Oct"
+    }
+  }
 }
