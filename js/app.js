@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013exp1";
+  const PROFILE_ASSET_V = "20261013exp2";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -141,7 +141,7 @@
     function visibilityTarget(el) {
       return (
         el.closest(
-          ".field, .diet-grams-sheet, .diet-pkg-sheet, .diet-quick-oneoff, .diet-add-search-wrap, .gemini-key-panel, .token-setup-sheet label, label"
+          ".field, .diet-grams-sheet, .diet-pkg-sheet, .diet-quick-oneoff, .diet-add-search-wrap, .diet-export-sheet, .gemini-key-panel, .token-setup-sheet label, label"
         ) || el
       );
     }
@@ -209,8 +209,8 @@
       setKbCss(kb);
       if (kb <= 36) {
         openOverlays().forEach((ov) => {
-          /* Keep diet-add / log-sheet pinned while open — owners sync on vv. */
-          if (ov.id === "diet-add-overlay" || ov.id === "log-sheet") return;
+          /* Keep diet-add / export / log-sheet pinned while open — owners sync on vv. */
+          if (ov.id === "diet-add-overlay" || ov.id === "diet-export-overlay" || ov.id === "log-sheet") return;
           if (ov.dataset.kbPinned === "1" && kb <= 36) {
             /* Admin overlays restore inset:0 via their own open style; skip clear. */
           }
@@ -222,7 +222,13 @@
       const kb = keyboardInset();
       setKbCss(kb);
       openOverlays().forEach((ov) => {
-        if (kb > 36 || ov.id === "diet-add-overlay" || ov.id === "log-sheet" || ov.dataset.kbPinned === "1") {
+        if (
+          kb > 36 ||
+          ov.id === "diet-add-overlay" ||
+          ov.id === "diet-export-overlay" ||
+          ov.id === "log-sheet" ||
+          ov.dataset.kbPinned === "1"
+        ) {
           pinOverlayToVv(ov);
         }
       });
@@ -3796,20 +3802,66 @@ ${JSON.stringify(example, null, 2)}`;
       if (mode === "date" && dateEl && !dateEl.value) dateEl.value = todayISO();
     }
 
-    function toggleExportPanel(force) {
-      const panel = $("diet-export-panel");
-      const btn = $("diet-export-toggle");
-      if (!panel) return;
-      const open = force != null ? !!force : panel.hidden;
-      panel.hidden = !open;
-      if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
-      if (open) {
-        const dateEl = $("diet-export-date");
-        if (dateEl && !dateEl.value) dateEl.value = todayISO();
-        if ($("diet-export-share")) {
-          $("diet-export-share").hidden = !(typeof navigator !== "undefined" && typeof navigator.share === "function");
+    function syncDietExportViewport() {
+      const overlay = $("diet-export-overlay");
+      if (!overlay || overlay.hidden) return;
+      if (window.SapnaKeyboard?.pinOverlayToVv) {
+        window.SapnaKeyboard.pinOverlayToVv(overlay);
+      } else {
+        const vv = window.visualViewport;
+        if (!vv) {
+          overlay.style.cssText = "";
+          return;
         }
+        overlay.style.position = "fixed";
+        overlay.style.top = vv.offsetTop + "px";
+        overlay.style.left = vv.offsetLeft + "px";
+        overlay.style.width = vv.width + "px";
+        overlay.style.height = vv.height + "px";
+        overlay.style.right = "auto";
+        overlay.style.bottom = "auto";
       }
+    }
+
+    function openExportSheet() {
+      const overlay = $("diet-export-overlay");
+      if (!overlay) return;
+      setExportRange("today");
+      const dateEl = $("diet-export-date");
+      if (dateEl) dateEl.value = todayISO();
+      if ($("diet-export-share")) {
+        $("diet-export-share").hidden = !(typeof navigator !== "undefined" && typeof navigator.share === "function");
+      }
+      const st = $("diet-export-status");
+      if (st) {
+        st.hidden = true;
+        st.textContent = "";
+      }
+      overlay.hidden = false;
+      overlay.classList.add("is-open");
+      document.body.classList.add("modal-open");
+      syncDietExportViewport();
+      try {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function" && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) ae.blur();
+      } catch (_) {}
+      setTimeout(() => syncDietExportViewport(), 80);
+    }
+
+    function closeExportSheet() {
+      const overlay = $("diet-export-overlay");
+      if (overlay) {
+        overlay.classList.remove("is-open");
+        overlay.hidden = true;
+        overlay.style.cssText = "";
+      }
+      /* Only clear modal-open if add sheet isn't also open */
+      const addOpen = $("diet-add-overlay") && !$("diet-add-overlay").hidden;
+      if (!addOpen) document.body.classList.remove("modal-open");
+      try {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function" && (ae.id === "diet-export-date")) ae.blur();
+      } catch (_) {}
     }
 
     function runDietExport(kind) {
@@ -4921,7 +4973,11 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function wire() {
-      $("diet-export-toggle")?.addEventListener("click", () => toggleExportPanel());
+      $("diet-export-toggle")?.addEventListener("click", () => openExportSheet());
+      $("diet-export-close")?.addEventListener("click", () => closeExportSheet());
+      $("diet-export-overlay")?.addEventListener("click", (e) => {
+        if (e.target === $("diet-export-overlay")) closeExportSheet();
+      });
       document.querySelectorAll("[data-export-range]").forEach((btn) => {
         btn.addEventListener("click", () => {
           setExportRange(btn.getAttribute("data-export-range") || "today");
@@ -4929,6 +4985,10 @@ ${JSON.stringify(example, null, 2)}`;
       });
       $("diet-export-date")?.addEventListener("change", () => {
         setExportRange("date");
+      });
+      $("diet-export-date")?.addEventListener("focus", (e) => {
+        syncDietExportViewport();
+        window.SapnaKeyboard?.ensureInputVisible?.(e.target);
       });
       $("diet-export-csv")?.addEventListener("click", () => runDietExport("csv"));
       $("diet-export-copy")?.addEventListener("click", () => runDietExport("copy"));
@@ -4967,16 +5027,31 @@ ${JSON.stringify(example, null, 2)}`;
         if (!overlay || overlay.hidden) return;
         syncDietAddViewport();
       };
+      const onDietExportVv = () => {
+        const overlay = $("diet-export-overlay");
+        if (!overlay || overlay.hidden) return;
+        syncDietExportViewport();
+      };
       window.__sapnaOnKeyboardRefresh = () => {
         onDietAddVv();
+        onDietExportVv();
       };
       if (window.visualViewport) {
         window.visualViewport.addEventListener("resize", onDietAddVv);
         window.visualViewport.addEventListener("scroll", onDietAddVv);
+        window.visualViewport.addEventListener("resize", onDietExportVv);
+        window.visualViewport.addEventListener("scroll", onDietExportVv);
       }
       window.addEventListener("resize", onDietAddVv);
+      window.addEventListener("resize", onDietExportVv);
       document.addEventListener("keydown", (e) => {
         if (e.key !== "Escape") return;
+        const exportOv = $("diet-export-overlay");
+        if (exportOv && !exportOv.hidden) {
+          e.preventDefault();
+          closeExportSheet();
+          return;
+        }
         const overlay = $("diet-add-overlay");
         if (!overlay || overlay.hidden) return;
         const dd = $("diet-food-pick");

@@ -4162,54 +4162,77 @@ body.profile-sheet-open {
   min-height: 40px;
 }
 
-.diet-export-panel {
-  margin: 0 0 0.85rem;
-  padding: 0.85rem 0.95rem;
-  border-radius: 16px;
-  background:
-    linear-gradient(160deg, rgba(243, 250, 246, 0.95), rgba(238, 245, 240, 0.7));
-  border: 1px solid rgba(61, 143, 106, 0.16);
-  animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+.diet-export-overlay {
+  z-index: 100045;
+  align-items: flex-end;
+  padding: 0;
 }
-
-.diet-export-panel[hidden] {
+.diet-export-overlay[hidden] {
   display: none !important;
 }
-
-.diet-export-kicker {
-  margin: 0 0 0.55rem;
-  font-size: 0.78rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #3d8f6a;
+.diet-export-overlay.is-open {
+  display: flex !important;
 }
-
+.diet-export-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(72dvh, 100%);
+  max-height: min(72vh, 100%);
+  margin: 0 auto;
+  padding: 0.9rem 1rem calc(0.95rem + env(safe-area-inset-bottom, 0px));
+  gap: 0.65rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  background: linear-gradient(180deg, #fffdf8, #f4faf2);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -10px 40px rgba(28, 55, 42, 0.12);
+  animation: fadeUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+body.kb-open .diet-export-sheet {
+  max-height: 100%;
+}
+.diet-export-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+.diet-export-sheet-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #1d3a2e;
+}
+.diet-export-sheet-head .hf-add-meal-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: rgba(40, 60, 50, 0.65);
+}
 .diet-export-range {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.45rem;
-  margin-bottom: 0.65rem;
 }
-
 .diet-export-date-field {
   flex: 1 1 9rem;
   min-width: 8.5rem;
   margin: 0;
 }
-
 .diet-export-date-field input[type="date"] {
   width: 100%;
   min-height: 40px;
 }
-
 .diet-export-actions {
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
+  flex-wrap: wrap;
 }
-
 #diet-export-status {
-  margin: 0.45rem 0 0;
+  margin: 0;
 }
 
 .profile-nudge {
