@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-11",
+  "updatedAt": "2026-10-13",
   "targets": {
-    "kcal": 1800,
+    "kcal": 1200,
     "protein": 100
   },
-  "note": "Published defaults for Sapna Health. Period/weight logs are synced separately."
+  "note": "Sapna daily calorie goal 1200 kcal. Period/weight logs sync separately."
 }

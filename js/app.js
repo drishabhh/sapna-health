@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013exp2";
+  const PROFILE_ASSET_V = "20261013kcal1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -424,7 +424,7 @@
     function render() {
       const root = $("today-overview");
       if (!root) return;
-      const diet = Diet.snapshot ? Diet.snapshot() : { kcal: 0, protein: 0, targetKcal: 1800, targetProtein: 100 };
+      const diet = Diet.snapshot ? Diet.snapshot() : { kcal: 0, protein: 0, targetKcal: 1200, targetProtein: 100 };
       const period = Periods.snapshot ? Periods.snapshot() : { label: "Open calendar", detail: "Mark days privately", isPeriod: false };
       const lifts = Weights.snapshot ? Weights.snapshot() : { recent: [], count: 0 };
       const workout = Workout.snapshot
@@ -2275,7 +2275,7 @@ Return JSON matching the schema.`;
     }
 
     function prepareDietPlan(targets) {
-      const kcal = Number(targets?.kcal) || 1800;
+      const kcal = Number(targets?.kcal) || 1200;
       const pro = Number(targets?.protein) || 100;
       const prompt = `You build a simple one-day Indian / home meal plan for Sapna.
 Target about ${kcal} kcal and ${pro}g protein total across breakfast, lunch, dinner, snacks.
@@ -3007,7 +3007,7 @@ ${JSON.stringify(example, null, 2)}`;
       deletedIds: [],
     });
     let foods = [];
-    let defaults = { targets: { kcal: 1800, protein: 100 } };
+    let defaults = { targets: { kcal: 1200, protein: 100 } };
     /** @type {null | {planDate?:string,headline?:string,support?:string,targets?:object,meals?:object}} */
     let publishedPlan = null;
     let state = loadJSON(LS.diet, {
@@ -3104,7 +3104,7 @@ ${JSON.stringify(example, null, 2)}`;
     function targets() {
       if (state.targets) return state.targets;
       if (publishedPlan?.targets) return publishedPlan.targets;
-      return defaults.targets || { kcal: 1800, protein: 100 };
+      return defaults.targets || { kcal: 1200, protein: 100 };
     }
 
     function persist(opts = {}) {
@@ -5237,7 +5237,7 @@ ${JSON.stringify(example, null, 2)}`;
       });
       $("diet-save-targets")?.addEventListener("click", () => {
         state.targets = {
-          kcal: Number($("diet-target-kcal").value) || 1800,
+          kcal: Number($("diet-target-kcal").value) || 1200,
           protein: Number($("diet-target-protein").value) || 100,
         };
         persist();
@@ -5311,10 +5311,37 @@ ${JSON.stringify(example, null, 2)}`;
         }
         if (dRes.ok) {
           defaults = await dRes.json();
-          if (!state.targets && defaults.targets) state.targets = { ...defaults.targets };
+          const pub = defaults.targets;
+          if (pub && Number.isFinite(Number(pub.kcal))) {
+            const pubK = Math.round(Number(pub.kcal));
+            const pubP = Math.round(Number(pub.protein) || 100);
+            if (!state.targets) {
+              state.targets = { kcal: pubK, protein: pubP };
+              saveJSON(LS.diet, state);
+            } else {
+              /* Devices that once cached the old 1800 default stay stuck — adopt published goal */
+              const localK = Math.round(Number(state.targets.kcal) || 0);
+              if (localK === 1800 && pubK !== 1800) {
+                state.targets = { ...state.targets, kcal: pubK, protein: pubP };
+                saveJSON(LS.diet, state);
+              }
+            }
+          }
         }
         if (pRes.ok) {
-          publishedPlan = normalizePublishedPlan(await pRes.json());
+          const rawPlan = await pRes.json();
+          publishedPlan = normalizePublishedPlan(rawPlan);
+          /* Empty plan still carries calorie goal — apply when local is missing/stale 1800 */
+          const planT = rawPlan?.targets;
+          if (planT && Number.isFinite(Number(planT.kcal))) {
+            const pk = Math.round(Number(planT.kcal));
+            const pp = Math.round(Number(planT.protein) || 100);
+            const localK = Math.round(Number(state.targets?.kcal) || 0);
+            if (!state.targets || localK === 1800) {
+              state.targets = { kcal: pk, protein: pp };
+              saveJSON(LS.diet, state);
+            }
+          }
         }
       } catch (e) {
         console.warn(e);
@@ -7384,9 +7411,9 @@ ${JSON.stringify(example, null, 2)}`;
       const selected = series.find((s) => s.key === selectedWeekKey) || series[series.length - 1];
       const dietN = dietStreak();
       const burn = estimateBurnKcal();
-      const dietSnap = Diet.snapshot ? Diet.snapshot() : { kcal: 0, targetKcal: 1800 };
+      const dietSnap = Diet.snapshot ? Diet.snapshot() : { kcal: 0, targetKcal: 1200 };
       const eaten = Math.round(dietSnap.kcal || 0);
-      const dietGoal = Math.round(dietSnap.targetKcal || 1800);
+      const dietGoal = Math.round(dietSnap.targetKcal || 1200);
       const dietPct = Math.max(0, Math.min(100, Math.round((eaten / (dietGoal || 1)) * 100)));
 
       if (streakRoot) {
@@ -7414,7 +7441,8 @@ ${JSON.stringify(example, null, 2)}`;
             <div>
               <p class="prog-kicker">Workout streak</p>
               <p class="prog-streak-count"><strong>${streakDays}</strong> <span>day${streakDays === 1 ? "" : "s"}</span></p>
-              <p class="prog-streak-sub">${streakWeeks ? `${streakWeeks} week${streakWeeks === 1 ? "" : "s"} with a lift` : "Log a lift to start"} · ${dietN ? `Diet ${dietN}d` : "Diet —"}</p>
+              <p class="prog-streak-sub">${streakWeeks ? `${streakWeeks} week${streakWeeks === 1 ? "" : "s"} with a lift` : "Log a lift to start"}</p>
+              <p class="prog-streak-diet">${dietN ? `Diet logged ${dietN} day${dietN === 1 ? "" : "s"}` : "No diet log streak yet"}</p>
             </div>
           </div>
           <div class="prog-diet-mini" aria-hidden="true">
@@ -7686,7 +7714,7 @@ ${JSON.stringify(example, null, 2)}`;
         version: 1,
         updatedAt: todayISO(),
         targets: {
-          kcal: Number($("admin-kcal").value) || 1800,
+          kcal: Number($("admin-kcal").value) || 1200,
           protein: Number($("admin-protein").value) || 100,
         },
         note: "Published defaults for Sapna Health. Period/weight logs are synced separately.",
