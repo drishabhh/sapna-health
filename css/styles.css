@@ -220,6 +220,10 @@ body {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+/* Today’s long streak/calendar card sits under the fixed credit — hide it there */
+body[data-section="today"] .site-credit {
+  display: none;
+}
 
 /* —— Bottom nav —— */
 .site-nav {
