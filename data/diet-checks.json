@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T09:09:30.018Z",
+  "updatedAt": "2026-10-13T09:15:34.874Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -28,7 +28,8 @@
     "2026-10-13": {
       "done": {},
       "amounts": {
-        "extra-mv6clemk-0jz": 150
+        "extra-mv6clemk-0jz": 150,
+        "extra-mv6gtyz4-xi0": 50000
       },
       "extras": [
         {
@@ -66,6 +67,19 @@
           "servings": 1,
           "carbs": 38,
           "fat": 0.5
+        },
+        {
+          "id": "extra-mv6gtyz4-xi0",
+          "foodId": "paneer-100",
+          "meal": "lunch",
+          "name": "Paneer (100 g)",
+          "kcal": 265,
+          "protein": 18,
+          "servings": 500,
+          "servingGrams": 50000,
+          "grams": 50000,
+          "amountLabel": "500 servings",
+          "kind": "packaged"
         }
       ],
       "breakfast": [],
