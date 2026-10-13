@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013lib3b";
+  const PROFILE_ASSET_V = "20261013lib3c";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -4665,7 +4665,9 @@ ${JSON.stringify(example, null, 2)}`;
 
     function readPkgMacroFields() {
       const num = (id) => {
-        const v = Number($(id)?.value);
+        const raw = String($(id)?.value ?? "").trim();
+        if (raw === "") return null;
+        const v = Number(raw);
         return Number.isFinite(v) ? v : null;
       };
       return {
