@@ -1,5 +1,47 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-12T05:41:00.000Z",
-  "days": {}
+  "updatedAt": "2026-10-13T06:51:18.107Z",
+  "days": {
+    "2026-10-11": {
+      "done": {
+        "ln-roti-sabzi": false
+      },
+      "extras": [],
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "snacks": []
+    },
+    "2026-10-12": {
+      "done": {
+        "ln-roti-sabzi": false,
+        "ln-dal": false
+      },
+      "extras": [],
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "snacks": []
+    },
+    "2026-10-13": {
+      "done": {},
+      "extras": [
+        {
+          "id": "extra-mv6bofik-526",
+          "foodId": "gfood-thatte-idli-1-large-150g--180",
+          "meal": "breakfast",
+          "name": "Thatte idli (1 large (150g))",
+          "kcal": 180,
+          "protein": 6,
+          "servings": 1,
+          "carbs": 38,
+          "fat": 0.5
+        }
+      ],
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "snacks": []
+    }
+  }
 }
