@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T11:58:07.147Z",
+  "updatedAt": "2026-10-13T11:58:34.859Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -31,7 +31,8 @@
       "done": {},
       "amounts": {
         "extra-mv6h3zzn-bp3": 100,
-        "extra-mv6h6ffx-4py": 120
+        "extra-mv6h6ffx-4py": 120,
+        "extra-mv6mnn10-igj": 120
       },
       "deletedIds": [
         "extra-mv6clemk-0jz",
@@ -64,6 +65,19 @@
         },
         {
           "id": "extra-mv6h6ffx-4py",
+          "foodId": "roti",
+          "meal": "lunch",
+          "name": "Roti (1 medium)",
+          "kcal": 120,
+          "protein": 3.5,
+          "servings": 3,
+          "servingGrams": 120,
+          "grams": 120,
+          "amountLabel": "3 servings",
+          "kind": "packaged"
+        },
+        {
+          "id": "extra-mv6mnn10-igj",
           "foodId": "roti",
           "meal": "lunch",
           "name": "Roti (1 medium)",
