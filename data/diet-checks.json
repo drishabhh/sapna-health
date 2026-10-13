@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T07:14:58.800Z",
+  "updatedAt": "2026-10-13T07:15:04.908Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -30,7 +30,7 @@
       "amounts": {},
       "extras": [
         {
-          "id": "extra-mv6bok5r-jdu",
+          "id": "extra-mv6bofik-526",
           "foodId": "gfood-thatte-idli-1-large-150g--180",
           "meal": "breakfast",
           "name": "Thatte idli (1 large (150g))",
@@ -41,7 +41,7 @@
           "fat": 0.5
         },
         {
-          "id": "extra-mv6bofik-526",
+          "id": "extra-mv6bok5r-jdu",
           "foodId": "gfood-thatte-idli-1-large-150g--180",
           "meal": "breakfast",
           "name": "Thatte idli (1 large (150g))",
