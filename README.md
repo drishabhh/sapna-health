@@ -11,7 +11,7 @@ Personal companion for Sapna — **Today**, **Workout** (plan + GIFs + LOG), **D
 | Section | Persistence |
 |---------|-------------|
 | Workout | `data/today.json` + `media/` / GIF library; lift LOG → `data/weights.json` |
-| Diet | Admin publishes `data/diet-today.json` + `data/diet-plans/`; Sapna checkmarks + extras on device (`localStorage`) with optional sync to `data/diet-checks.json` |
+| Diet | Admin publishes `data/diet-today.json` + `data/diet-plans/`; Sapna checkmarks + editable grams (macros scale) + extras on device (`localStorage`) with optional sync to `data/diet-checks.json` |
 | Periods | Device + optional sync to `data/periods.json` |
 | Weight logs | Device + sync to `data/weights.json` (shared PAT) |
 

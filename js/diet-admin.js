@@ -47,6 +47,54 @@ window.SapnaDietAdmin = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
+  function parseServingGrams(servingSize) {
+    const s = String(servingSize || "").trim().toLowerCase();
+    if (!s) return null;
+    const m = s.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|kg)\b/);
+    if (!m) return null;
+    const n = Number(m[1]);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return m[2].startsWith("kg") ? n * 1000 : n;
+  }
+
+  function roundn(n, d = 1) {
+    const f = 10 ** d;
+    return Math.round(Number(n) * f) / f;
+  }
+
+  /** Carry base serving + macros so Sapna can scale by grams later. */
+  function nutritionFields(src = {}) {
+    const servingGrams =
+      Number(src.servingGrams) ||
+      parseServingGrams(src.servingSize) ||
+      parseServingGrams(src.note) ||
+      parseServingGrams(src.name) ||
+      null;
+    const out = {};
+    if (Number.isFinite(servingGrams) && servingGrams > 0) out.servingGrams = roundn(servingGrams, 1);
+    if (src.servingSize) out.servingSize = String(src.servingSize);
+    if (src.foodId || src.id) out.foodId = src.foodId || src.id;
+    ["carbs", "fat", "fiber", "sugars", "sodiumMg"].forEach((k) => {
+      if (src[k] != null && Number.isFinite(Number(src[k]))) out[k] = roundn(src[k], 2);
+    });
+    if (Array.isArray(src.ingredients) && src.ingredients.length) {
+      out.ingredients = src.ingredients
+        .map((ing) => {
+          if (!ing || typeof ing !== "object") return null;
+          const name = String(ing.name || "").trim();
+          if (!name) return null;
+          const row = { name };
+          if (ing.grams != null && Number.isFinite(Number(ing.grams))) row.grams = roundn(ing.grams, 1);
+          else if (ing.amount != null && Number.isFinite(Number(ing.amount))) row.grams = roundn(ing.amount, 1);
+          if (ing.unit) row.unit = String(ing.unit);
+          return row;
+        })
+        .filter(Boolean);
+      if (!out.ingredients.length) delete out.ingredients;
+    }
+    return out;
+  }
+
   function uid(prefix) {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
   }
@@ -150,6 +198,7 @@ window.SapnaDietAdmin = (() => {
           kcal: Math.round(Number(it.kcal) || 0),
           protein: Math.round((Number(it.protein) || 0) * 10) / 10,
           note: it.note || "",
+          ...nutritionFields(it),
         });
       });
     });
@@ -167,6 +216,7 @@ window.SapnaDietAdmin = (() => {
         kcal: Math.round(Number(it.kcal) || 0),
         protein: Math.round((Number(it.protein) || 0) * 10) / 10,
         note: it.note || "",
+        ...nutritionFields(it),
       });
     });
     const date = targetDate || todayISO();
@@ -225,7 +275,7 @@ window.SapnaDietAdmin = (() => {
           return `<li class="diet-cart-item" data-diet-cart-idx="${idx}">
             <div class="diet-cart-item-main">
               <strong>${escapeHtml(it.name)}</strong>
-              <span>${it.kcal} kcal · ${it.protein}g P${it.note ? ` · ${escapeHtml(it.note)}` : ""}</span>
+              <span>${it.kcal} kcal · ${it.protein}g P${it.servingGrams ? ` · ${it.servingGrams}g` : ""}${it.note ? ` · ${escapeHtml(it.note)}` : ""}</span>
             </div>
             <div class="diet-cart-item-actions">
               <button type="button" class="btn-ghost" data-diet-cart-up aria-label="Move up">↑</button>
@@ -257,6 +307,7 @@ window.SapnaDietAdmin = (() => {
       kcal: Math.round(Number(item.kcal) || 0),
       protein: Math.round((Number(item.protein) || 0) * 10) / 10,
       note: item.note || "",
+      ...nutritionFields(item),
     });
     renderCart();
   }
@@ -408,6 +459,7 @@ window.SapnaDietAdmin = (() => {
           kcal: food.kcal,
           protein: food.protein,
           note: food.servingSize || "",
+          ...nutritionFields(food),
         });
         setStatus(`Added ${food.name} → ${MEALS.find((m) => m.id === browseMeal)?.label}`, "ok");
         if (footer) footer.innerHTML = `<button type="button" class="btn-primary" id="diet-browse-done">Done · cart (${cart.length})</button>`;
@@ -659,6 +711,7 @@ window.SapnaDietAdmin = (() => {
             kcal: Number(it.kcal) || 0,
             protein: Number(it.protein) || 0,
             note: it.note || it.serving || "",
+            ...nutritionFields(it),
           });
           n += 1;
         });
@@ -745,6 +798,7 @@ window.SapnaDietAdmin = (() => {
               kcal: Number(it.kcal) || 0,
               protein: Number(it.protein) || 0,
               note: it.note || "",
+              ...nutritionFields(it),
             });
             n += 1;
           });

@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261012sync1";
+      var APP_V = "20261013grams1";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261012sync1"></script>
+  <script src="./js/admin-auth.js?v=20261013grams1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261012sync1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261013grams1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -284,6 +284,22 @@
       <p class="hint" id="diet-plan-status">Loading today’s meal plan…</p>
 
       <div class="diet-meals-wrap hf-meals diet-plan-check-wrap" id="diet-meals" aria-label="Meal plan checkmarks"></div>
+
+      <div class="diet-grams-sheet" id="diet-grams-sheet" hidden>
+        <p class="diet-grams-name" id="diet-grams-name"></p>
+        <div class="diet-grams-stepper" role="group" aria-label="Grams">
+          <button type="button" class="diet-grams-nudge" data-grams-delta="-10" aria-label="Minus 10">−10</button>
+          <button type="button" class="diet-grams-nudge" data-grams-delta="-1" aria-label="Minus 1">−</button>
+          <input type="number" id="diet-grams-input" min="1" step="1" inputmode="numeric" aria-label="Grams" />
+          <button type="button" class="diet-grams-nudge" data-grams-delta="1" aria-label="Plus 1">+</button>
+          <button type="button" class="diet-grams-nudge" data-grams-delta="10" aria-label="Plus 10">+10</button>
+        </div>
+        <p class="diet-grams-preview" id="diet-grams-preview" aria-live="polite"></p>
+        <div class="actions diet-grams-actions">
+          <button type="button" class="btn-diet" id="diet-grams-done">Done</button>
+          <button type="button" class="btn-diet-ghost" id="diet-grams-cancel">Cancel</button>
+        </div>
+      </div>
 
       <select id="diet-meal" hidden>
         <option value="breakfast" selected>Breakfast</option>
@@ -1192,8 +1208,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261012sync1"></script>
-  <script src="./js/diet-admin.js?v=20261012sync1"></script>
-  <script src="./js/app.js?v=20261012sync1"></script>
+  <script src="./js/workout-admin.js?v=20261013grams1"></script>
+  <script src="./js/diet-admin.js?v=20261013grams1"></script>
+  <script src="./js/app.js?v=20261013grams1"></script>
 </body>
 </html>

@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-13T07:00:00.000Z",
+  "planDate": "2026-10-13",
+  "headline": "Today’s plate",
+  "support": "Tap grams to adjust · ✓ when eaten",
+  "targets": {
+    "kcal": 1800,
+    "protein": 100
+  },
+  "meals": {
+    "breakfast": [
+      {
+        "id": "bf-oats",
+        "name": "Oats with milk",
+        "kcal": 280,
+        "protein": 12,
+        "carbs": 42,
+        "fat": 6,
+        "fiber": 4,
+        "note": "1 bowl",
+        "servingGrams": 250,
+        "servingSize": "250g",
+        "ingredients": [
+          { "name": "Oats", "grams": 40 },
+          { "name": "Milk", "grams": 200 },
+          { "name": "Honey", "grams": 10 }
+        ]
+      },
+      {
+        "id": "bf-eggs",
+        "name": "Boiled eggs ×2",
+        "kcal": 156,
+        "protein": 12.6,
+        "carbs": 1,
+        "fat": 10,
+        "note": "2 eggs",
+        "servingGrams": 100,
+        "servingSize": "100g"
+      }
+    ],
+    "lunch": [
+      {
+        "id": "ln-roti-sabzi",
+        "name": "Roti + sabzi",
+        "kcal": 360,
+        "protein": 11,
+        "carbs": 52,
+        "fat": 10,
+        "fiber": 6,
+        "note": "2 roti",
+        "servingGrams": 220,
+        "servingSize": "220g",
+        "ingredients": [
+          { "name": "Roti", "grams": 80 },
+          { "name": "Sabzi", "grams": 140 }
+        ]
+      },
+      {
+        "id": "ln-dal",
+        "name": "Dal",
+        "kcal": 180,
+        "protein": 12,
+        "carbs": 24,
+        "fat": 4,
+        "fiber": 5,
+        "note": "1 bowl",
+        "servingGrams": 200,
+        "servingSize": "200g"
+      },
+      {
+        "id": "ln-curd",
+        "name": "Curd",
+        "kcal": 90,
+        "protein": 6,
+        "carbs": 6,
+        "fat": 4,
+        "note": "1 katori",
+        "servingGrams": 120,
+        "servingSize": "120g"
+      }
+    ],
+    "dinner": [
+      {
+        "id": "dn-paneer",
+        "name": "Paneer bhurji + salad",
+        "kcal": 380,
+        "protein": 28,
+        "carbs": 12,
+        "fat": 24,
+        "fiber": 3,
+        "note": "",
+        "servingGrams": 220,
+        "servingSize": "220g",
+        "ingredients": [
+          { "name": "Paneer", "grams": 100 },
+          { "name": "Salad", "grams": 120 }
+        ]
+      },
+      {
+        "id": "dn-roti",
+        "name": "Roti ×1",
+        "kcal": 120,
+        "protein": 3.5,
+        "carbs": 20,
+        "fat": 3,
+        "note": "",
+        "servingGrams": 40,
+        "servingSize": "40g"
+      }
+    ],
+    "snacks": [
+      {
+        "id": "sn-fruit",
+        "name": "Fruit (apple/banana)",
+        "kcal": 95,
+        "protein": 1,
+        "carbs": 25,
+        "fat": 0.3,
+        "fiber": 3,
+        "note": "",
+        "servingGrams": 120,
+        "servingSize": "120g"
+      },
+      {
+        "id": "sn-chaas",
+        "name": "Chaas / buttermilk",
+        "kcal": 60,
+        "protein": 3,
+        "carbs": 5,
+        "fat": 2,
+        "note": "",
+        "servingGrams": 200,
+        "servingSize": "200g"
+      }
+    ]
+  }
+}

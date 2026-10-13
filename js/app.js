@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261012sync1";
+  const PROFILE_ASSET_V = "20261013grams1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -2772,6 +2772,8 @@ ${JSON.stringify(example, null, 2)}`;
       snacks: [],
       extras: [],
       done: {},
+      /** Personal eaten grams overlays — keyed by plan item id or extra id */
+      amounts: {},
     });
     let foods = [];
     let defaults = { targets: { kcal: 1800, protein: 100 } };
@@ -2785,6 +2787,8 @@ ${JSON.stringify(example, null, 2)}`;
       checksByDate: {},
     });
     let pkgPending = null; /* { food, mode: 'grams'|'servings' } */
+    /** @type {null | { kind:'plan'|'extra', id:string, meal?:string }} */
+    let gramsPending = null;
 
     function ensureDay() {
       const d = todayISO();
@@ -2794,6 +2798,7 @@ ${JSON.stringify(example, null, 2)}`;
           ...emptyDay(),
           date: d,
           done: { ...(saved?.done || {}) },
+          amounts: { ...(saved?.amounts || {}) },
           extras: Array.isArray(saved?.extras) ? saved.extras.slice() : [],
           /* legacy free-form diary slots still count as extras if present */
           breakfast: saved?.breakfast || [],
@@ -2804,6 +2809,7 @@ ${JSON.stringify(example, null, 2)}`;
         persist();
       }
       if (!state.day.done) state.day.done = {};
+      if (!state.day.amounts || typeof state.day.amounts !== "object") state.day.amounts = {};
       if (!Array.isArray(state.day.extras)) state.day.extras = [];
     }
 
@@ -2812,6 +2818,7 @@ ${JSON.stringify(example, null, 2)}`;
       state.checksByDate = state.checksByDate || {};
       state.checksByDate[state.day.date] = {
         done: { ...(state.day.done || {}) },
+        amounts: { ...(state.day.amounts || {}) },
         extras: (state.day.extras || []).slice(),
         breakfast: (state.day.breakfast || []).slice(),
         lunch: (state.day.lunch || []).slice(),
@@ -3010,6 +3017,183 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
+    /** Base serving grams for a plan item (label / note / name / 100g fallback). */
+    function baseServingGrams(item) {
+      if (!item) return 100;
+      const direct = Number(item.servingGrams);
+      if (Number.isFinite(direct) && direct > 0) return direct;
+      const fromFields =
+        parseServingGrams(item.servingSize) ||
+        parseServingGrams(item.note) ||
+        parseServingGrams(item.name);
+      if (fromFields) return fromFields;
+      const linked = item.foodId ? findFood(item.foodId) : null;
+      if (linked) {
+        const g =
+          Number(linked.servingGrams) ||
+          parseServingGrams(linked.servingSize) ||
+          parseServingGrams(linked.name);
+        if (g) return g;
+      }
+      /* Synthetic portion unit: published macros = 100g reference */
+      return 100;
+    }
+
+    function getAmountOverlay(id) {
+      ensureDay();
+      const g = Number(state.day.amounts?.[id]);
+      return Number.isFinite(g) && g > 0 ? g : null;
+    }
+
+    function eatenGramsForPlanItem(item) {
+      const overlay = getAmountOverlay(item.id);
+      if (overlay != null) return overlay;
+      return baseServingGrams(item);
+    }
+
+    function planItemFactor(item) {
+      const base = baseServingGrams(item);
+      if (!base) return 1;
+      return eatenGramsForPlanItem(item) / base;
+    }
+
+    function scaleIngredients(ingredients, factor) {
+      if (!Array.isArray(ingredients) || !ingredients.length) return [];
+      return ingredients
+        .map((ing) => {
+          if (!ing || typeof ing !== "object") return null;
+          const name = String(ing.name || "").trim();
+          if (!name) return null;
+          const g = Number(ing.grams != null ? ing.grams : ing.amount);
+          const row = { name };
+          if (Number.isFinite(g)) {
+            row.grams = roundn(g * factor, 1);
+            row.unit = ing.unit || "g";
+          } else if (ing.unit) row.unit = String(ing.unit);
+          return row;
+        })
+        .filter(Boolean);
+    }
+
+    function scaledPlanItem(item) {
+      const factor = planItemFactor(item);
+      const macros = scaledMacros(item, factor);
+      return {
+        ...item,
+        factor,
+        grams: eatenGramsForPlanItem(item),
+        baseGrams: baseServingGrams(item),
+        kcal: macros.kcal,
+        protein: macros.protein,
+        carbs: macros.carbs,
+        fat: macros.fat,
+        fiber: macros.fiber,
+        sugars: macros.sugars,
+        ingredients: scaleIngredients(item.ingredients, factor),
+      };
+    }
+
+    function extraBaseGrams(item) {
+      if (!item) return 100;
+      const direct = Number(item.servingGrams) || Number(item.baseGrams);
+      if (Number.isFinite(direct) && direct > 0) return direct;
+      const linked = item.foodId ? findFood(item.foodId) : null;
+      if (linked) {
+        const g =
+          Number(linked.servingGrams) ||
+          parseServingGrams(linked.servingSize) ||
+          parseServingGrams(linked.name);
+        if (g) return g;
+      }
+      /* Legacy packaged extras: amountLabel is eaten grams, servings is factor */
+      const eaten = parseServingGrams(item.amountLabel);
+      const s = Number(item.servings);
+      if (eaten && Number.isFinite(s) && s > 0) return roundn(eaten / s, 1);
+      return baseServingGrams(item);
+    }
+
+    function eatenGramsForExtra(item) {
+      if (!item) return 100;
+      const overlay = item.id ? getAmountOverlay(item.id) : null;
+      if (overlay != null) return overlay;
+      const stored = Number(item.grams);
+      if (Number.isFinite(stored) && stored > 0) return stored;
+      const fromLabel = parseServingGrams(item.amountLabel);
+      if (fromLabel) return fromLabel;
+      /* servings-as-factor × base */
+      const base = extraBaseGrams(item);
+      const s = Number(item.servings);
+      if (Number.isFinite(s) && s > 0 && Math.abs(s - 1) > 0.001) return roundn(base * s, 1);
+      return base;
+    }
+
+    function scaledExtra(item) {
+      const base = extraBaseGrams(item);
+      const grams = eatenGramsForExtra(item);
+      const factor = base > 0 ? grams / base : Number(item.servings) || 1;
+      const macros = scaledMacros(item, factor);
+      return {
+        ...item,
+        factor,
+        grams,
+        baseGrams: base,
+        kcal: macros.kcal,
+        protein: macros.protein,
+        carbs: macros.carbs != null ? macros.carbs : item.carbs != null ? roundn(Number(item.carbs) * factor, 2) : null,
+        fat: macros.fat != null ? macros.fat : item.fat != null ? roundn(Number(item.fat) * factor, 2) : null,
+        fiber: macros.fiber != null ? macros.fiber : item.fiber != null ? roundn(Number(item.fiber) * factor, 2) : null,
+        ingredients: scaleIngredients(item.ingredients, factor),
+      };
+    }
+
+    function setGramsOverlay(id, grams) {
+      ensureDay();
+      const g = Math.max(1, Math.round(Number(grams)));
+      if (!Number.isFinite(g) || !id) return false;
+      state.day.amounts = state.day.amounts || {};
+      state.day.amounts[id] = g;
+      return true;
+    }
+
+    function applyExtraGrams(item, grams) {
+      if (!item?.id) return;
+      const g = Math.max(1, Math.round(Number(grams)));
+      if (!Number.isFinite(g)) return;
+      setGramsOverlay(item.id, g);
+      const base = extraBaseGrams(item);
+      const factor = base > 0 ? g / base : 1;
+      const patch = {
+        grams: g,
+        servingGrams: base,
+        servings: factor,
+        amountLabel: `${roundn(g, 1)} g`,
+      };
+      state.day.extras = (state.day.extras || []).map((x) => (x.id === item.id ? { ...x, ...patch } : x));
+      MEALS.forEach(({ id: meal }) => {
+        state.day[meal] = (state.day[meal] || []).map((x) => (x.id === item.id ? { ...x, ...patch } : x));
+      });
+    }
+
+    function macroLine(m, note) {
+      let line = `${Math.round(m.kcal)} kcal · ${roundn(m.protein, 1)}g P`;
+      if (m.carbs != null) line += ` · ${roundn(m.carbs, 1)}g C`;
+      if (m.fat != null) line += ` · ${roundn(m.fat, 1)}g F`;
+      if (m.fiber != null) line += ` · ${roundn(m.fiber, 1)}g fi`;
+      if (note) line += ` · ${note}`;
+      return line;
+    }
+
+    function ingredientsHtml(ings) {
+      if (!ings?.length) return "";
+      const bits = ings
+        .map((ing) => {
+          if (ing.grams != null) return `${escapeHtml(ing.name)} ${ing.grams}${ing.unit || "g"}`;
+          return escapeHtml(ing.name);
+        })
+        .join(" · ");
+      return `<span class="diet-ing-line">${bits}</span>`;
+    }
+
     function savePackagedFood(food) {
       state.customFoods = state.customFoods || [];
       const existing = state.customFoods.findIndex(
@@ -3035,13 +3219,14 @@ ${JSON.stringify(example, null, 2)}`;
       MEALS.forEach(({ id }) => {
         planItems(id).forEach((item) => {
           if (!isDone(item.id)) return;
-          kcal += Number(item.kcal) || 0;
-          protein += Number(item.protein) || 0;
+          const s = scaledPlanItem(item);
+          kcal += Number(s.kcal) || 0;
+          protein += Number(s.protein) || 0;
         });
         extrasInMeal(id).forEach((item) => {
-          const s = Number(item.servings) || 1;
-          kcal += (Number(item.kcal) || 0) * s;
-          protein += (Number(item.protein) || 0) * s;
+          const s = scaledExtra(item);
+          kcal += Number(s.kcal) || 0;
+          protein += Number(s.protein) || 0;
         });
       });
       return { kcal: Math.round(kcal), protein: Math.round(protein * 10) / 10 };
@@ -3051,10 +3236,10 @@ ${JSON.stringify(example, null, 2)}`;
       ensureDay();
       let n = 0;
       planItems(slot).forEach((item) => {
-        if (isDone(item.id)) n += Number(item.kcal) || 0;
+        if (isDone(item.id)) n += Number(scaledPlanItem(item).kcal) || 0;
       });
       extrasInMeal(slot).forEach((item) => {
-        n += (Number(item.kcal) || 0) * (Number(item.servings) || 1);
+        n += Number(scaledExtra(item).kcal) || 0;
       });
       return Math.round(n);
     }
@@ -3084,6 +3269,12 @@ ${JSON.stringify(example, null, 2)}`;
       const s = Number(servings) || 1;
       const kcal = Number(food.kcal);
       if (!Number.isFinite(kcal)) return;
+      const baseG =
+        Number(extras.grams) ||
+        Number(food.servingGrams) ||
+        parseServingGrams(food.servingSize) ||
+        parseServingGrams(food.name) ||
+        100;
       const entry = {
         id: "extra-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 5),
         foodId: food.id || "",
@@ -3092,16 +3283,28 @@ ${JSON.stringify(example, null, 2)}`;
         kcal,
         protein: Number(food.protein) || 0,
         servings: s,
+        servingGrams: baseG,
       };
+      if (extras.grams != null && Number.isFinite(Number(extras.grams))) {
+        entry.grams = Number(extras.grams);
+      } else if (Math.abs(s - 1) > 0.001) {
+        entry.grams = roundn(baseG * s, 1);
+      } else {
+        entry.grams = baseG;
+      }
       if (food.carbs != null) entry.carbs = Number(food.carbs);
       if (food.fat != null) entry.fat = Number(food.fat);
       if (food.fiber != null) entry.fiber = Number(food.fiber);
       if (food.sugars != null) entry.sugars = Number(food.sugars);
       if (food.sodiumMg != null) entry.sodiumMg = Number(food.sodiumMg);
+      if (Array.isArray(food.ingredients)) entry.ingredients = food.ingredients;
       if (extras.amountLabel) entry.amountLabel = extras.amountLabel;
+      else entry.amountLabel = `${roundn(entry.grams, 1)} g`;
       if (food.kind === "packaged" || extras.kind === "packaged") entry.kind = "packaged";
       state.day.extras = state.day.extras || [];
       state.day.extras.push(entry);
+      state.day.amounts = state.day.amounts || {};
+      state.day.amounts[entry.id] = entry.grams;
       pushRecent(food.id);
       markDietLogged(state.day.date || todayISO());
       persist();
@@ -3144,9 +3347,11 @@ ${JSON.stringify(example, null, 2)}`;
     function addPackagedAmount(food, meal, mode, amount) {
       const factor = scaleFactor(food, mode, amount);
       const a = Number(amount);
+      const baseG = Number(food.servingGrams) || parseServingGrams(food.servingSize) || 100;
+      const grams = mode === "grams" ? a : roundn(baseG * a, 1);
       const amountLabel =
         mode === "grams" ? `${roundn(a, 1)} g` : `${roundn(a, 2)} serving${a === 1 ? "" : "s"}`;
-      addItem(food, meal, factor, { amountLabel, kind: "packaged" });
+      addItem(food, meal, factor, { amountLabel, kind: "packaged", grams });
       return { factor, amountLabel, macros: scaledMacros(food, factor) };
     }
 
@@ -3310,13 +3515,19 @@ ${JSON.stringify(example, null, 2)}`;
             ? planned
                 .map((item) => {
                   const on = isDone(item.id);
+                  const s = scaledPlanItem(item);
+                  const noteBit = item.note && !parseServingGrams(item.note) ? ` · ${escapeHtml(item.note)}` : "";
                   return `<li class="diet-check-row${on ? " is-done" : ""}">
                     <button type="button" class="diet-check-toggle" data-check-id="${escapeHtml(item.id)}" aria-pressed="${on ? "true" : "false"}" aria-label="${on ? "Unmark" : "Mark eaten"}">
                       <span class="diet-check-box" aria-hidden="true">${on ? "✓" : ""}</span>
                       <span class="diet-check-copy">
                         <strong>${escapeHtml(item.name)}</strong>
-                        <em>${item.kcal} kcal · ${item.protein}g P${item.note ? ` · ${escapeHtml(item.note)}` : ""}</em>
+                        <em>${macroLine(s)}${noteBit}</em>
+                        ${ingredientsHtml(s.ingredients)}
                       </span>
+                    </button>
+                    <button type="button" class="diet-grams-chip" data-edit-grams="${escapeHtml(item.id)}" data-grams-kind="plan" aria-label="Edit grams">
+                      ${roundn(s.grams, 0)}&nbsp;g
                     </button>
                   </li>`;
                 })
@@ -3328,17 +3539,17 @@ ${JSON.stringify(example, null, 2)}`;
               }</li>`;
           const extraLis = extras
             .map((item, i) => {
-              const s = Number(item.servings) || 1;
-              const qty = item.amountLabel
-                ? ` · ${escapeHtml(item.amountLabel)}`
-                : s !== 1
-                  ? ` × ${s}`
-                  : "";
+              const s = scaledExtra(item);
+              const gid = item.id || `legacy-${id}-${i}`;
               return `<li class="diet-extra-row">
-                <div>
-                  <div>${escapeHtml(item.name)}${qty} <span class="diet-extra-tag">extra</span></div>
-                  <div class="meta">${Math.round(item.kcal * s)} kcal · ${Math.round(item.protein * s * 10) / 10}g P</div>
+                <div class="diet-extra-main">
+                  <div>${escapeHtml(item.name)} <span class="diet-extra-tag">extra</span></div>
+                  <div class="meta">${macroLine(s)}</div>
+                  ${ingredientsHtml(s.ingredients)}
                 </div>
+                <button type="button" class="diet-grams-chip" data-edit-grams="${escapeHtml(gid)}" data-grams-kind="extra" data-extra-meal="${id}" data-extra-idx="${i}" aria-label="Edit grams">
+                  ${roundn(s.grams, 0)}&nbsp;g
+                </button>
                 <button type="button" data-remove="${id}:${i}" aria-label="Remove">✕</button>
               </li>`;
             })
@@ -3429,6 +3640,146 @@ ${JSON.stringify(example, null, 2)}`;
       const sheet = $("diet-pkg-sheet");
       if (sheet) sheet.hidden = true;
       if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = false;
+    }
+
+    function findPlanItemById(id) {
+      for (const { id: meal } of MEALS) {
+        const hit = planItems(meal).find((it) => it.id === id);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    function findExtraByEditId(editId, meal, idx) {
+      if (meal != null && Number.isFinite(Number(idx))) {
+        const list = extrasInMeal(meal);
+        const item = list[Number(idx)];
+        if (item) return item;
+      }
+      ensureDay();
+      const fromExtras = (state.day.extras || []).find((x) => x.id === editId);
+      if (fromExtras) return fromExtras;
+      for (const { id: m } of MEALS) {
+        const hit = (state.day[m] || []).find((x) => x.id === editId);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    function updateGramsPreview() {
+      if (!gramsPending) return;
+      const raw = Number($("diet-grams-input")?.value);
+      const el = $("diet-grams-preview");
+      if (!el) return;
+      if (!Number.isFinite(raw) || raw <= 0) {
+        el.textContent = "";
+        return;
+      }
+      try {
+        if (gramsPending.kind === "plan") {
+          const item = findPlanItemById(gramsPending.id);
+          if (!item) {
+            el.textContent = "";
+            return;
+          }
+          const factor = raw / baseServingGrams(item);
+          const m = scaledMacros(item, factor);
+          const ings = scaleIngredients(item.ingredients, factor);
+          el.textContent =
+            macroLine(m) +
+            (ings.length
+              ? " · " + ings.map((i) => (i.grams != null ? `${i.name} ${i.grams}g` : i.name)).join(", ")
+              : "");
+        } else {
+          const item = findExtraByEditId(gramsPending.id, gramsPending.meal, gramsPending.idx);
+          if (!item) {
+            el.textContent = "";
+            return;
+          }
+          const base = extraBaseGrams(item);
+          const factor = base > 0 ? raw / base : 1;
+          const m = scaledMacros(item, factor);
+          el.textContent = macroLine(m);
+        }
+      } catch (_) {
+        el.textContent = "";
+      }
+    }
+
+    function openGramsSheet({ kind, id, meal, idx }) {
+      ensureDay();
+      gramsPending = { kind, id, meal, idx };
+      let name = "Food";
+      let grams = 100;
+      if (kind === "plan") {
+        const item = findPlanItemById(id);
+        if (!item) return;
+        name = item.name;
+        grams = eatenGramsForPlanItem(item);
+      } else {
+        const item = findExtraByEditId(id, meal, idx);
+        if (!item) return;
+        name = item.name;
+        grams = eatenGramsForExtra(item);
+      }
+      const sheet = $("diet-grams-sheet");
+      if (sheet) sheet.hidden = false;
+      if ($("diet-grams-name")) $("diet-grams-name").textContent = name;
+      if ($("diet-grams-input")) {
+        $("diet-grams-input").value = String(Math.round(grams));
+      }
+      updateGramsPreview();
+      try {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function" && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) ae.blur();
+      } catch (_) {}
+      sheet?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function closeGramsSheet() {
+      gramsPending = null;
+      const sheet = $("diet-grams-sheet");
+      if (sheet) sheet.hidden = true;
+    }
+
+    function commitGramsSheet() {
+      if (!gramsPending) return;
+      const raw = Number($("diet-grams-input")?.value);
+      if (!Number.isFinite(raw) || raw <= 0) return;
+      const g = Math.max(1, Math.round(raw));
+      if (gramsPending.kind === "plan") {
+        setGramsOverlay(gramsPending.id, g);
+      } else {
+        const item = findExtraByEditId(gramsPending.id, gramsPending.meal, gramsPending.idx);
+        if (item?.id) applyExtraGrams(item, g);
+        else setGramsOverlay(gramsPending.id, g);
+      }
+      Haptics.light();
+      persist();
+      closeGramsSheet();
+      render();
+      if (typeof Progress !== "undefined" && Progress.render) Progress.render();
+      if (typeof Today !== "undefined" && Today.render) Today.render();
+      maybeAutoSyncChecks();
+    }
+
+    function nudgeGrams(delta) {
+      const input = $("diet-grams-input");
+      if (!input) return;
+      const cur = Number(input.value) || 0;
+      input.value = String(Math.max(1, Math.round(cur + delta)));
+      updateGramsPreview();
+    }
+
+    function wireGramsSheet() {
+      $("diet-grams-done")?.addEventListener("click", () => commitGramsSheet());
+      $("diet-grams-cancel")?.addEventListener("click", () => closeGramsSheet());
+      $("diet-grams-input")?.addEventListener("input", () => updateGramsPreview());
+      $("diet-grams-sheet")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-grams-delta]");
+        if (!btn) return;
+        nudgeGrams(Number(btn.getAttribute("data-grams-delta")) || 0);
+      });
     }
 
     function showAiProductPreview(food, rawJson) {
@@ -3619,6 +3970,17 @@ ${JSON.stringify(example, null, 2)}`;
       return out;
     }
 
+    function mergeAmounts(a, b) {
+      /* Union of overlays; local wins on conflict (she just edited this phone). Never drop remote-only keys. */
+      const out = { ...(a && typeof a === "object" ? a : {}), ...(b && typeof b === "object" ? b : {}) };
+      const clean = {};
+      Object.keys(out).forEach((k) => {
+        const g = Number(out[k]);
+        if (Number.isFinite(g) && g > 0) clean[k] = Math.round(g);
+      });
+      return clean;
+    }
+
     function mergeOneDay(localDay, remoteDay) {
       const L = localDay || {};
       const R = remoteDay || {};
@@ -3629,6 +3991,7 @@ ${JSON.stringify(example, null, 2)}`;
       });
       return {
         done,
+        amounts: mergeAmounts(R.amounts, L.amounts),
         extras: mergeExtras(L.extras, R.extras),
         breakfast: mergeExtras(L.breakfast, R.breakfast),
         lunch: mergeExtras(L.lunch, R.lunch),
@@ -3657,6 +4020,7 @@ ${JSON.stringify(example, null, 2)}`;
           ...emptyDay(),
           date: d,
           done: { ...(next[d].done || {}) },
+          amounts: { ...(next[d].amounts || {}) },
           extras: Array.isArray(next[d].extras) ? next[d].extras.slice() : [],
           breakfast: next[d].breakfast || [],
           lunch: next[d].lunch || [],
@@ -3684,6 +4048,8 @@ ${JSON.stringify(example, null, 2)}`;
         const day = days[k] || {};
         const done = day.done || {};
         if (Object.keys(done).some((id) => done[id])) return true;
+        const amounts = day.amounts || {};
+        if (Object.keys(amounts).some((id) => Number(amounts[id]) > 0)) return true;
         if ((day.extras || []).length) return true;
         if ((day.breakfast || []).length || (day.lunch || []).length || (day.dinner || []).length || (day.snacks || []).length)
           return true;
@@ -3851,6 +4217,18 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus($("diet-status"), "Today’s checkmarks cleared.", "info");
       });
       $("diet-meals")?.addEventListener("click", (e) => {
+        const gramsBtn = e.target.closest("[data-edit-grams]");
+        if (gramsBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          openGramsSheet({
+            kind: gramsBtn.getAttribute("data-grams-kind") === "extra" ? "extra" : "plan",
+            id: gramsBtn.getAttribute("data-edit-grams"),
+            meal: gramsBtn.getAttribute("data-extra-meal") || undefined,
+            idx: gramsBtn.getAttribute("data-extra-idx"),
+          });
+          return;
+        }
         const check = e.target.closest("[data-check-id]");
         if (check) {
           toggleDone(check.getAttribute("data-check-id"));
@@ -3866,6 +4244,7 @@ ${JSON.stringify(example, null, 2)}`;
         const [meal, idx] = btn.getAttribute("data-remove").split(":");
         removeItem(meal, Number(idx));
       });
+      wireGramsSheet();
     }
 
     async function init() {
@@ -3909,19 +4288,23 @@ ${JSON.stringify(example, null, 2)}`;
       MEALS.forEach(({ id, label }) => {
         planItems(id).forEach((item) => {
           if (!isDone(item.id)) return;
+          const s = scaledPlanItem(item);
           out.push({
             meal: label,
             name: item.name,
-            kcal: Math.round(Number(item.kcal) || 0),
-            protein: Math.round((Number(item.protein) || 0) * 10) / 10,
+            kcal: Math.round(Number(s.kcal) || 0),
+            protein: Math.round((Number(s.protein) || 0) * 10) / 10,
+            grams: s.grams,
           });
         });
         extrasInMeal(id).forEach((item) => {
+          const s = scaledExtra(item);
           out.push({
             meal: label,
             name: item.name,
-            kcal: Math.round((Number(item.kcal) || 0) * (Number(item.servings) || 1)),
-            protein: Math.round((Number(item.protein) || 0) * (Number(item.servings) || 1) * 10) / 10,
+            kcal: Math.round(Number(s.kcal) || 0),
+            protein: Math.round((Number(s.protein) || 0) * 10) / 10,
+            grams: s.grams,
           });
         });
       });
