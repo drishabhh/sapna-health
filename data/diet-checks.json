@@ -1,12 +1,13 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T17:36:31.559Z",
+  "updatedAt": "2026-10-13T17:54:39.708Z",
   "days": {
     "2026-10-11": {
       "done": {
         "ln-roti-sabzi": false
       },
       "deletedIds": [],
+      "updatedAt": null,
       "amounts": {},
       "extras": [],
       "breakfast": [],
@@ -20,6 +21,7 @@
         "ln-dal": false
       },
       "deletedIds": [],
+      "updatedAt": null,
       "amounts": {},
       "extras": [],
       "breakfast": [],
@@ -43,6 +45,7 @@
         "extra-mv6gtyz4-xi0",
         "extra-mv6mnn10-igj"
       ],
+      "updatedAt": null,
       "extras": [
         {
           "id": "extra-mv6bok5r-jdu",
