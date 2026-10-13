@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013add2";
+  const PROFILE_ASSET_V = "20261013add3";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3696,7 +3696,8 @@ ${JSON.stringify(example, null, 2)}`;
       pkgPending = null;
       const sheet = $("diet-pkg-sheet");
       if (sheet) sheet.hidden = true;
-      if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = false;
+      /* Servings field stays hidden — grams/amount sheets handle quantity */
+      if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = true;
     }
 
     function findPlanItemById(id) {
