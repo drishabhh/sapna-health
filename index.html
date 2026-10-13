@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261013kb1";
+      var APP_V = "20261013ml1";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261013kb1"></script>
+  <script src="./js/admin-auth.js?v=20261013ml1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261013kb1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261013ml1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -287,10 +287,11 @@
 
       <div class="diet-grams-sheet" id="diet-grams-sheet" hidden>
         <p class="diet-grams-name" id="diet-grams-name"></p>
-        <div class="diet-grams-stepper" role="group" aria-label="Grams">
+        <div class="diet-grams-stepper" role="group" aria-label="Amount">
           <button type="button" class="diet-grams-nudge" data-grams-delta="-10" aria-label="Minus 10">−10</button>
           <button type="button" class="diet-grams-nudge" data-grams-delta="-1" aria-label="Minus 1">−</button>
-          <input type="number" id="diet-grams-input" min="1" step="1" inputmode="numeric" aria-label="Grams" />
+          <input type="number" id="diet-grams-input" min="1" step="1" inputmode="numeric" aria-label="Amount" />
+          <span class="diet-grams-unit-hint" id="diet-grams-unit-hint" aria-hidden="true">g</span>
           <button type="button" class="diet-grams-nudge" data-grams-delta="1" aria-label="Plus 1">+</button>
           <button type="button" class="diet-grams-nudge" data-grams-delta="10" aria-label="Plus 10">+10</button>
         </div>
@@ -817,8 +818,14 @@
           <label class="field">Name
             <input type="text" id="diet-custom-name" placeholder="e.g. Thatte idli (1 large)" />
           </label>
-          <label class="field">Serving g
+          <label class="field">Serving amount
             <input type="number" id="diet-custom-grams" min="1" step="1" placeholder="150" />
+          </label>
+          <label class="field">Unit
+            <select id="diet-custom-unit" aria-label="Serving unit">
+              <option value="g" selected>g</option>
+              <option value="ml">ml</option>
+            </select>
           </label>
         </div>
         <div class="field-row">
@@ -1192,8 +1199,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261013kb1"></script>
-  <script src="./js/diet-admin.js?v=20261013kb1"></script>
-  <script src="./js/app.js?v=20261013kb1"></script>
+  <script src="./js/workout-admin.js?v=20261013ml1"></script>
+  <script src="./js/diet-admin.js?v=20261013ml1"></script>
+  <script src="./js/app.js?v=20261013ml1"></script>
 </body>
 </html>

@@ -3149,14 +3149,74 @@ ${JSON.stringify(example, null, 2)}`;
       return !!(food && (food.kind === "packaged" || food.servingGrams || food.servingSize));
     }
 
-    function parseServingGrams(servingSize) {
+    function normalizeMeasureUnit(u) {
+      const s = String(u || "").toLowerCase().trim();
+      if (s === "ml" || s.startsWith("millil")) return "ml";
+      return "g";
+    }
+
+    /** Parse "250 ml" / "150g" / "1 kg" → { amount, unit } */
+    function parseServingAmount(servingSize) {
       const s = String(servingSize || "").trim().toLowerCase();
       if (!s) return null;
-      const m = s.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|kg)\b/);
+      const m = s.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|millilitres?|g|grams?|kg)\b/);
       if (!m) return null;
       const n = Number(m[1]);
       if (!Number.isFinite(n) || n <= 0) return null;
-      return m[2].startsWith("kg") ? n * 1000 : n;
+      const raw = m[2];
+      if (raw.startsWith("kg")) return { amount: n * 1000, unit: "g" };
+      if (raw.startsWith("ml") || raw.startsWith("millil")) return { amount: n, unit: "ml" };
+      return { amount: n, unit: "g" };
+    }
+
+    function parseServingGrams(servingSize) {
+      const parsed = parseServingAmount(servingSize);
+      return parsed ? parsed.amount : null;
+    }
+
+    function foodMeasureUnit(foodOrItem) {
+      if (!foodOrItem) return "g";
+      if (foodOrItem.servingUnit) return normalizeMeasureUnit(foodOrItem.servingUnit);
+      if (foodOrItem.unit) return normalizeMeasureUnit(foodOrItem.unit);
+      const fromLabel =
+        parseServingAmount(foodOrItem.servingSize) ||
+        parseServingAmount(foodOrItem.amountLabel) ||
+        parseServingAmount(foodOrItem.name);
+      if (fromLabel?.unit) return fromLabel.unit;
+      if (foodOrItem.foodId) {
+        const linked = findFood(foodOrItem.foodId);
+        if (linked && linked !== foodOrItem) return foodMeasureUnit(linked);
+      }
+      return "g";
+    }
+
+    function foodServingAmount(foodOrItem) {
+      if (!foodOrItem) return 100;
+      const direct =
+        Number(foodOrItem.servingAmount) ||
+        Number(foodOrItem.servingGrams) ||
+        Number(foodOrItem.baseGrams);
+      if (Number.isFinite(direct) && direct > 0) return direct;
+      const parsed =
+        parseServingAmount(foodOrItem.servingSize) ||
+        parseServingAmount(foodOrItem.note) ||
+        parseServingAmount(foodOrItem.name);
+      if (parsed?.amount) return parsed.amount;
+      if (foodOrItem.foodId) {
+        const linked = findFood(foodOrItem.foodId);
+        if (linked && linked !== foodOrItem) {
+          const a = foodServingAmount(linked);
+          if (a) return a;
+        }
+      }
+      return 100;
+    }
+
+    function formatAmountLabel(amount, unit) {
+      const a = Number(amount);
+      const u = normalizeMeasureUnit(unit);
+      if (!Number.isFinite(a)) return "";
+      return `${roundn(a, 1)} ${u}`;
     }
 
     function roundn(n, d = 2) {
@@ -3189,7 +3249,9 @@ ${JSON.stringify(example, null, 2)}`;
       id,
     }) {
       const name = displayProductName(brand, product);
-      const servingGrams = parseServingGrams(servingSize);
+      const parsedServing = parseServingAmount(servingSize);
+      const servingGrams = parsedServing?.amount ?? parseServingGrams(servingSize);
+      const servingUnit = parsedServing?.unit || "g";
       const energy = Number(kcal);
       if (!name || !Number.isFinite(energy)) {
         throw new Error("Need brand/product and energy_kcal (or kcal).");
@@ -3205,8 +3267,11 @@ ${JSON.stringify(example, null, 2)}`;
         name,
         brand: String(brand || "").trim(),
         product: String(product || "").trim(),
-        servingSize: String(servingSize || "").trim() || (servingGrams ? `${servingGrams}g` : "1 serving"),
+        servingSize:
+          String(servingSize || "").trim() ||
+          (servingGrams ? formatAmountLabel(servingGrams, servingUnit) : "1 serving"),
         servingGrams,
+        servingUnit,
         kcal: roundn(energy, 2),
         protein: roundn(Number(protein) || 0, 2),
         carbs: Number.isFinite(Number(carbs)) ? roundn(carbs, 2) : null,
@@ -3253,10 +3318,13 @@ ${JSON.stringify(example, null, 2)}`;
     function scaleFactor(food, mode, amount) {
       const a = Number(amount);
       if (!Number.isFinite(a) || a <= 0) throw new Error("Enter a positive amount.");
-      if (mode === "grams") {
-        const g = Number(food.servingGrams) || parseServingGrams(food.servingSize);
-        if (!g) throw new Error("This product has no gram serving — use Servings mode.");
-        return a / g;
+      if (mode === "grams" || mode === "amount" || mode === "ml") {
+        const base = foodServingAmount(food);
+        if (!base) {
+          const u = foodMeasureUnit(food);
+          throw new Error(`This product has no ${u} serving — use Servings mode.`);
+        }
+        return a / base;
       }
       return a;
     }
@@ -3274,26 +3342,9 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
-    /** Base serving grams for a plan item (label / note / name / 100g fallback). */
+    /** Base serving amount (g or ml) for a plan item. */
     function baseServingGrams(item) {
-      if (!item) return 100;
-      const direct = Number(item.servingGrams);
-      if (Number.isFinite(direct) && direct > 0) return direct;
-      const fromFields =
-        parseServingGrams(item.servingSize) ||
-        parseServingGrams(item.note) ||
-        parseServingGrams(item.name);
-      if (fromFields) return fromFields;
-      const linked = item.foodId ? findFood(item.foodId) : null;
-      if (linked) {
-        const g =
-          Number(linked.servingGrams) ||
-          parseServingGrams(linked.servingSize) ||
-          parseServingGrams(linked.name);
-        if (g) return g;
-      }
-      /* Synthetic portion unit: published macros = 100g reference */
-      return 100;
+      return foodServingAmount(item);
     }
 
     function getAmountOverlay(id) {
@@ -3352,30 +3403,27 @@ ${JSON.stringify(example, null, 2)}`;
 
     function extraBaseGrams(item) {
       if (!item) return 100;
-      const direct = Number(item.servingGrams) || Number(item.baseGrams);
+      const direct = Number(item.servingAmount) || Number(item.servingGrams) || Number(item.baseGrams);
       if (Number.isFinite(direct) && direct > 0) return direct;
       const linked = item.foodId ? findFood(item.foodId) : null;
       if (linked) {
-        const g =
-          Number(linked.servingGrams) ||
-          parseServingGrams(linked.servingSize) ||
-          parseServingGrams(linked.name);
-        if (g) return g;
+        const a = foodServingAmount(linked);
+        if (a) return a;
       }
-      /* Legacy packaged extras: amountLabel is eaten grams, servings is factor */
-      const eaten = parseServingGrams(item.amountLabel);
+      /* Legacy packaged extras: amountLabel is eaten amount, servings is factor */
+      const eaten = parseServingAmount(item.amountLabel)?.amount || parseServingGrams(item.amountLabel);
       const s = Number(item.servings);
       if (eaten && Number.isFinite(s) && s > 0) return roundn(eaten / s, 1);
-      return baseServingGrams(item);
+      return foodServingAmount(item);
     }
 
     function eatenGramsForExtra(item) {
       if (!item) return 100;
       const overlay = item.id ? getAmountOverlay(item.id) : null;
       if (overlay != null) return overlay;
-      const stored = Number(item.grams);
+      const stored = Number(item.amount != null ? item.amount : item.grams);
       if (Number.isFinite(stored) && stored > 0) return stored;
-      const fromLabel = parseServingGrams(item.amountLabel);
+      const fromLabel = parseServingAmount(item.amountLabel)?.amount || parseServingGrams(item.amountLabel);
       if (fromLabel) return fromLabel;
       /* servings-as-factor × base */
       const base = extraBaseGrams(item);
@@ -3388,11 +3436,14 @@ ${JSON.stringify(example, null, 2)}`;
       const base = extraBaseGrams(item);
       const grams = eatenGramsForExtra(item);
       const factor = base > 0 ? grams / base : Number(item.servings) || 1;
+      const unit = foodMeasureUnit(item);
       const macros = scaledMacros(item, factor);
       return {
         ...item,
         factor,
         grams,
+        amount: grams,
+        unit,
         baseGrams: base,
         kcal: macros.kcal,
         protein: macros.protein,
@@ -3419,11 +3470,15 @@ ${JSON.stringify(example, null, 2)}`;
       setGramsOverlay(item.id, g);
       const base = extraBaseGrams(item);
       const factor = base > 0 ? g / base : 1;
+      const unit = foodMeasureUnit(item);
       const patch = {
         grams: g,
+        amount: g,
+        unit,
         servingGrams: base,
+        servingUnit: unit,
         servings: factor,
-        amountLabel: `${roundn(g, 1)} g`,
+        amountLabel: formatAmountLabel(g, unit),
       };
       state.day.extras = (state.day.extras || []).map((x) => (x.id === item.id ? { ...x, ...patch } : x));
       MEALS.forEach(({ id: meal }) => {
@@ -3530,8 +3585,10 @@ ${JSON.stringify(example, null, 2)}`;
       const s = Number(servings) || 1;
       const kcal = Number(food.kcal);
       if (!Number.isFinite(kcal)) return;
+      const unit = normalizeMeasureUnit(extras.unit || food.servingUnit || foodMeasureUnit(food));
       const baseG =
-        Number(extras.grams) ||
+        Number(extras.servingAmount) ||
+        Number(food.servingAmount) ||
         Number(food.servingGrams) ||
         parseServingGrams(food.servingSize) ||
         parseServingGrams(food.name) ||
@@ -3545,14 +3602,19 @@ ${JSON.stringify(example, null, 2)}`;
         protein: Number(food.protein) || 0,
         servings: s,
         servingGrams: baseG,
+        servingUnit: unit,
+        unit,
       };
-      if (extras.grams != null && Number.isFinite(Number(extras.grams))) {
-        entry.grams = Number(extras.grams);
-      } else if (Math.abs(s - 1) > 0.001) {
-        entry.grams = roundn(baseG * s, 1);
-      } else {
-        entry.grams = baseG;
-      }
+      const eatenAmt =
+        extras.amount != null && Number.isFinite(Number(extras.amount))
+          ? Number(extras.amount)
+          : extras.grams != null && Number.isFinite(Number(extras.grams))
+            ? Number(extras.grams)
+            : Math.abs(s - 1) > 0.001
+              ? roundn(baseG * s, 1)
+              : baseG;
+      entry.grams = eatenAmt;
+      entry.amount = eatenAmt;
       if (food.carbs != null) entry.carbs = Number(food.carbs);
       if (food.fat != null) entry.fat = Number(food.fat);
       if (food.fiber != null) entry.fiber = Number(food.fiber);
@@ -3560,12 +3622,12 @@ ${JSON.stringify(example, null, 2)}`;
       if (food.sodiumMg != null) entry.sodiumMg = Number(food.sodiumMg);
       if (Array.isArray(food.ingredients)) entry.ingredients = food.ingredients;
       if (extras.amountLabel) entry.amountLabel = extras.amountLabel;
-      else entry.amountLabel = `${roundn(entry.grams, 1)} g`;
+      else entry.amountLabel = formatAmountLabel(entry.amount, unit);
       if (food.kind === "packaged" || extras.kind === "packaged") entry.kind = "packaged";
       state.day.extras = state.day.extras || [];
       state.day.extras.push(entry);
       state.day.amounts = state.day.amounts || {};
-      state.day.amounts[entry.id] = entry.grams;
+      state.day.amounts[entry.id] = entry.amount;
       /* Re-adding a food always uses a new id; still clear any stale tombstone match */
       state.day.deletedIds = normalizeDeletedIds(state.day.deletedIds).filter((id) => id !== entry.id);
       pushRecent(food.id);
@@ -3624,11 +3686,14 @@ ${JSON.stringify(example, null, 2)}`;
     function addPackagedAmount(food, meal, mode, amount) {
       const factor = scaleFactor(food, mode, amount);
       const a = Number(amount);
-      const baseG = Number(food.servingGrams) || parseServingGrams(food.servingSize) || 100;
-      const grams = mode === "grams" ? a : roundn(baseG * a, 1);
+      const unit = foodMeasureUnit(food);
+      const baseG = foodServingAmount(food);
+      const grams = mode === "grams" || mode === "amount" || mode === "ml" ? a : roundn(baseG * a, 1);
       const amountLabel =
-        mode === "grams" ? `${roundn(a, 1)} g` : `${roundn(a, 2)} serving${a === 1 ? "" : "s"}`;
-      addItem(food, meal, factor, { amountLabel, kind: "packaged", grams });
+        mode === "grams" || mode === "amount" || mode === "ml"
+          ? formatAmountLabel(a, unit)
+          : `${roundn(a, 2)} serving${a === 1 ? "" : "s"}`;
+      addItem(food, meal, factor, { amountLabel, kind: "packaged", grams, amount: grams, unit });
       return { factor, amountLabel, macros: scaledMacros(food, factor) };
     }
 
@@ -3689,10 +3754,12 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function foodButtonHtml(f) {
+      const unit = foodMeasureUnit(f);
+      const amt = foodServingAmount(f);
       const per = isPackaged(f)
-        ? `per ${escapeHtml(f.servingSize || (f.servingGrams ? f.servingGrams + "g" : "serving"))}`
-        : f.servingGrams
-          ? `per ${f.servingGrams}g`
+        ? `per ${escapeHtml(f.servingSize || formatAmountLabel(amt, unit) || "serving")}`
+        : Number.isFinite(Number(f.servingGrams)) || Number.isFinite(Number(f.servingAmount))
+          ? `per ${formatAmountLabel(amt, unit)}`
           : "";
       return `<button type="button" class="hf-food-btn${isPackaged(f) ? " is-packaged" : ""}" data-food-id="${escapeHtml(f.id)}" role="option">
         <span class="hf-food-name">${escapeHtml(f.name)}</span>
@@ -3879,8 +3946,8 @@ ${JSON.stringify(example, null, 2)}`;
                   <div class="meta diet-macro-meta">${macroRowHtml(s)}</div>
                   ${ingredientsHtml(s.ingredients)}
                 </div>
-                <button type="button" class="diet-grams-chip" data-edit-grams="${escapeHtml(gid)}" data-grams-kind="extra" data-extra-meal="${id}" data-extra-idx="${i}" aria-label="Edit grams">
-                  ${roundn(s.grams, 0)}&nbsp;g
+                <button type="button" class="diet-grams-chip" data-edit-grams="${escapeHtml(gid)}" data-grams-kind="extra" data-extra-meal="${id}" data-extra-idx="${i}" aria-label="Edit amount">
+                  ${roundn(s.amount != null ? s.amount : s.grams, 0)}&nbsp;${escapeHtml(s.unit || "g")}
                 </button>
                 <button type="button" class="diet-remove-btn" data-remove="${id}:${i}" aria-label="Remove">✕</button>
               </li>`;
@@ -3933,29 +4000,35 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function openPkgSheet(food) {
+      const unit = foodMeasureUnit(food);
+      const baseAmt = foodServingAmount(food);
       pkgPending = {
         food,
-        mode: food.servingGrams || parseServingGrams(food.servingSize) ? "grams" : "servings",
+        mode: food.servingGrams || food.servingAmount || parseServingGrams(food.servingSize) ? "grams" : "servings",
       };
       const sheet = $("diet-pkg-sheet");
       if (sheet) sheet.hidden = false;
       if ($("diet-pkg-name")) $("diet-pkg-name").textContent = food.name;
       if ($("diet-pkg-base")) {
         $("diet-pkg-base").textContent =
-          `Label: ${food.servingSize || "1 serving"} = ${food.kcal} kcal · ${food.protein}g protein` +
+          `Label: ${food.servingSize || formatAmountLabel(baseAmt, unit) || "1 serving"} = ${food.kcal} kcal · ${food.protein}g protein` +
           (food.carbs != null ? ` · ${food.carbs}g carbs` : "");
       }
-      const hasG = !!(food.servingGrams || parseServingGrams(food.servingSize));
+      const hasG = !!(food.servingGrams || food.servingAmount || parseServingGrams(food.servingSize));
       $("diet-pkg-mode-g")?.classList.toggle("is-active", pkgPending.mode === "grams");
       $("diet-pkg-mode-s")?.classList.toggle("is-active", pkgPending.mode === "servings");
-      if ($("diet-pkg-mode-g")) $("diet-pkg-mode-g").disabled = !hasG;
+      if ($("diet-pkg-mode-g")) {
+        $("diet-pkg-mode-g").disabled = !hasG;
+        $("diet-pkg-mode-g").textContent = unit === "ml" ? "ml" : "Grams";
+      }
       if ($("diet-pkg-amount")) {
-        $("diet-pkg-amount").value = pkgPending.mode === "grams" ? String(Math.min(50, food.servingGrams || 50)) : "1";
+        $("diet-pkg-amount").value =
+          pkgPending.mode === "grams" ? String(Math.min(unit === "ml" ? 250 : 50, baseAmt || 50)) : "1";
         $("diet-pkg-amount").step = pkgPending.mode === "grams" ? "1" : "0.25";
       }
       if ($("diet-pkg-amount-label")) {
         $("diet-pkg-amount-label").textContent =
-          pkgPending.mode === "grams" ? "Amount (g)" : "Servings";
+          pkgPending.mode === "grams" ? `Amount (${unit})` : "Servings";
       }
       if ($("diet-servings-wrap")) $("diet-servings-wrap").hidden = true;
       updatePkgPreview();
@@ -4044,23 +4117,35 @@ ${JSON.stringify(example, null, 2)}`;
       gramsPending = { kind, id, meal, idx };
       let name = "Food";
       let grams = 100;
+      let unit = "g";
+      let itemRef = null;
       if (kind === "plan") {
         const item = findPlanItemById(id);
         if (!item) return;
+        itemRef = item;
         name = item.name;
         grams = eatenGramsForPlanItem(item);
+        unit = foodMeasureUnit(item);
       } else {
         const item = findExtraByEditId(id, meal, idx);
         if (!item) return;
+        itemRef = item;
         name = item.name;
         grams = eatenGramsForExtra(item);
+        unit = foodMeasureUnit(item);
       }
+      gramsPending.unit = unit;
       const sheet = $("diet-grams-sheet");
       if (sheet) sheet.hidden = false;
       if ($("diet-grams-name")) $("diet-grams-name").textContent = name;
       if ($("diet-grams-input")) {
         $("diet-grams-input").value = String(Math.round(grams));
+        $("diet-grams-input").setAttribute("aria-label", `Amount (${unit})`);
       }
+      const stepper = sheet?.querySelector(".diet-grams-stepper");
+      if (stepper) stepper.setAttribute("aria-label", unit === "ml" ? "Millilitres" : "Grams");
+      const unitHint = $("diet-grams-unit-hint");
+      if (unitHint) unitHint.textContent = unit;
       updateGramsPreview();
       try {
         const ae = document.activeElement;
@@ -4248,8 +4333,9 @@ ${JSON.stringify(example, null, 2)}`;
           $("diet-pkg-mode-g")?.classList.toggle("is-active", pkgPending.mode === "grams");
           $("diet-pkg-mode-s")?.classList.toggle("is-active", pkgPending.mode === "servings");
           if ($("diet-pkg-amount-label")) {
+            const u = foodMeasureUnit(pkgPending.food);
             $("diet-pkg-amount-label").textContent =
-              pkgPending.mode === "grams" ? "Amount (g)" : "Servings";
+              pkgPending.mode === "grams" ? `Amount (${u})` : "Servings";
           }
           if ($("diet-pkg-amount")) {
             $("diet-pkg-amount").step = pkgPending.mode === "grams" ? "1" : "0.25";
@@ -4590,6 +4676,7 @@ ${JSON.stringify(example, null, 2)}`;
         const kcal = Number($("diet-custom-kcal")?.value);
         const protein = Number($("diet-custom-protein")?.value);
         const grams = Number($("diet-custom-grams")?.value);
+        const unit = normalizeMeasureUnit($("diet-custom-unit")?.value || "g");
         if (!name || !Number.isFinite(kcal)) {
           setStatus(st, "Name and kcal required.", "error");
           return;
@@ -4600,13 +4687,20 @@ ${JSON.stringify(example, null, 2)}`;
           kcal,
           protein: Number.isFinite(protein) ? protein : 0,
           tags: ["custom", "admin-library"],
+          servingUnit: unit,
         };
+        if (unit === "ml" && !food.tags.includes("drink")) food.tags.push("drink");
         if (Number.isFinite(grams) && grams > 0) {
           food.servingGrams = grams;
-          food.servingSize = `${grams}g`;
+          food.servingAmount = grams;
+          food.servingSize = formatAmountLabel(grams, unit);
         } else {
-          const parsed = parseServingGrams(name);
-          if (parsed) food.servingGrams = parsed;
+          const parsed = parseServingAmount(name) || { amount: parseServingGrams(name), unit };
+          if (parsed?.amount) {
+            food.servingGrams = parsed.amount;
+            food.servingAmount = parsed.amount;
+            food.servingUnit = parsed.unit || unit;
+          }
         }
         state.customFoods = state.customFoods || [];
         state.customFoods.push(food);
@@ -4615,6 +4709,7 @@ ${JSON.stringify(example, null, 2)}`;
         if ($("diet-custom-kcal")) $("diet-custom-kcal").value = "";
         if ($("diet-custom-protein")) $("diet-custom-protein").value = "";
         if ($("diet-custom-grams")) $("diet-custom-grams").value = "";
+        if ($("diet-custom-unit")) $("diet-custom-unit").value = "g";
         setStatus(st, `Added “${name}” to library on this phone.`, "ok");
         renderFoodPick($("diet-search")?.value || "");
       });

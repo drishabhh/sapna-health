@@ -47,14 +47,22 @@ window.SapnaDietAdmin = (() => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   }
 
-  function parseServingGrams(servingSize) {
+  function parseServingAmount(servingSize) {
     const s = String(servingSize || "").trim().toLowerCase();
     if (!s) return null;
-    const m = s.match(/(\d+(?:\.\d+)?)\s*(g|gram|grams|kg)\b/);
+    const m = s.match(/(\d+(?:\.\d+)?)\s*(ml|milliliters?|millilitres?|g|grams?|kg)\b/);
     if (!m) return null;
     const n = Number(m[1]);
     if (!Number.isFinite(n) || n <= 0) return null;
-    return m[2].startsWith("kg") ? n * 1000 : n;
+    const raw = m[2];
+    if (raw.startsWith("kg")) return { amount: n * 1000, unit: "g" };
+    if (raw.startsWith("ml") || raw.startsWith("millil")) return { amount: n, unit: "ml" };
+    return { amount: n, unit: "g" };
+  }
+
+  function parseServingGrams(servingSize) {
+    const parsed = parseServingAmount(servingSize);
+    return parsed ? parsed.amount : null;
   }
 
   function roundn(n, d = 1) {
@@ -62,16 +70,25 @@ window.SapnaDietAdmin = (() => {
     return Math.round(Number(n) * f) / f;
   }
 
-  /** Carry base serving + macros so Sapna can scale by grams later. */
+  /** Carry base serving + macros so Sapna can scale by g/ml later. */
   function nutritionFields(src = {}) {
+    const parsed =
+      parseServingAmount(src.servingSize) ||
+      parseServingAmount(src.note) ||
+      parseServingAmount(src.name);
     const servingGrams =
+      Number(src.servingAmount) ||
       Number(src.servingGrams) ||
-      parseServingGrams(src.servingSize) ||
-      parseServingGrams(src.note) ||
-      parseServingGrams(src.name) ||
+      (parsed && parsed.amount) ||
       null;
+    const servingUnit =
+      src.servingUnit || src.unit || (parsed && parsed.unit) || "g";
     const out = {};
-    if (Number.isFinite(servingGrams) && servingGrams > 0) out.servingGrams = roundn(servingGrams, 1);
+    if (Number.isFinite(servingGrams) && servingGrams > 0) {
+      out.servingGrams = roundn(servingGrams, 1);
+      out.servingAmount = roundn(servingGrams, 1);
+    }
+    if (servingUnit === "ml" || servingUnit === "g") out.servingUnit = servingUnit;
     if (src.servingSize) out.servingSize = String(src.servingSize);
     if (src.foodId || src.id) out.foodId = src.foodId || src.id;
     ["carbs", "fat", "fiber", "sugars", "sodiumMg"].forEach((k) => {
@@ -275,7 +292,7 @@ window.SapnaDietAdmin = (() => {
           return `<li class="diet-cart-item" data-diet-cart-idx="${idx}">
             <div class="diet-cart-item-main">
               <strong>${escapeHtml(it.name)}</strong>
-              <span>${it.kcal} kcal · ${it.protein}g P${it.servingGrams ? ` · ${it.servingGrams}g` : ""}${it.note ? ` · ${escapeHtml(it.note)}` : ""}</span>
+              <span>${it.kcal} kcal · ${it.protein}g P${it.servingGrams ? ` · ${it.servingGrams}${it.servingUnit === "ml" ? "ml" : "g"}` : ""}${it.note ? ` · ${escapeHtml(it.note)}` : ""}</span>
             </div>
             <div class="diet-cart-item-actions">
               <button type="button" class="btn-ghost" data-diet-cart-up aria-label="Move up">↑</button>

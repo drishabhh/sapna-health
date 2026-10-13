@@ -5779,6 +5779,14 @@ body.is-admin section.ai-admin-only {
   border-radius: 12px;
   border: 1px solid rgba(40, 80, 55, 0.2);
 }
+.diet-grams-unit-hint {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: rgba(29, 58, 46, 0.75);
+  text-align: center;
+}
 .diet-grams-preview {
   margin: 0.55rem 0 0;
   min-height: 1.2em;
