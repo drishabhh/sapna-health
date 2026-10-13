@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013dd1";
+  const PROFILE_ASSET_V = "20261013kb1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -62,6 +62,227 @@
     return { pulse, light, ok, tick };
   })();
   window.sapnaHaptic = Haptics;
+
+  /**
+   * Site-wide mobile keyboard safety: keep focused inputs (and their
+   * placeholder/label) visible above the soft keyboard. Shared by Diet sheets,
+   * Workout LOG, Admin overlays, profile, token/AI key fields, etc.
+   */
+  const SapnaKeyboard = (() => {
+    const FIELD_SEL =
+      'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]), textarea, select';
+    const OVERLAY_SEL = ".overlay.is-open, .log-sheet-overlay.is-open";
+    let installed = false;
+    let raf = 0;
+    let activeField = null;
+
+    function isField(el) {
+      try {
+        return !!(el && el.nodeType === 1 && el.matches?.(FIELD_SEL));
+      } catch (_) {
+        return false;
+      }
+    }
+
+    /** Pixels occluded at the bottom of the layout viewport (≈ keyboard). */
+    function keyboardInset() {
+      const vv = window.visualViewport;
+      if (!vv) return 0;
+      const gap = Math.round(window.innerHeight - (vv.offsetTop + vv.height));
+      return Math.max(0, gap);
+    }
+
+    function setKbCss(kb) {
+      const open = kb > 36;
+      document.documentElement.style.setProperty("--kb-inset", kb + "px");
+      document.body.classList.toggle("kb-open", open);
+      document.body.classList.toggle("kb-field-focus", !!activeField);
+    }
+
+    /** Map a bottom sheet / overlay to the visual viewport (above keyboard). */
+    function pinOverlayToVv(overlay) {
+      if (!overlay || overlay.hidden) return;
+      const vv = window.visualViewport;
+      if (!vv) return;
+      overlay.dataset.kbPinned = "1";
+      overlay.style.position = "fixed";
+      overlay.style.top = vv.offsetTop + "px";
+      overlay.style.left = vv.offsetLeft + "px";
+      overlay.style.width = vv.width + "px";
+      overlay.style.height = vv.height + "px";
+      overlay.style.right = "auto";
+      overlay.style.bottom = "auto";
+      overlay.style.maxHeight = vv.height + "px";
+    }
+
+    function clearOverlayPin(overlay) {
+      if (!overlay || overlay.dataset.kbPinned !== "1") return;
+      delete overlay.dataset.kbPinned;
+      /* Leave geometry to the open/close owners — they reset cssText on close. */
+    }
+
+    function openOverlays() {
+      return Array.from(document.querySelectorAll(OVERLAY_SEL)).filter((el) => !el.hidden);
+    }
+
+    function scrollParent(el) {
+      let node = el?.parentElement;
+      while (node && node !== document.body) {
+        const st = window.getComputedStyle(node);
+        const oy = st.overflowY;
+        if ((oy === "auto" || oy === "scroll" || oy === "overlay") && node.scrollHeight > node.clientHeight + 4) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return document.scrollingElement || document.documentElement;
+    }
+
+    function visibilityTarget(el) {
+      return (
+        el.closest(
+          ".field, .diet-grams-sheet, .diet-pkg-sheet, .diet-quick-oneoff, .diet-add-search-wrap, .gemini-key-panel, .token-setup-sheet label, label"
+        ) || el
+      );
+    }
+
+    /**
+     * Scroll / pad so `el` (and its label/placeholder) stay in the visible
+     * visualViewport — above the keyboard and below sticky chrome.
+     */
+    function ensureInputVisible(el, opts) {
+      if (!isField(el)) return;
+      activeField = el;
+      const kb = keyboardInset();
+      setKbCss(kb);
+      const overlay = el.closest(".overlay, .log-sheet-overlay");
+      if (overlay && !overlay.hidden) pinOverlayToVv(overlay);
+      else openOverlays().forEach(pinOverlayToVv);
+
+      const target = visibilityTarget(el);
+      const margin = opts?.margin ?? 16;
+      const behavior = opts?.smooth ? "smooth" : "auto";
+
+      const run = () => {
+        const vv = window.visualViewport;
+        const scroller = scrollParent(el);
+        if (scroller && scroller !== document.documentElement && scroller !== document.body) {
+          const pad = Math.max(kb + 96, 120);
+          scroller.style.setProperty("--kb-scroll-pad", pad + "px");
+          scroller.classList.add("kb-scroll-pad");
+        }
+        try {
+          target.scrollIntoView({ block: "center", inline: "nearest", behavior });
+        } catch (_) {
+          try {
+            el.scrollIntoView({ block: "center", inline: "nearest" });
+          } catch (__) {}
+        }
+        if (!vv) return;
+        const rect = target.getBoundingClientRect();
+        const topBound = vv.offsetTop + margin + 8;
+        const botBound = vv.offsetTop + vv.height - margin - 8;
+        let dy = 0;
+        if (rect.top < topBound) dy = rect.top - topBound;
+        else if (rect.bottom > botBound) dy = rect.bottom - botBound;
+        if (!dy) return;
+        if (scroller && scroller !== document.documentElement && scroller !== document.body) {
+          scroller.scrollTop += dy;
+        } else {
+          window.scrollBy(0, dy);
+        }
+      };
+
+      if (opts?.immediate) run();
+      else {
+        requestAnimationFrame(() => requestAnimationFrame(run));
+      }
+    }
+
+    function clearFieldChrome() {
+      activeField = null;
+      document.querySelectorAll(".kb-scroll-pad").forEach((el) => {
+        el.classList.remove("kb-scroll-pad");
+        el.style.removeProperty("--kb-scroll-pad");
+      });
+      const kb = keyboardInset();
+      setKbCss(kb);
+      if (kb <= 36) {
+        openOverlays().forEach((ov) => {
+          /* Keep diet-add / log-sheet pinned while open — owners sync on vv. */
+          if (ov.id === "diet-add-overlay" || ov.id === "log-sheet") return;
+          if (ov.dataset.kbPinned === "1" && kb <= 36) {
+            /* Admin overlays restore inset:0 via their own open style; skip clear. */
+          }
+        });
+      }
+    }
+
+    function refresh() {
+      const kb = keyboardInset();
+      setKbCss(kb);
+      openOverlays().forEach((ov) => {
+        if (kb > 36 || ov.id === "diet-add-overlay" || ov.id === "log-sheet" || ov.dataset.kbPinned === "1") {
+          pinOverlayToVv(ov);
+        }
+      });
+      if (activeField && document.activeElement === activeField) {
+        ensureInputVisible(activeField, { immediate: true });
+      }
+      try {
+        if (typeof window.__sapnaOnKeyboardRefresh === "function") window.__sapnaOnKeyboardRefresh();
+      } catch (_) {}
+    }
+
+    function scheduleRefresh() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        refresh();
+      });
+    }
+
+    function install() {
+      if (installed) return;
+      installed = true;
+      document.addEventListener(
+        "focusin",
+        (e) => {
+          if (!isField(e.target)) return;
+          ensureInputVisible(e.target);
+        },
+        true
+      );
+      document.addEventListener(
+        "focusout",
+        (e) => {
+          if (!isField(e.target)) return;
+          setTimeout(() => {
+            if (!isField(document.activeElement)) clearFieldChrome();
+          }, 0);
+        },
+        true
+      );
+      const onVv = () => scheduleRefresh();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", onVv);
+        window.visualViewport.addEventListener("scroll", onVv);
+      }
+      window.addEventListener("resize", onVv);
+      window.addEventListener("orientationchange", onVv);
+    }
+
+    return {
+      install,
+      ensureInputVisible,
+      pinOverlayToVv,
+      clearOverlayPin,
+      keyboardInset,
+      refresh: scheduleRefresh,
+      isField,
+    };
+  })();
+  window.SapnaKeyboard = SapnaKeyboard;
 
   function setStatus(el, msg, kind) {
     if (!el) return;
@@ -1427,6 +1648,10 @@
     function syncSheetViewport() {
       const overlay = $("log-sheet");
       if (!overlay || overlay.hidden) return;
+      if (window.SapnaKeyboard?.pinOverlayToVv) {
+        window.SapnaKeyboard.pinOverlayToVv(overlay);
+        return;
+      }
       const vv = window.visualViewport;
       if (!vv) {
         overlay.style.cssText = "";
@@ -3489,19 +3714,23 @@ ${JSON.stringify(example, null, 2)}`;
     function syncDietAddViewport() {
       const overlay = $("diet-add-overlay");
       if (!overlay || overlay.hidden) return;
-      const vv = window.visualViewport;
-      if (!vv) {
-        overlay.style.cssText = "";
-        syncDietAddDropdownHeight();
-        return;
+      if (window.SapnaKeyboard?.pinOverlayToVv) {
+        window.SapnaKeyboard.pinOverlayToVv(overlay);
+      } else {
+        const vv = window.visualViewport;
+        if (!vv) {
+          overlay.style.cssText = "";
+          syncDietAddDropdownHeight();
+          return;
+        }
+        overlay.style.position = "fixed";
+        overlay.style.top = vv.offsetTop + "px";
+        overlay.style.left = vv.offsetLeft + "px";
+        overlay.style.width = vv.width + "px";
+        overlay.style.height = vv.height + "px";
+        overlay.style.right = "auto";
+        overlay.style.bottom = "auto";
       }
-      overlay.style.position = "fixed";
-      overlay.style.top = vv.offsetTop + "px";
-      overlay.style.left = vv.offsetLeft + "px";
-      overlay.style.width = vv.width + "px";
-      overlay.style.height = vv.height + "px";
-      overlay.style.right = "auto";
-      overlay.style.bottom = "auto";
       syncDietAddDropdownHeight();
     }
 
@@ -3558,15 +3787,12 @@ ${JSON.stringify(example, null, 2)}`;
       closePkgSheet();
       renderFoodPick("");
       syncDietAddViewport();
-      /* Focus search so keyboard + dropdown show together */
-      setTimeout(() => {
-        try {
-          $("diet-search")?.focus({ preventScroll: true });
-        } catch (_) {
-          $("diet-search")?.focus();
-        }
-        syncDietAddViewport();
-      }, 80);
+      /* No autofocus — keyboard only when Sapna taps search (keeps placeholders intentional). */
+      try {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function" && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) ae.blur();
+      } catch (_) {}
+      setTimeout(() => syncDietAddViewport(), 80);
     }
 
     function closeAddSheet() {
@@ -4294,6 +4520,7 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-search")?.addEventListener("focus", (e) => {
         if (String(e.target.value || "").trim()) renderFoodPick(e.target.value);
         syncDietAddViewport();
+        window.SapnaKeyboard?.ensureInputVisible?.(e.target);
       });
       $("diet-add-close")?.addEventListener("click", () => closeAddSheet());
       $("diet-add-overlay")?.addEventListener("click", (e) => {
@@ -4303,6 +4530,9 @@ ${JSON.stringify(example, null, 2)}`;
         const overlay = $("diet-add-overlay");
         if (!overlay || overlay.hidden) return;
         syncDietAddViewport();
+      };
+      window.__sapnaOnKeyboardRefresh = () => {
+        onDietAddVv();
       };
       if (window.visualViewport) {
         window.visualViewport.addEventListener("resize", onDietAddVv);
@@ -4935,6 +5165,7 @@ ${JSON.stringify(example, null, 2)}`;
       document.body.classList.add("modal-open", "profile-sheet-open");
       setStatus($("profile-status"), "");
       updateLiveMetrics();
+      if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(overlay);
     }
 
     function applyToDiet() {
@@ -6737,6 +6968,7 @@ ${JSON.stringify(example, null, 2)}`;
     el.classList.add("is-open");
     el.style.cssText =
       "display:flex !important; position:fixed !important; inset:0 !important; z-index:100060 !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important; background:rgba(12,22,20,0.72) !important;";
+    if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(el);
     document.body.classList.add("modal-open");
     /* Keep page content from receiving taps under the sheet */
     document.querySelectorAll(".panel, .site-nav, .atmosphere").forEach((node) => {
@@ -7044,15 +7276,10 @@ ${JSON.stringify(example, null, 2)}`;
       overlay.style.cssText = "display:flex !important;";
       document.body.classList.add("modal-open", "token-setup-open");
       const input = $("token-setup-input");
-      if (input) {
-        input.value = "";
-        setTimeout(() => {
-          try {
-            input.focus({ preventScroll: true });
-          } catch (_) {}
-        }, 80);
-      }
+      if (input) input.value = "";
+      /* No autofocus — keyboard only on intentional tap */
       setStatus($("token-setup-status"), "");
+      if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(overlay);
     }
 
     async function save() {
@@ -7120,6 +7347,7 @@ ${JSON.stringify(example, null, 2)}`;
     window.Gemini = Gemini;
     window.PuterGrok = PuterGrok;
     window.AiBridge = AiBridge;
+    SapnaKeyboard.install();
     wireNav();
     wireAdmin();
     try {

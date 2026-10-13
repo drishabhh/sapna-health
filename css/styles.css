@@ -4438,7 +4438,7 @@ body.plan-admin-open { overflow: hidden; }
   border-radius: 10px;
   padding: 0.45rem 0.55rem;
   font: inherit;
-  font-size: 15px;
+  font-size: 16px;
   resize: vertical;
   background: #fffdf9;
 }
@@ -4822,9 +4822,56 @@ body.plan-admin-open { overflow: hidden; }
 input,
 select,
 textarea {
-  font-size: 16px;
+  font-size: 16px !important;
   max-width: 100%;
   box-sizing: border-box;
+  scroll-margin-top: 5.5rem;
+  scroll-margin-bottom: calc(var(--kb-inset, 0px) + var(--nav-h, 76px) + 1.25rem);
+}
+
+/* Placeholders stay readable (not washed out / clipped) */
+input::placeholder,
+textarea::placeholder {
+  color: rgba(26, 20, 18, 0.48);
+  opacity: 1;
+  -webkit-text-fill-color: rgba(26, 20, 18, 0.48);
+}
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: rgba(26, 20, 18, 0.4);
+  opacity: 1;
+  -webkit-text-fill-color: rgba(26, 20, 18, 0.4);
+}
+
+/* Soft-keyboard open: pad scrollers so focused field+label clear the keyboard */
+:root {
+  --kb-inset: 0px;
+}
+body.kb-open .sheet,
+body.kb-open .admin-sheet,
+body.kb-open .profile-sheet,
+body.kb-open .token-setup-sheet,
+body.kb-open .diet-add-sheet,
+body.kb-open .plan-browse-sheet {
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px) + var(--kb-inset, 0px));
+}
+body.kb-open .log-sheet-scroll,
+body.kb-open .plan-browse-body,
+body.kb-open .kb-scroll-pad {
+  padding-bottom: calc(var(--kb-scroll-pad, 7rem) + env(safe-area-inset-bottom, 0px)) !important;
+}
+body.kb-open .site-nav,
+body.kb-open .bottom-nav {
+  /* Don’t cover focused fields while keyboard is up */
+  pointer-events: none;
+  opacity: 0.35;
+}
+body.kb-field-focus .field:focus-within,
+body.kb-field-focus .diet-add-search-wrap:focus-within,
+body.kb-field-focus .diet-grams-sheet:focus-within,
+body.kb-field-focus .diet-pkg-sheet:focus-within {
+  position: relative;
+  z-index: 3;
 }
 
 /* Kill leftover glow / filter motion that fringes under sticky bars on iOS */
@@ -5878,8 +5925,14 @@ body.is-admin section.ai-admin-only {
   max-height: min(92vh, 100%);
   padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
   gap: 0.55rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   background: linear-gradient(180deg, #fffdf8, #f4faf2);
+}
+body.kb-open .diet-add-sheet {
+  max-height: 100%;
 }
 .diet-add-sheet-head {
   display: flex;

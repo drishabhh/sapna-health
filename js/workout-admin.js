@@ -248,6 +248,7 @@ window.SapnaPlanAdmin = (() => {
     el.style.cssText =
       "display:flex !important; position:fixed !important; inset:0 !important; z-index:100070 !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important; background:rgba(12,22,20,0.72) !important;";
     document.body.classList.add("modal-open", "plan-admin-open");
+    if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(el);
   }
 
   function closeOverlay(el) {

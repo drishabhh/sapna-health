@@ -322,6 +322,7 @@ window.SapnaDietAdmin = (() => {
       overlay.classList.add("is-open");
       overlay.style.cssText =
         "display:flex !important; position:fixed !important; inset:0 !important; z-index:100070 !important; opacity:1 !important; visibility:visible !important; pointer-events:auto !important; background:rgba(12,22,20,0.72) !important;";
+      if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(overlay);
     }
     if ($("diet-browse-search")) $("diet-browse-search").value = "";
     renderBrowse();
@@ -347,6 +348,7 @@ window.SapnaDietAdmin = (() => {
       overlay.classList.add("is-open");
       overlay.style.cssText =
         "display:flex !important; position:fixed !important; inset:0 !important; z-index:100070 !important;";
+      if (window.SapnaKeyboard?.pinOverlayToVv) window.SapnaKeyboard.pinOverlayToVv(overlay);
     }
   }
 
