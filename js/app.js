@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013kcal3";
+  const PROFILE_ASSET_V = "20261013add1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3370,6 +3370,7 @@ ${JSON.stringify(example, null, 2)}`;
       if ($("diet-quick-protein")) $("diet-quick-protein").value = "";
       Haptics.ok();
       setStatus($("diet-status"), `Added ${name}`, "ok");
+      closeAddSheet();
     }
 
     function tombstoneMealId(extraId) {
@@ -3426,23 +3427,34 @@ ${JSON.stringify(example, null, 2)}`;
       maybeAutoSyncChecks({ urgent: true });
     }
 
+    function foodHaystack(f) {
+      return [f.name, f.brand, f.product, ...(f.tags || [])]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+    }
+
     function localMatches(query) {
       const q = String(query || "").toLowerCase().trim();
       let list = allFoods();
-      if (q) {
-        list = list.filter((f) => {
-          const hay = [
-            f.name,
-            f.brand,
-            f.product,
-            ...(f.tags || []),
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return hay.includes(q);
-        });
-      }
+      if (!q) return list.slice(0, 48);
+      /* Token match so “Cold co” hits “Cold coffee” (not full-string includes only) */
+      const tokens = q.split(/\s+/).filter(Boolean);
+      list = list.filter((f) => {
+        const hay = foodHaystack(f);
+        const words = hay.split(/[^a-z0-9]+/).filter(Boolean);
+        return tokens.every(
+          (t) => hay.includes(t) || words.some((w) => w.startsWith(t))
+        );
+      });
+      list.sort((a, b) => {
+        const an = String(a.name || "").toLowerCase();
+        const bn = String(b.name || "").toLowerCase();
+        const aStarts = an.startsWith(tokens[0]) ? 0 : 1;
+        const bStarts = bn.startsWith(tokens[0]) ? 0 : 1;
+        if (aStarts !== bStarts) return aStarts - bStarts;
+        return an.localeCompare(bn);
+      });
       return list.slice(0, 48);
     }
 
@@ -3454,10 +3466,12 @@ ${JSON.stringify(example, null, 2)}`;
     function foodButtonHtml(f) {
       const per = isPackaged(f)
         ? `per ${escapeHtml(f.servingSize || (f.servingGrams ? f.servingGrams + "g" : "serving"))}`
-        : "";
-      return `<button type="button" class="hf-food-btn${isPackaged(f) ? " is-packaged" : ""}" data-food-id="${escapeHtml(f.id)}">
+        : f.servingGrams
+          ? `per ${f.servingGrams}g`
+          : "";
+      return `<button type="button" class="hf-food-btn${isPackaged(f) ? " is-packaged" : ""}" data-food-id="${escapeHtml(f.id)}" role="option">
         <span class="hf-food-name">${escapeHtml(f.name)}</span>
-        <em>${f.kcal} kcal · ${f.protein}g P${per ? ` · ${per}` : ""}</em>
+        <em><span class="diet-kcal-hl">${f.kcal} kcal</span> · ${f.protein}g P${per ? ` · ${per}` : ""}</em>
       </button>`;
     }
 
@@ -3469,42 +3483,61 @@ ${JSON.stringify(example, null, 2)}`;
       const recent = !q ? recentFoods() : [];
       const recentHtml = recent.length
         ? `<div class="food-pick-group">
-            <p class="food-pick-label">Recent <span class="food-pick-hint">quick add</span></p>
+            <p class="food-pick-label">Recent</p>
             <div class="hf-recent-row">${recent.map(foodButtonHtml).join("")}</div>
           </div>`
         : "";
       const localHtml = local.length
         ? local.map(foodButtonHtml).join("")
-        : `<p class="food-pick-empty">No library matches${q ? ` for “${escapeHtml(q)}”` : ""}. Ask Admin to add it, or quick-add kcal below.</p>`;
+        : `<p class="food-pick-empty">No matches${q ? ` for “${escapeHtml(q)}”` : ""}. Try another name or Quick kcal.</p>`;
       const mealLabel = MEALS.find((m) => m.id === ($("diet-meal")?.value || "breakfast"))?.label || "meal";
       root.innerHTML = `${recentHtml}<div class="food-pick-group">
-        <p class="food-pick-label">Library <span class="food-pick-hint">→ ${escapeHtml(mealLabel)}</span></p>
+        <p class="food-pick-label">${q ? "Results" : "Library"} <span class="food-pick-hint">→ ${escapeHtml(mealLabel)}</span></p>
         ${localHtml}
       </div>`;
+      root.scrollTop = 0;
+    }
+
+    function openAddSheet(meal) {
+      const sel = $("diet-meal");
+      if (sel) sel.value = meal || sel.value || "breakfast";
+      const overlay = $("diet-add-overlay");
+      if (!overlay) return;
+      overlay.hidden = false;
+      overlay.classList.add("is-open");
+      document.body.classList.add("modal-open");
+      const hint = $("diet-add-meal-hint");
+      if (hint) {
+        const label = MEALS.find((m) => m.id === (sel?.value || meal))?.label || meal || "Meal";
+        hint.textContent = label;
+      }
+      if ($("diet-search")) $("diet-search").value = "";
+      closePkgSheet();
+      renderFoodPick("");
+      /* Focus search so keyboard + results show together */
+      setTimeout(() => {
+        try {
+          $("diet-search")?.focus({ preventScroll: true });
+        } catch (_) {
+          $("diet-search")?.focus();
+        }
+      }, 80);
+    }
+
+    function closeAddSheet() {
+      const overlay = $("diet-add-overlay");
+      if (overlay) {
+        overlay.classList.remove("is-open");
+        overlay.hidden = true;
+      }
+      document.body.classList.remove("modal-open");
+      try {
+        $("diet-search")?.blur();
+      } catch (_) {}
     }
 
     function focusAddForMeal(meal) {
-      const sel = $("diet-meal");
-      if (sel) sel.value = meal;
-      const panel = $("diet-add-card");
-      if (panel) {
-        panel.hidden = false;
-        panel.classList.add("is-open");
-      }
-      const hint = $("diet-add-meal-hint");
-      if (hint) {
-        const label = MEALS.find((m) => m.id === meal)?.label || meal;
-        hint.textContent = `Add · ${label}`;
-      }
-      renderFoodPick($("diet-search")?.value || "");
-      /* No autofocus — keyboard only when Sapna taps a real text/number field */
-      try {
-        const ae = document.activeElement;
-        if (ae && typeof ae.blur === "function" && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) {
-          ae.blur();
-        }
-      } catch (_) {}
-      panel?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      openAddSheet(meal);
     }
 
     function render() {
@@ -3968,7 +4001,7 @@ ${JSON.stringify(example, null, 2)}`;
           );
           closePkgSheet();
           if ($("diet-search")) $("diet-search").value = "";
-          renderFoodPick("");
+          closeAddSheet();
         } catch (e) {
           setStatus($("diet-status"), e.message || String(e), "error");
         }
@@ -4208,6 +4241,18 @@ ${JSON.stringify(example, null, 2)}`;
       $("diet-search")?.addEventListener("input", (e) => {
         renderFoodPick(e.target.value);
       });
+      $("diet-add-close")?.addEventListener("click", () => closeAddSheet());
+      $("diet-add-overlay")?.addEventListener("click", (e) => {
+        if (e.target === $("diet-add-overlay")) closeAddSheet();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        const overlay = $("diet-add-overlay");
+        if (overlay && !overlay.hidden) {
+          e.preventDefault();
+          closeAddSheet();
+        }
+      });
       $("diet-food-pick")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-food-id]");
         if (!btn) return;
@@ -4217,6 +4262,7 @@ ${JSON.stringify(example, null, 2)}`;
           return;
         }
         if (isPackaged(food)) {
+          /* Keep sheet open — amount picker is inside it */
           openPkgSheet(food);
           return;
         }
@@ -4225,7 +4271,7 @@ ${JSON.stringify(example, null, 2)}`;
         const entry = addItem(food, meal, servings);
         setStatus($("diet-status"), `Added ${food.name}`, "ok");
         if ($("diet-search")) $("diet-search").value = "";
-        renderFoodPick("");
+        closeAddSheet();
         /* Offer gram tweak right away (e.g. library 150g → she ate 100g) */
         if (entry?.id) {
           const idx = extrasInMeal(meal).findIndex((x) => x.id === entry.id);

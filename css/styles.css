@@ -5856,3 +5856,120 @@ body.is-admin section.ai-admin-only {
   .diet-browse-grid { grid-template-columns: 1fr; }
   .diet-quick-row { flex-direction: column; }
 }
+
+/* —— Diet Add food bottom sheet —— */
+.diet-add-overlay {
+  z-index: 100040;
+  align-items: flex-end;
+  padding: 0;
+}
+.diet-add-overlay[hidden] {
+  display: none !important;
+}
+.diet-add-overlay.is-open {
+  display: flex !important;
+}
+.diet-add-sheet {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(92dvh, 100%);
+  max-height: min(92vh, 100%);
+  padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  gap: 0.55rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fffdf8, #f4faf2);
+}
+.diet-add-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+}
+.diet-add-sheet-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: #1d3a2e;
+}
+.diet-add-sheet-head .hf-add-meal-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.82rem;
+  color: rgba(40, 60, 50, 0.65);
+}
+.diet-add-search-field {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.diet-add-search-field input {
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+.diet-add-results.food-pick,
+.diet-add-sheet .diet-add-results {
+  flex: 1 1 auto;
+  min-height: 10rem;
+  max-height: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0.15rem 0 0.35rem;
+  display: grid;
+  gap: 0.45rem;
+}
+.diet-add-sheet .hf-food-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(40, 80, 55, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  cursor: pointer;
+  min-height: 52px;
+}
+.diet-add-sheet .hf-food-btn .hf-food-name {
+  display: block;
+  font-weight: 650;
+  color: #1d3a2e;
+  font-size: 0.95rem;
+}
+.diet-add-sheet .hf-food-btn em {
+  display: block;
+  margin-top: 0.15rem;
+  font-style: normal;
+  font-size: 0.8rem;
+  color: rgba(40, 60, 50, 0.65);
+}
+.diet-add-sheet .hf-food-btn .diet-kcal-hl {
+  font-size: inherit;
+}
+.diet-add-sheet .diet-pkg-sheet {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 14px;
+  border: 1px solid rgba(40, 80, 55, 0.14);
+  background: #fff;
+}
+.diet-add-sheet .diet-quick-oneoff {
+  flex: 0 0 auto;
+  font-size: 0.9rem;
+}
+@supports (height: 100dvh) {
+  .diet-add-sheet {
+    max-height: min(92dvh, 100%);
+  }
+}
+/* Keep results visible above mobile keyboard */
+@media (max-height: 560px) {
+  .diet-add-sheet {
+    max-height: 96vh;
+    max-height: 96dvh;
+  }
+  .diet-add-results.food-pick {
+    min-height: 6.5rem;
+  }
+}

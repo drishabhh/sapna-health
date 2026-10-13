@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261013kcal3";
+      var APP_V = "20261013add1";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261013kcal3"></script>
+  <script src="./js/admin-auth.js?v=20261013add1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261013kcal3" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261013add1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -308,55 +308,61 @@
         <option value="snacks">Snacks</option>
       </select>
 
-      <!-- Sapna add food (library / quick kcal — no AI, no library write) -->
-      <div class="diet-card diet-add-card hf-add-card diet-quick-add-card" id="diet-add-card">
-        <div class="hf-add-head">
-          <h2>Add food</h2>
-          <p class="hf-add-meal-hint" id="diet-add-meal-hint">Add · Breakfast</p>
-        </div>
-        <label class="field">Search library
-          <input type="search" id="diet-search" placeholder="Thatte idli, roti, curd…" enterkeyhint="search" autocomplete="off" />
-        </label>
-        <label class="field field-inline-servings" id="diet-servings-wrap" hidden>Servings
-          <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
-        </label>
-        <div class="food-pick" id="diet-food-pick"></div>
-
-        <div class="diet-pkg-sheet" id="diet-pkg-sheet" hidden>
-          <p class="diet-pkg-name" id="diet-pkg-name"></p>
-          <p class="hint" id="diet-pkg-base"></p>
-          <div class="diet-pkg-modes" role="group" aria-label="Amount unit">
-            <button type="button" class="meal-chip is-active" data-pkg-mode="grams" id="diet-pkg-mode-g">Grams</button>
-            <button type="button" class="meal-chip" data-pkg-mode="servings" id="diet-pkg-mode-s">Servings</button>
-          </div>
-          <label class="field" for="diet-pkg-amount"><span id="diet-pkg-amount-label">Amount (g)</span>
-            <input type="number" id="diet-pkg-amount" min="1" step="1" value="50" />
+      <!-- Sapna add food — bottom sheet (opened from + Add) -->
+      <div class="overlay diet-add-overlay" id="diet-add-overlay" hidden>
+        <div class="sheet diet-add-sheet" role="dialog" aria-modal="true" aria-labelledby="diet-add-title">
+          <header class="diet-add-sheet-head">
+            <div>
+              <h2 id="diet-add-title">Add food</h2>
+              <p class="hf-add-meal-hint" id="diet-add-meal-hint">Breakfast</p>
+            </div>
+            <button type="button" class="btn-diet-ghost" id="diet-add-close" aria-label="Close">Close</button>
+          </header>
+          <label class="field diet-add-search-field">Search library
+            <input type="search" id="diet-search" placeholder="Cold coffee, roti, curd…" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" />
           </label>
-          <p class="diet-pkg-preview" id="diet-pkg-preview" aria-live="polite"></p>
-          <div class="actions">
-            <button type="button" class="btn-diet" id="diet-pkg-confirm">Add to meal</button>
-            <button type="button" class="btn-diet-ghost" id="diet-pkg-cancel">Cancel</button>
-          </div>
-        </div>
+          <label class="field field-inline-servings" id="diet-servings-wrap" hidden>Servings
+            <input type="number" id="diet-servings" min="0.25" max="10" step="0.25" value="1" />
+          </label>
+          <div class="food-pick diet-add-results" id="diet-food-pick" role="listbox" aria-label="Matching foods"></div>
 
-        <details class="diet-custom diet-quick-oneoff">
-          <summary>Not in library? Quick kcal</summary>
-          <div class="field-row diet-quick-row">
-            <label class="field field-grow">Name
-              <input type="text" id="diet-quick-name" placeholder="e.g. Samosa, latte…" autocomplete="off" />
+          <div class="diet-pkg-sheet" id="diet-pkg-sheet" hidden>
+            <p class="diet-pkg-name" id="diet-pkg-name"></p>
+            <p class="hint" id="diet-pkg-base"></p>
+            <div class="diet-pkg-modes" role="group" aria-label="Amount unit">
+              <button type="button" class="meal-chip is-active" data-pkg-mode="grams" id="diet-pkg-mode-g">Grams</button>
+              <button type="button" class="meal-chip" data-pkg-mode="servings" id="diet-pkg-mode-s">Servings</button>
+            </div>
+            <label class="field" for="diet-pkg-amount"><span id="diet-pkg-amount-label">Amount (g)</span>
+              <input type="number" id="diet-pkg-amount" min="1" step="1" value="50" />
             </label>
-            <label class="field">kcal
-              <input type="number" id="diet-quick-kcal" min="0" step="10" inputmode="numeric" />
-            </label>
-            <label class="field">Protein
-              <input type="number" id="diet-quick-protein" min="0" step="0.5" inputmode="decimal" placeholder="g" />
-            </label>
+            <p class="diet-pkg-preview" id="diet-pkg-preview" aria-live="polite"></p>
+            <div class="actions">
+              <button type="button" class="btn-diet" id="diet-pkg-confirm">Add to meal</button>
+              <button type="button" class="btn-diet-ghost" id="diet-pkg-cancel">Cancel</button>
+            </div>
           </div>
-          <button type="button" class="btn-diet diet-quick-save" id="diet-quick-add">Add to meal</button>
-          <p class="hint">One-off only — does not add to the shared library (Admin does that).</p>
-        </details>
-        <p class="status" id="diet-status" hidden></p>
+
+          <details class="diet-custom diet-quick-oneoff">
+            <summary>Not in library? Quick kcal</summary>
+            <div class="field-row diet-quick-row">
+              <label class="field field-grow">Name
+                <input type="text" id="diet-quick-name" placeholder="e.g. Samosa, latte…" autocomplete="off" />
+              </label>
+              <label class="field">kcal
+                <input type="number" id="diet-quick-kcal" min="0" step="10" inputmode="numeric" />
+              </label>
+              <label class="field">Protein
+                <input type="number" id="diet-quick-protein" min="0" step="0.5" inputmode="decimal" placeholder="g" />
+              </label>
+            </div>
+            <button type="button" class="btn-diet diet-quick-save" id="diet-quick-add">Add to meal</button>
+          </details>
+          <p class="status" id="diet-status" hidden></p>
+        </div>
       </div>
+      <!-- legacy id kept for any leftover references -->
+      <div id="diet-add-card" hidden aria-hidden="true"></div>
 
       <details class="diet-card diet-sync-card">
         <summary class="diet-card-head">
@@ -1184,8 +1190,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261013kcal3"></script>
-  <script src="./js/diet-admin.js?v=20261013kcal3"></script>
-  <script src="./js/app.js?v=20261013kcal3"></script>
+  <script src="./js/workout-admin.js?v=20261013add1"></script>
+  <script src="./js/diet-admin.js?v=20261013add1"></script>
+  <script src="./js/app.js?v=20261013add1"></script>
 </body>
 </html>
