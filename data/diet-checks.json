@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T09:22:07.441Z",
+  "updatedAt": "2026-10-13T09:23:20.676Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -29,7 +29,9 @@
     },
     "2026-10-13": {
       "done": {},
-      "amounts": {},
+      "amounts": {
+        "extra-mv6h3zzn-bp3": 100
+      },
       "deletedIds": [
         "extra-mv6clemk-0jz",
         "extra-mv6bofik-526",
@@ -46,6 +48,18 @@
           "servings": 1,
           "carbs": 38,
           "fat": 0.5
+        },
+        {
+          "id": "extra-mv6h3zzn-bp3",
+          "foodId": "quick-1791883399666",
+          "meal": "lunch",
+          "name": "Punjabi paneer",
+          "kcal": 500,
+          "protein": 15,
+          "servings": 1,
+          "servingGrams": 100,
+          "grams": 100,
+          "amountLabel": "100 g"
         }
       ],
       "breakfast": [],
