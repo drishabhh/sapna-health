@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013kb3";
+  const PROFILE_ASSET_V = "20261013exp1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -3536,6 +3536,344 @@ ${JSON.stringify(example, null, 2)}`;
       return [...fromExtras, ...legacy];
     }
 
+    function dietAddDays(iso, n) {
+      const d = new Date(String(iso).slice(0, 10) + "T12:00:00");
+      d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
+
+    /** Snapshot of one logged day (tombstone-filtered lists + amount overlays). Read-only — does not persist. */
+    function resolveDayRecord(dateISO) {
+      const d = String(dateISO || todayISO()).slice(0, 10);
+      /* Prefer live today only when amounts haven’t been swapped for export */
+      if (state.day && state.day.date === d) {
+        const dead = new Set(normalizeDeletedIds(state.day.deletedIds));
+        /* Live day is source of truth for today after persistChecksSnapshot */
+        return {
+          date: d,
+          amounts: { ...(state.day.amounts || {}) },
+          deletedIds: normalizeDeletedIds(state.day.deletedIds),
+          extras: filterDeadItems(state.day.extras, dead),
+          breakfast: filterDeadItems(state.day.breakfast, dead),
+          lunch: filterDeadItems(state.day.lunch, dead),
+          dinner: filterDeadItems(state.day.dinner, dead),
+          snacks: filterDeadItems(state.day.snacks, dead),
+        };
+      }
+      const saved = state.checksByDate?.[d];
+      if (!saved) {
+        return {
+          date: d,
+          amounts: {},
+          deletedIds: [],
+          extras: [],
+          breakfast: [],
+          lunch: [],
+          dinner: [],
+          snacks: [],
+        };
+      }
+      const dead = new Set(normalizeDeletedIds(saved.deletedIds));
+      return {
+        date: d,
+        amounts: { ...(saved.amounts || {}) },
+        deletedIds: normalizeDeletedIds(saved.deletedIds),
+        extras: filterDeadItems(saved.extras, dead),
+        breakfast: filterDeadItems(saved.breakfast, dead),
+        lunch: filterDeadItems(saved.lunch, dead),
+        dinner: filterDeadItems(saved.dinner, dead),
+        snacks: filterDeadItems(saved.snacks, dead),
+      };
+    }
+
+    function extrasInMealOnDay(rec, meal) {
+      const dead = new Set(normalizeDeletedIds(rec?.deletedIds));
+      const fromExtras = filterDeadItems(rec?.extras, dead).filter((x) => (x.meal || "snacks") === meal);
+      const legacy = filterDeadItems(rec?.[meal], dead);
+      return [...fromExtras, ...legacy];
+    }
+
+    function exportRangeDates() {
+      const active = document.querySelector("[data-export-range].is-active");
+      const mode = active?.getAttribute("data-export-range") || "today";
+      const today = todayISO();
+      if (mode === "7") {
+        const out = [];
+        for (let i = 6; i >= 0; i -= 1) out.push(dietAddDays(today, -i));
+        return out;
+      }
+      if (mode === "date") {
+        const picked = ($("diet-export-date")?.value || "").slice(0, 10);
+        return [/^\d{4}-\d{2}-\d{2}$/.test(picked) ? picked : today];
+      }
+      return [today];
+    }
+
+    /**
+     * Scale one extra against a day’s amount overlays without mutating persisted state.
+     * Avoids ensureDay/persist while amounts are temporarily swapped.
+     */
+    function scaledExtraForExport(item, amountsMap) {
+      if (!item) return { kcal: 0, protein: 0, grams: 0, amount: 0, unit: "g" };
+      const base = extraBaseGrams(item);
+      const overlay = Number(amountsMap?.[item.id]);
+      let grams;
+      if (Number.isFinite(overlay) && overlay > 0) grams = overlay;
+      else {
+        const stored = Number(item.amount != null ? item.amount : item.grams);
+        if (Number.isFinite(stored) && stored > 0) grams = stored;
+        else {
+          const fromLabel = parseServingAmount(item.amountLabel)?.amount || parseServingGrams(item.amountLabel);
+          if (fromLabel) grams = fromLabel;
+          else {
+            const s = Number(item.servings);
+            if (Number.isFinite(s) && s > 0 && Math.abs(s - 1) > 0.001) grams = roundn(base * s, 1);
+            else grams = base;
+          }
+        }
+      }
+      const factor = base > 0 ? grams / base : Number(item.servings) || 1;
+      const unit = foodMeasureUnit(item);
+      const macros = scaledMacros(item, factor);
+      return {
+        ...item,
+        factor,
+        grams,
+        amount: grams,
+        unit,
+        baseGrams: base,
+        kcal: macros.kcal,
+        protein: macros.protein,
+        carbs: macros.carbs != null ? macros.carbs : item.carbs != null ? roundn(Number(item.carbs) * factor, 2) : null,
+        fat: macros.fat != null ? macros.fat : item.fat != null ? roundn(Number(item.fat) * factor, 2) : null,
+        fiber: macros.fiber != null ? macros.fiber : item.fiber != null ? roundn(Number(item.fiber) * factor, 2) : null,
+      };
+    }
+
+    /** Rows match what Diet shows: scaled amounts, tombstones applied. Never writes storage. */
+    function collectExportRows(dates) {
+      ensureDay();
+      persistChecksSnapshot();
+      const rows = [];
+      /* Snapshot today’s live record once, then read past days from checksByDate only */
+      const todayRec =
+        state.day?.date === todayISO()
+          ? {
+              date: state.day.date,
+              amounts: { ...(state.day.amounts || {}) },
+              deletedIds: normalizeDeletedIds(state.day.deletedIds),
+              extras: [...(state.day.extras || [])],
+              breakfast: [...(state.day.breakfast || [])],
+              lunch: [...(state.day.lunch || [])],
+              dinner: [...(state.day.dinner || [])],
+              snacks: [...(state.day.snacks || [])],
+            }
+          : null;
+      (dates || []).forEach((date) => {
+        const d = String(date || "").slice(0, 10);
+        const rec =
+          todayRec && todayRec.date === d
+            ? todayRec
+            : resolveDayRecord(d);
+        const amounts = { ...(rec.amounts || {}) };
+        MEALS.forEach(({ id, label }) => {
+          extrasInMealOnDay(rec, id).forEach((item) => {
+            const s = scaledExtraForExport(item, amounts);
+            const amount = roundn(s.amount != null ? s.amount : s.grams, 1);
+            rows.push({
+              date: rec.date,
+              meal: label,
+              name: String(item.name || "").trim(),
+              amount: Number.isFinite(amount) ? amount : "",
+              unit: s.unit || "g",
+              kcal: roundn(Number(s.kcal) || 0, 1),
+              protein: roundn(Number(s.protein) || 0, 2),
+              carbs: s.carbs != null && Number.isFinite(Number(s.carbs)) ? roundn(Number(s.carbs), 2) : "",
+              fat: s.fat != null && Number.isFinite(Number(s.fat)) ? roundn(Number(s.fat), 2) : "",
+              fiber: s.fiber != null && Number.isFinite(Number(s.fiber)) ? roundn(Number(s.fiber), 2) : "",
+            });
+          });
+        });
+      });
+      return rows;
+    }
+
+    function csvEscape(v) {
+      const s = String(v ?? "");
+      if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+      return s;
+    }
+
+    function rowsToCsv(rows) {
+      const header = [
+        "date",
+        "meal",
+        "food",
+        "amount",
+        "unit",
+        "kcal",
+        "protein_g",
+        "carbs_g",
+        "fat_g",
+        "fibre_g",
+      ];
+      const lines = [header.join(",")];
+      rows.forEach((r) => {
+        lines.push(
+          [
+            r.date,
+            r.meal,
+            r.name,
+            r.amount,
+            r.unit,
+            r.kcal,
+            r.protein,
+            r.carbs,
+            r.fat,
+            r.fiber,
+          ]
+            .map(csvEscape)
+            .join(",")
+        );
+      });
+      return lines.join("\n") + "\n";
+    }
+
+    function rowsToSummary(rows, dates) {
+      if (!rows.length) {
+        const span = dates?.length === 1 ? dates[0] : `${dates?.[0] || "?"} → ${dates?.[dates.length - 1] || "?"}`;
+        return `Sapna diet log (${span}): nothing logged.`;
+      }
+      const byDate = {};
+      rows.forEach((r) => {
+        byDate[r.date] = byDate[r.date] || { kcal: 0, protein: 0, n: 0 };
+        byDate[r.date].kcal += Number(r.kcal) || 0;
+        byDate[r.date].protein += Number(r.protein) || 0;
+        byDate[r.date].n += 1;
+      });
+      const dayLines = Object.keys(byDate)
+        .sort()
+        .map((d) => {
+          const t = byDate[d];
+          return `${d}: ${Math.round(t.kcal)} kcal · ${roundn(t.protein, 1)}g P · ${t.n} item${t.n === 1 ? "" : "s"}`;
+        });
+      const itemLines = rows.map(
+        (r) =>
+          `${r.date} · ${r.meal} · ${r.name} · ${r.amount}${r.unit} · ${r.kcal} kcal · ${r.protein}g P` +
+          (r.carbs !== "" ? ` · ${r.carbs}g C` : "") +
+          (r.fat !== "" ? ` · ${r.fat}g F` : "") +
+          (r.fiber !== "" ? ` · ${r.fiber}g fi` : "")
+      );
+      return ["Sapna diet log", ...dayLines, "", ...itemLines].join("\n");
+    }
+
+    function downloadCsv(filename, csvText) {
+      const blob = new Blob(["\uFEFF" + csvText], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      return blob;
+    }
+
+    function exportFilename(dates) {
+      if (!dates?.length) return `sapna-diet-${todayISO()}.csv`;
+      if (dates.length === 1) return `sapna-diet-${dates[0]}.csv`;
+      return `sapna-diet-${dates[0]}_to_${dates[dates.length - 1]}.csv`;
+    }
+
+    function setExportRange(mode) {
+      document.querySelectorAll("[data-export-range]").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-export-range") === mode);
+      });
+      const dateEl = $("diet-export-date");
+      if (mode === "today" && dateEl) dateEl.value = todayISO();
+      if (mode === "date" && dateEl && !dateEl.value) dateEl.value = todayISO();
+    }
+
+    function toggleExportPanel(force) {
+      const panel = $("diet-export-panel");
+      const btn = $("diet-export-toggle");
+      if (!panel) return;
+      const open = force != null ? !!force : panel.hidden;
+      panel.hidden = !open;
+      if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        const dateEl = $("diet-export-date");
+        if (dateEl && !dateEl.value) dateEl.value = todayISO();
+        if ($("diet-export-share")) {
+          $("diet-export-share").hidden = !(typeof navigator !== "undefined" && typeof navigator.share === "function");
+        }
+      }
+    }
+
+    function runDietExport(kind) {
+      const st = $("diet-export-status");
+      const dates = exportRangeDates();
+      const rows = collectExportRows(dates);
+      if (!rows.length) {
+        setStatus(st, "Nothing to export for that range.", "info");
+        return;
+      }
+      const csv = rowsToCsv(rows);
+      const filename = exportFilename(dates);
+      if (kind === "csv") {
+        downloadCsv(filename, csv);
+        setStatus(st, `Downloaded ${rows.length} row${rows.length === 1 ? "" : "s"}.`, "ok");
+        Haptics.ok?.();
+        return;
+      }
+      if (kind === "copy") {
+        const text = rowsToSummary(rows, dates);
+        const done = () => {
+          setStatus(st, "Summary copied.", "ok");
+          Haptics.ok?.();
+        };
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(() => {
+            setStatus(st, "Couldn’t copy — try Download CSV.", "error");
+          });
+        } else {
+          setStatus(st, "Clipboard unavailable — try Download CSV.", "error");
+        }
+        return;
+      }
+      if (kind === "share") {
+        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+        const summary = rowsToSummary(rows, dates);
+        const tryShare = async () => {
+          try {
+            if (navigator.canShare) {
+              const file = new File([blob], filename, { type: "text/csv" });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: "Sapna diet log", text: summary.split("\n").slice(0, 4).join("\n") });
+                setStatus(st, "Shared.", "ok");
+                return;
+              }
+            }
+            if (navigator.share) {
+              await navigator.share({ title: "Sapna diet log", text: summary });
+              setStatus(st, "Shared.", "ok");
+              return;
+            }
+          } catch (e) {
+            if (e && e.name === "AbortError") {
+              setStatus(st, "Share cancelled.", "info");
+              return;
+            }
+          }
+          downloadCsv(filename, csv);
+          setStatus(st, "Share unavailable — CSV downloaded instead.", "info");
+        };
+        tryShare();
+      }
+    }
+
     function totals() {
       ensureDay();
       let kcal = 0;
@@ -4583,6 +4921,18 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function wire() {
+      $("diet-export-toggle")?.addEventListener("click", () => toggleExportPanel());
+      document.querySelectorAll("[data-export-range]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          setExportRange(btn.getAttribute("data-export-range") || "today");
+        });
+      });
+      $("diet-export-date")?.addEventListener("change", () => {
+        setExportRange("date");
+      });
+      $("diet-export-csv")?.addEventListener("click", () => runDietExport("csv"));
+      $("diet-export-copy")?.addEventListener("click", () => runDietExport("copy"));
+      $("diet-export-share")?.addEventListener("click", () => runDietExport("share"));
       $("diet-regular-run")?.addEventListener("click", () => {
         if (!isAdminUnlocked()) {
           setStatus($("diet-regular-status"), "Admin only.", "error");

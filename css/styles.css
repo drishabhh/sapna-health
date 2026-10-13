@@ -4152,10 +4152,64 @@ body.profile-sheet-open {
 
 .profile-entry-row {
   margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .profile-open-btn {
   min-height: 40px;
+}
+
+.diet-export-panel {
+  margin: 0 0 0.85rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(243, 250, 246, 0.95), rgba(238, 245, 240, 0.7));
+  border: 1px solid rgba(61, 143, 106, 0.16);
+  animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.diet-export-panel[hidden] {
+  display: none !important;
+}
+
+.diet-export-kicker {
+  margin: 0 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3d8f6a;
+}
+
+.diet-export-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+.diet-export-date-field {
+  flex: 1 1 9rem;
+  min-width: 8.5rem;
+  margin: 0;
+}
+
+.diet-export-date-field input[type="date"] {
+  width: 100%;
+  min-height: 40px;
+}
+
+.diet-export-actions {
+  margin-top: 0.15rem;
+}
+
+#diet-export-status {
+  margin: 0.45rem 0 0;
 }
 
 .profile-nudge {
