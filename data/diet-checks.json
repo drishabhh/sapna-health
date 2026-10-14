@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T06:19:30.995Z",
+  "updatedAt": "2026-10-14T06:19:41.367Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -147,10 +147,11 @@
       "amounts": {
         "extra-mv7p2bg6-vd3": 90,
         "extra-mv7p7020-wrs": 450,
-        "extra-mv7p8r4u-wcp": 30
+        "extra-mv7p8r4u-wcp": 30,
+        "extra-mv7pzodo-8sk": 80
       },
       "deletedIds": [],
-      "updatedAt": "2026-10-14T05:58:44.575Z",
+      "updatedAt": "2026-10-14T06:19:40.717Z",
       "extras": [
         {
           "id": "extra-mv7p2bg6-vd3",
@@ -205,6 +206,21 @@
           "fiber": 2.1,
           "amountLabel": "30 g",
           "kind": "packaged"
+        },
+        {
+          "id": "extra-mv7pzodo-8sk",
+          "foodId": "roti",
+          "meal": "lunch",
+          "name": "Roti (1 medium)",
+          "kcal": 240,
+          "protein": 7,
+          "servings": 1,
+          "servingGrams": 80,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 80,
+          "amount": 80,
+          "amountLabel": "2 servings"
         }
       ],
       "breakfast": [],
