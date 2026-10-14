@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T05:52:58.697Z",
+  "updatedAt": "2026-10-14T05:53:45.083Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -144,10 +144,30 @@
     },
     "2026-10-14": {
       "done": {},
-      "amounts": {},
+      "amounts": {
+        "extra-mv7p2bg6-vd3": 90
+      },
       "deletedIds": [],
-      "updatedAt": null,
-      "extras": [],
+      "updatedAt": "2026-10-14T05:53:44.311Z",
+      "extras": [
+        {
+          "id": "extra-mv7p2bg6-vd3",
+          "foodId": "gfood-the-healthy-factory-bread-1-slice-30g--80",
+          "meal": "breakfast",
+          "name": "The Healthy Factory Bread (1 slice (30g))",
+          "kcal": 240,
+          "protein": 12,
+          "servings": 1,
+          "servingGrams": 90,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 90,
+          "amount": 90,
+          "carbs": 42,
+          "fat": 3,
+          "amountLabel": "3 servings"
+        }
+      ],
       "breakfast": [],
       "lunch": [],
       "dinner": [],
