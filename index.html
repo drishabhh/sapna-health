@@ -9,23 +9,64 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <title>Sapna Singh — Health</title>
   <script>
-    /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
+    /* Hard-upgrade: any stale HTML or old ?v= bookmark (e.g. handoff4) must load current assets. */
     (function () {
-      var APP_V = "20261014puter3";
+      var APP_V = "20261014onelink1";
       window.SAPNA_APP_V = APP_V;
+      var RELOAD_KEY = "sapna_ver_reload_" + APP_V;
+      function plainUrl(hash) {
+        return location.pathname + (hash || location.hash || "");
+      }
+      function hardReloadTo(v) {
+        try {
+          if (sessionStorage.getItem(RELOAD_KEY) === "1") return false;
+          sessionStorage.setItem(RELOAD_KEY, "1");
+        } catch (e) {}
+        var u = new URL(location.href);
+        u.searchParams.set("v", v);
+        /* Extra bust so Safari drops the old document/JS cache keyed by prior ?v= */
+        u.searchParams.set("_", String(Date.now()));
+        location.replace(u.pathname + "?" + u.searchParams.toString() + (u.hash || ""));
+        return true;
+      }
+      function normalizeQuery(remote) {
+        try {
+          var u = new URL(location.href);
+          var urlV = u.searchParams.get("v");
+          var hadBust = u.searchParams.has("_");
+          if (urlV && urlV !== remote) {
+            hardReloadTo(remote);
+            return;
+          }
+          if (urlV || hadBust) {
+            /* Bookmark/share as plain URL once current assets are loaded */
+            history.replaceState(null, "", plainUrl(u.hash));
+          }
+          try { sessionStorage.removeItem(RELOAD_KEY); } catch (e2) {}
+        } catch (e3) {}
+      }
+      /* Sync path: URL ?v= already wrong vs this HTML build → reload before stale scripts run */
+      try {
+        var qv = new URL(location.href).searchParams.get("v");
+        if (qv && qv !== APP_V) {
+          if (hardReloadTo(APP_V)) return;
+        }
+      } catch (e4) {}
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
           .then(function (r) { return r.ok ? r.text() : ""; })
           .then(function (txt) {
-            var remote = String(txt || "").trim();
-            if (!remote || remote === APP_V) return;
-            var u = new URL(location.href);
-            if (u.searchParams.get("v") === remote) return;
-            u.searchParams.set("v", remote);
-            location.replace(u.pathname + u.search + u.hash);
+            var remote = String(txt || "").trim() || APP_V;
+            if (remote !== APP_V) {
+              hardReloadTo(remote);
+              return;
+            }
+            normalizeQuery(remote);
           })
-          .catch(function () {});
-      } catch (e) {}
+          .catch(function () { normalizeQuery(APP_V); });
+      } catch (e5) {
+        normalizeQuery(APP_V);
+      }
     })();
   </script>
   <script>
@@ -152,11 +193,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261014puter3"></script>
+  <script src="./js/admin-auth.js?v=20261014onelink1"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261014puter3" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261014onelink1" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -1280,8 +1321,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261014puter3"></script>
-  <script src="./js/diet-admin.js?v=20261014puter3"></script>
-  <script src="./js/app.js?v=20261014puter3"></script>
+  <script src="./js/workout-admin.js?v=20261014onelink1"></script>
+  <script src="./js/diet-admin.js?v=20261014onelink1"></script>
+  <script src="./js/app.js?v=20261014onelink1"></script>
 </body>
 </html>

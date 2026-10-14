@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13",
+  "updatedAt": "2026-10-14",
   "targets": {
-    "kcal": 1200,
+    "kcal": 1300,
     "protein": 100
   },
-  "note": "Sapna daily calorie goal 1200 kcal. Period/weight logs sync separately."
+  "note": "Sapna daily calorie goal 1300 kcal. Period/weight logs sync separately."
 }

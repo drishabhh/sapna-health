@@ -19,7 +19,7 @@ window.SapnaDietAdmin = (() => {
   let targetDate = "";
   let headline = "Today’s plate";
   let support = "Check what you ate · add extras if needed";
-  let targetKcal = 1800;
+  let targetKcal = 1300;
   let targetProtein = 100;
   /** @type {Array<{date:string,headline:string,itemCount:number,path:string}>} */
   let historyIndex = [];
@@ -199,7 +199,7 @@ window.SapnaDietAdmin = (() => {
   function syncMetaFromDom() {
     headline = ($("diet-edit-headline")?.value || "").trim() || "Today’s plate";
     support = ($("diet-edit-support")?.value || "").trim() || "Check what you ate";
-    targetKcal = Number($("diet-edit-kcal")?.value) || 1800;
+    targetKcal = Number($("diet-edit-kcal")?.value) || 1300;
     targetProtein = Number($("diet-edit-protein")?.value) || 100;
   }
 

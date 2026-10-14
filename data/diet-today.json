@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T18:09:28.972412Z",
+  "updatedAt": "2026-10-14T12:00:00.000Z",
   "planDate": null,
   "headline": "",
   "support": "",
   "targets": {
-    "kcal": 1200,
+    "kcal": 1300,
     "protein": 100
   },
   "meals": {
@@ -15,5 +15,5 @@
     "snacks": []
   },
   "empty": true,
-  "note": "No pre-built diet \u2014 Sapna logs each meal. Admin maintains the food library."
+  "note": "No pre-built diet — Sapna logs each meal. Admin maintains the food library."
 }
