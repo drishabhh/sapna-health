@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T06:19:41.367Z",
+  "updatedAt": "2026-10-14T06:21:38.635Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -148,10 +148,11 @@
         "extra-mv7p2bg6-vd3": 90,
         "extra-mv7p7020-wrs": 450,
         "extra-mv7p8r4u-wcp": 30,
-        "extra-mv7pzodo-8sk": 80
+        "extra-mv7pzodo-8sk": 80,
+        "extra-mv7q26rm-hrx": 225
       },
       "deletedIds": [],
-      "updatedAt": "2026-10-14T06:19:40.717Z",
+      "updatedAt": "2026-10-14T06:21:37.860Z",
       "extras": [
         {
           "id": "extra-mv7p2bg6-vd3",
@@ -221,6 +222,26 @@
           "grams": 80,
           "amount": 80,
           "amountLabel": "2 servings"
+        },
+        {
+          "id": "extra-mv7q26rm-hrx",
+          "foodId": "pkg-homemade-generic-aloo-gavar-sabzi-potato-cluster-210",
+          "meal": "lunch",
+          "name": "Homemade / Generic — Aloo Gavar Sabzi (Potato Cluster Beans Stir Fry)",
+          "kcal": 210,
+          "protein": 5.2,
+          "servings": 1,
+          "servingGrams": 225,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 225,
+          "amount": 225,
+          "carbs": 34.5,
+          "fat": 6.5,
+          "fiber": 7.4,
+          "sodiumMg": 480,
+          "amountLabel": "1 serving",
+          "kind": "packaged"
         }
       ],
       "breakfast": [],
