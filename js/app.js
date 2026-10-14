@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261013lib3c";
+  const PROFILE_ASSET_V = "20261014puter1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -141,7 +141,7 @@
     function visibilityTarget(el) {
       return (
         el.closest(
-          ".field, .diet-grams-sheet, .diet-pkg-sheet, .diet-quick-oneoff, .diet-add-search-wrap, .diet-export-sheet, .gemini-key-panel, .token-setup-sheet label, label"
+          ".field, .diet-grams-sheet, .diet-pkg-sheet, .diet-quick-oneoff, .diet-add-search-wrap, .diet-export-sheet, .hf-product-tile, .gemini-key-panel, .token-setup-sheet label, label"
         ) || el
       );
     }
@@ -4919,18 +4919,23 @@ ${JSON.stringify(example, null, 2)}`;
       });
     }
 
+    function productPreviewMeta(food) {
+      const unit = foodMeasureUnit(food);
+      return (
+        `Per ${food.servingSize || formatAmountLabel(foodServingAmount(food), unit)}: ${food.kcal} kcal · ${food.protein}g P` +
+        (food.carbs != null ? ` · ${food.carbs}g carbs` : "") +
+        (food.fat != null ? ` · ${food.fat}g fat` : "") +
+        (food.sodiumMg != null ? ` · ${food.sodiumMg}mg sodium` : "") +
+        ` · ${unit}`
+      );
+    }
+
     function showAiProductPreview(food, rawJson) {
       aiProductDraft = food;
       const box = $("diet-pkg-ai-preview");
       if (box) box.hidden = false;
       if ($("diet-pkg-ai-title")) $("diet-pkg-ai-title").textContent = food.name;
-      if ($("diet-pkg-ai-meta")) {
-        $("diet-pkg-ai-meta").textContent =
-          `Per ${food.servingSize}: ${food.kcal} kcal · ${food.protein}g P` +
-          (food.carbs != null ? ` · ${food.carbs}g carbs` : "") +
-          (food.fat != null ? ` · ${food.fat}g fat` : "") +
-          (food.sodiumMg != null ? ` · ${food.sodiumMg}mg sodium` : "");
-      }
+      if ($("diet-pkg-ai-meta")) $("diet-pkg-ai-meta").textContent = productPreviewMeta(food);
       if ($("diet-pkg-ai-json")) {
         $("diet-pkg-ai-json").textContent = JSON.stringify(
           rawJson || {
@@ -4955,12 +4960,19 @@ ${JSON.stringify(example, null, 2)}`;
           2
         );
       }
+      /* Diet-tab companion tile preview (Admin) */
+      const tileBox = $("diet-tile-pkg-preview");
+      if (tileBox) tileBox.hidden = false;
+      if ($("diet-tile-pkg-preview-title")) $("diet-tile-pkg-preview-title").textContent = food.name;
+      if ($("diet-tile-pkg-preview-meta")) $("diet-tile-pkg-preview-meta").textContent = productPreviewMeta(food);
     }
 
     function hideAiProductPreview() {
       aiProductDraft = null;
       const box = $("diet-pkg-ai-preview");
       if (box) box.hidden = true;
+      const tileBox = $("diet-tile-pkg-preview");
+      if (tileBox) tileBox.hidden = true;
     }
 
     function readProductForm() {
@@ -4972,13 +4984,66 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
-    async function fillProductWithAi({ preferPuter } = {}) {
-      const st = $("diet-pkg-status");
+    /** Diet-tab tile: JSON paste, label text, or brand/product fields. */
+    function readDietTileProductInput() {
+      const raw = String($("diet-tile-pkg-json")?.value || "").trim();
+      let brand = String($("diet-tile-pkg-brand")?.value || "").trim();
+      let product = String($("diet-tile-pkg-product")?.value || "").trim();
+      let servingHint = "";
+      let notes = "";
+      let parsedJson = null;
+      if (raw) {
+        try {
+          const obj = JSON.parse(raw);
+          if (obj && typeof obj === "object") {
+            parsedJson = obj;
+            brand = brand || String(obj.brand || "").trim();
+            product = product || String(obj.product || obj.name || "").trim();
+            servingHint = String(obj.serving_size || obj.servingSize || obj.serving || "").trim();
+          }
+        } catch (_) {
+          const lines = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
+          if (lines[0]) {
+            const m = lines[0].match(/^(.+?)\s*[—\-:|]\s*(.+)$/);
+            if (m && !product) {
+              brand = brand || m[1].trim();
+              product = m[2].trim();
+            } else if (!product) {
+              product = lines[0];
+            }
+            notes = lines.slice(1).join(" ").trim() || (m ? "" : raw);
+          }
+        }
+      }
+      return { brand, product, servingHint, notes, parsedJson, raw };
+    }
+
+    async function fillProductWithAi({ preferPuter, fromTile } = {}) {
+      const st = fromTile ? $("diet-tile-pkg-status") : $("diet-pkg-status");
       if (!isAdminUnlocked()) {
         setStatus(st, "AI product fill is Admin only.", "error");
         return;
       }
-      const input = readProductForm();
+      const tile = fromTile ? readDietTileProductInput() : null;
+      /* Full nutrition JSON on the tile can save without AI */
+      if (fromTile && tile?.parsedJson?.nutrition_facts) {
+        try {
+          const food = productFromJson(tile.parsedJson);
+          showAiProductPreview(food, tile.parsedJson);
+          setStatus(st, "JSON preview ready — Save to library.", "ok");
+          return;
+        } catch (e) {
+          /* fall through to AI with brand/product */
+        }
+      }
+      const input = fromTile
+        ? {
+            brand: tile.brand,
+            product: tile.product,
+            servingHint: tile.servingHint,
+            notes: tile.notes || (tile.raw && !tile.parsedJson ? tile.raw : ""),
+          }
+        : readProductForm();
       try {
         Gemini.preparePackagedProduct(input);
       } catch (e) {
@@ -5013,20 +5078,59 @@ ${JSON.stringify(example, null, 2)}`;
       }
     }
 
+    async function saveAiProductDraft(statusEl) {
+      const st = statusEl || $("diet-pkg-status");
+      if (!isAdminUnlocked()) {
+        setStatus(st, "Admin only.", "error");
+        return;
+      }
+      if (!aiProductDraft) {
+        setStatus(st, "Fill with AI or Parse JSON first.", "error");
+        return;
+      }
+      await publishFoodLibraryItem(aiProductDraft, st);
+      if ($("diet-search")) $("diet-search").value = aiProductDraft.brand || aiProductDraft.product || "";
+      renderFoodPick($("diet-search")?.value || "");
+      hideAiProductPreview();
+      Haptics.ok?.();
+    }
+
+    function wireDietTileProductUi() {
+      $("diet-tile-pkg-puter")?.addEventListener("click", () =>
+        fillProductWithAi({ preferPuter: true, fromTile: true })
+      );
+      $("diet-tile-pkg-ai")?.addEventListener("click", () => fillProductWithAi({ fromTile: true }));
+      $("diet-tile-pkg-parse")?.addEventListener("click", () => {
+        const st = $("diet-tile-pkg-status");
+        if (!isAdminUnlocked()) {
+          setStatus(st, "Admin only.", "error");
+          return;
+        }
+        try {
+          const tile = readDietTileProductInput();
+          const raw = tile.parsedJson || tile.raw;
+          if (!raw) {
+            setStatus(st, "Paste nutrition JSON first.", "error");
+            return;
+          }
+          const food = productFromJson(raw);
+          showAiProductPreview(food, tile.parsedJson || undefined);
+          setStatus(st, `Parsed “${food.name}” — Save to library.`, "ok");
+        } catch (e) {
+          setStatus(st, e.message || "Could not parse JSON.", "error");
+        }
+      });
+      $("diet-tile-pkg-save")?.addEventListener("click", () => saveAiProductDraft($("diet-tile-pkg-status")));
+      $("diet-tile-pkg-discard")?.addEventListener("click", () => {
+        hideAiProductPreview();
+        setStatus($("diet-tile-pkg-status"), "Discarded preview.", "info");
+      });
+    }
+
     function wirePackagedProductUi() {
       $("diet-pkg-ai")?.addEventListener("click", () => fillProductWithAi());
       $("diet-pkg-ai-puter")?.addEventListener("click", () => fillProductWithAi({ preferPuter: true }));
-      $("diet-pkg-ai-confirm")?.addEventListener("click", () => {
-        if (!aiProductDraft) {
-          setStatus($("diet-pkg-status"), "Fill with AI first.", "error");
-          return;
-        }
-        savePackagedFood(aiProductDraft);
-        setStatus($("diet-pkg-status"), `Saved “${aiProductDraft.name}” to library.`, "ok");
-        if ($("diet-search")) $("diet-search").value = aiProductDraft.brand || aiProductDraft.product || "";
-        renderFoodPick($("diet-search")?.value || "");
-        hideAiProductPreview();
-      });
+      $("diet-pkg-ai-confirm")?.addEventListener("click", () => saveAiProductDraft($("diet-pkg-status")));
       $("diet-pkg-ai-discard")?.addEventListener("click", () => {
         hideAiProductPreview();
         setStatus($("diet-pkg-status"), "Discarded AI preview.", "info");
@@ -5044,6 +5148,7 @@ ${JSON.stringify(example, null, 2)}`;
           setStatus(st, e.message || "Could not parse JSON.", "error");
         }
       });
+      wireDietTileProductUi();
       $("diet-pkg-sheet")?.addEventListener("click", (e) => {
         const modeBtn = e.target.closest("[data-pkg-mode]");
         if (modeBtn && pkgPending) {

@@ -5390,7 +5390,107 @@ body.kb-field-focus .diet-pkg-sheet:focus-within {
   text-transform: uppercase;
   color: var(--text-faint);
 }
-.hf-diet-totals { margin: 0 0 0.85rem; }
+.hf-diet-totals-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin: 0 0 0.85rem;
+}
+.hf-diet-totals {
+  margin: 0;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.hf-diet-totals .hf-remain-card {
+  height: 100%;
+}
+body.is-admin .hf-diet-totals-row .hf-diet-totals {
+  flex: 1 1 calc(50% - 0.4rem);
+  min-width: min(100%, 168px);
+}
+body.is-admin .hf-product-tile.ai-admin-only {
+  display: flex !important;
+  flex-direction: column;
+  flex: 1 1 calc(50% - 0.4rem);
+  min-width: min(100%, 168px);
+  margin: 0;
+  padding: 0.95rem 1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(168, 214, 186, 0.28), transparent 55%),
+    linear-gradient(160deg, rgba(255, 252, 246, 0.96), rgba(236, 245, 236, 0.9));
+  box-sizing: border-box;
+}
+.hf-product-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.hf-product-title {
+  margin: 0;
+  font-family: Syne, Figtree, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 750;
+  line-height: 1.2;
+  color: var(--text);
+}
+.hf-product-lede {
+  margin: 0.25rem 0 0.65rem;
+  font-size: 0.78rem;
+  color: rgba(40, 60, 50, 0.7);
+  line-height: 1.35;
+}
+.hf-product-json-field {
+  margin: 0 0 0.5rem;
+}
+.hf-product-json-field textarea {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+.hf-product-mini-row {
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+.hf-product-actions {
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.15rem 0 0;
+}
+.hf-product-actions .btn-diet,
+.hf-product-actions .btn-diet-ghost {
+  font-size: 0.78rem;
+  padding: 0.45rem 0.7rem;
+}
+.hf-product-preview {
+  margin-top: 0.65rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(40, 90, 60, 0.28);
+  background: rgba(255, 255, 255, 0.55);
+}
+.hf-product-preview-title {
+  margin: 0 0 0.2rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+#diet-tile-pkg-status {
+  margin: 0.45rem 0 0;
+  font-size: 0.78rem;
+}
+@media (max-width: 359px) {
+  body.is-admin .hf-diet-totals-row .hf-diet-totals,
+  body.is-admin .hf-product-tile.ai-admin-only {
+    flex: 1 1 100%;
+  }
+}
 
 .hf-remain-card {
   border: 1px solid var(--line);
