@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-13T18:46:20.975Z",
+  "updatedAt": "2026-10-14T05:27:51.194Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -13,7 +13,8 @@
       "breakfast": [],
       "lunch": [],
       "dinner": [],
-      "snacks": []
+      "snacks": [],
+      "steps": 0
     },
     "2026-10-12": {
       "done": {
@@ -27,17 +28,11 @@
       "breakfast": [],
       "lunch": [],
       "dinner": [],
-      "snacks": []
+      "snacks": [],
+      "steps": 0
     },
     "2026-10-13": {
       "done": {},
-      "amounts": {
-        "extra-mv6h3zzn-bp3": 100,
-        "extra-mv6h6ffx-4py": 120,
-        "extra-mv6xe6jx-wdc": 50,
-        "extra-mv6xelmn-5da": 120,
-        "extra-mv70wzut-w8v": 220
-      },
       "deletedIds": [
         "extra-mv6bofik-526",
         "extra-mv6clemk-0jz",
@@ -47,6 +42,13 @@
         "extra-mv6xlf3d-9od"
       ],
       "updatedAt": "2026-10-13T18:46:20.077Z",
+      "amounts": {
+        "extra-mv6h3zzn-bp3": 100,
+        "extra-mv6h6ffx-4py": 120,
+        "extra-mv6xe6jx-wdc": 50,
+        "extra-mv6xelmn-5da": 120,
+        "extra-mv70wzut-w8v": 220
+      },
       "extras": [
         {
           "id": "extra-mv6bok5r-jdu",
@@ -137,7 +139,20 @@
       "breakfast": [],
       "lunch": [],
       "dinner": [],
-      "snacks": []
+      "snacks": [],
+      "steps": 0
+    },
+    "2026-10-14": {
+      "done": {},
+      "amounts": {},
+      "deletedIds": [],
+      "updatedAt": null,
+      "extras": [],
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "snacks": [],
+      "steps": 0
     }
   }
 }
