@@ -5459,6 +5459,9 @@ body.is-admin .hf-product-tile.ai-admin-only {
   margin: 0;
   font-size: 0.8rem;
 }
+.hf-product-puter-retry[hidden] {
+  display: none !important;
+}
 .hf-product-status {
   margin: 0;
   font-size: 0.72rem;
