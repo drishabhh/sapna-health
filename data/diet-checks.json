@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T11:39:45.146Z",
+  "updatedAt": "2026-10-14T11:40:12.935Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -149,13 +149,13 @@
         "extra-mv7p7020-wrs": 450,
         "extra-mv7p8r4u-wcp": 30,
         "extra-mv7q26rm-hrx": 225,
-        "extra-mv7q2f4l-mas": 200,
-        "extra-mv7q4qvr-pp7": 250
+        "extra-mv7q2f4l-mas": 200
       },
       "deletedIds": [
-        "extra-mv7pzodo-8sk"
+        "extra-mv7pzodo-8sk",
+        "extra-mv7q4qvr-pp7"
       ],
-      "updatedAt": "2026-10-14T06:23:52.457Z",
+      "updatedAt": "2026-10-14T11:40:11.820Z",
       "extras": [
         {
           "id": "extra-mv7p2bg6-vd3",
@@ -248,25 +248,6 @@
           "fat": 7,
           "sodiumMg": 91,
           "amountLabel": "200 g",
-          "kind": "packaged"
-        },
-        {
-          "id": "extra-mv7q4qvr-pp7",
-          "foodId": "pkg-epigamia-turbo-25g-protein-milkshake-chocolate-139",
-          "meal": "snacks",
-          "name": "Epigamia Turbo — 25g Protein Milkshake Chocolate",
-          "kcal": 139,
-          "protein": 25,
-          "servings": 1,
-          "servingGrams": 250,
-          "servingUnit": "ml",
-          "unit": "ml",
-          "grams": 250,
-          "amount": 250,
-          "carbs": 9,
-          "fat": 0.3,
-          "sodiumMg": 115,
-          "amountLabel": "250 ml",
           "kind": "packaged"
         }
       ],
