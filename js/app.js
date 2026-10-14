@@ -16,7 +16,7 @@
   const PERIODS_PATH = "data/periods.json";
   const WEIGHTS_PATH = "data/weights.json";
   const PROFILE_PATH = "data/profile.json";
-  const PROFILE_ASSET_V = "20261014puter1";
+  const PROFILE_ASSET_V = "20261014puter2";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
@@ -4960,19 +4960,44 @@ ${JSON.stringify(example, null, 2)}`;
           2
         );
       }
-      /* Diet-tab companion tile preview (Admin) */
-      const tileBox = $("diet-tile-pkg-preview");
-      if (tileBox) tileBox.hidden = false;
+      /* Diet-tab companion: open quiet preview sheet (keeps card tiny) */
+      openDietTilePreview(food);
+    }
+
+    function openDietTilePreview(food) {
       if ($("diet-tile-pkg-preview-title")) $("diet-tile-pkg-preview-title").textContent = food.name;
       if ($("diet-tile-pkg-preview-meta")) $("diet-tile-pkg-preview-meta").textContent = productPreviewMeta(food);
+      const ov = $("diet-tile-preview-overlay");
+      if (!ov) return;
+      ov.hidden = false;
+      ov.classList.add("is-open");
+      document.body.classList.add("modal-open");
+      setDietTilePuterRetry(false);
+    }
+
+    function closeDietTilePreview() {
+      const ov = $("diet-tile-preview-overlay");
+      if (ov) {
+        ov.classList.remove("is-open");
+        ov.hidden = true;
+      }
+      const addOpen = $("diet-add-overlay") && !$("diet-add-overlay").hidden;
+      const exportOpen = $("diet-export-overlay") && !$("diet-export-overlay").hidden;
+      if (!addOpen && !exportOpen) document.body.classList.remove("modal-open");
+    }
+
+    function setDietTilePuterRetry(show) {
+      const btn = $("diet-tile-pkg-puter");
+      if (!btn) return;
+      btn.hidden = !show;
     }
 
     function hideAiProductPreview() {
       aiProductDraft = null;
       const box = $("diet-pkg-ai-preview");
       if (box) box.hidden = true;
-      const tileBox = $("diet-tile-pkg-preview");
-      if (tileBox) tileBox.hidden = true;
+      closeDietTilePreview();
+      setDietTilePuterRetry(false);
     }
 
     function readProductForm() {
@@ -4984,11 +5009,11 @@ ${JSON.stringify(example, null, 2)}`;
       };
     }
 
-    /** Diet-tab tile: JSON paste, label text, or brand/product fields. */
+    /** Diet-tab tile: one paste area — JSON or free-text label. */
     function readDietTileProductInput() {
       const raw = String($("diet-tile-pkg-json")?.value || "").trim();
-      let brand = String($("diet-tile-pkg-brand")?.value || "").trim();
-      let product = String($("diet-tile-pkg-product")?.value || "").trim();
+      let brand = "";
+      let product = "";
       let servingHint = "";
       let notes = "";
       let parsedJson = null;
@@ -4997,25 +5022,31 @@ ${JSON.stringify(example, null, 2)}`;
           const obj = JSON.parse(raw);
           if (obj && typeof obj === "object") {
             parsedJson = obj;
-            brand = brand || String(obj.brand || "").trim();
-            product = product || String(obj.product || obj.name || "").trim();
+            brand = String(obj.brand || "").trim();
+            product = String(obj.product || obj.name || "").trim();
             servingHint = String(obj.serving_size || obj.servingSize || obj.serving || "").trim();
           }
         } catch (_) {
           const lines = raw.split(/\n+/).map((s) => s.trim()).filter(Boolean);
           if (lines[0]) {
             const m = lines[0].match(/^(.+?)\s*[—\-:|]\s*(.+)$/);
-            if (m && !product) {
-              brand = brand || m[1].trim();
+            if (m) {
+              brand = m[1].trim();
               product = m[2].trim();
-            } else if (!product) {
+              notes = lines.slice(1).join(" ").trim();
+            } else {
               product = lines[0];
+              notes = lines.slice(1).join(" ").trim() || raw;
             }
-            notes = lines.slice(1).join(" ").trim() || (m ? "" : raw);
           }
         }
       }
       return { brand, product, servingHint, notes, parsedJson, raw };
+    }
+
+    function needsPuterGesture(err) {
+      const msg = String(err?.message || err || "");
+      return /popup blocked|Use Puter|Tap “Use Puter|just loaded/i.test(msg);
     }
 
     async function fillProductWithAi({ preferPuter, fromTile } = {}) {
@@ -5024,16 +5055,17 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus(st, "AI product fill is Admin only.", "error");
         return;
       }
+      if (fromTile) setDietTilePuterRetry(false);
       const tile = fromTile ? readDietTileProductInput() : null;
-      /* Full nutrition JSON on the tile can save without AI */
-      if (fromTile && tile?.parsedJson?.nutrition_facts) {
+      /* Full nutrition JSON → preview sheet, no AI */
+      if (fromTile && tile?.parsedJson && (tile.parsedJson.nutrition_facts || tile.parsedJson.kcal != null)) {
         try {
           const food = productFromJson(tile.parsedJson);
           showAiProductPreview(food, tile.parsedJson);
-          setStatus(st, "JSON preview ready — Save to library.", "ok");
+          setStatus(st, "Ready — Save to library.", "ok");
           return;
         } catch (e) {
-          /* fall through to AI with brand/product */
+          /* fall through to AI with brand/product from paste */
         }
       }
       const input = fromTile
@@ -5050,7 +5082,8 @@ ${JSON.stringify(example, null, 2)}`;
         setStatus(st, e.message || String(e), "error");
         return;
       }
-      hideAiProductPreview();
+      if (!fromTile) hideAiProductPreview();
+      else closeDietTilePreview();
       const puterCall = (opts) => PuterGrok.enrichPackagedProduct(input, opts);
       try {
         const { result, provider } = preferPuter
@@ -5068,13 +5101,11 @@ ${JSON.stringify(example, null, 2)}`;
         });
         food.source = provider === "puter-grok" ? "puter-grok" : "gemini";
         showAiProductPreview(food, result);
-        setStatus(
-          st,
-          `Preview ready via ${provider === "puter-grok" ? "Puter Grok" : "Gemini"} — confirm to save.`,
-          "ok"
-        );
+        setStatus(st, "Ready — Save to library.", "ok");
+        if (fromTile) setDietTilePuterRetry(false);
       } catch (e) {
         setStatus(st, e.message || String(e), "error");
+        if (fromTile && needsPuterGesture(e)) setDietTilePuterRetry(true);
       }
     }
 
@@ -5096,34 +5127,21 @@ ${JSON.stringify(example, null, 2)}`;
     }
 
     function wireDietTileProductUi() {
+      /* One primary: JSON → preview, else Gemini→Puter smart path */
+      $("diet-tile-pkg-go")?.addEventListener("click", () => fillProductWithAi({ fromTile: true }));
+      /* Shown only when popup/gesture is required */
       $("diet-tile-pkg-puter")?.addEventListener("click", () =>
         fillProductWithAi({ preferPuter: true, fromTile: true })
       );
-      $("diet-tile-pkg-ai")?.addEventListener("click", () => fillProductWithAi({ fromTile: true }));
-      $("diet-tile-pkg-parse")?.addEventListener("click", () => {
-        const st = $("diet-tile-pkg-status");
-        if (!isAdminUnlocked()) {
-          setStatus(st, "Admin only.", "error");
-          return;
-        }
-        try {
-          const tile = readDietTileProductInput();
-          const raw = tile.parsedJson || tile.raw;
-          if (!raw) {
-            setStatus(st, "Paste nutrition JSON first.", "error");
-            return;
-          }
-          const food = productFromJson(raw);
-          showAiProductPreview(food, tile.parsedJson || undefined);
-          setStatus(st, `Parsed “${food.name}” — Save to library.`, "ok");
-        } catch (e) {
-          setStatus(st, e.message || "Could not parse JSON.", "error");
-        }
-      });
       $("diet-tile-pkg-save")?.addEventListener("click", () => saveAiProductDraft($("diet-tile-pkg-status")));
       $("diet-tile-pkg-discard")?.addEventListener("click", () => {
         hideAiProductPreview();
-        setStatus($("diet-tile-pkg-status"), "Discarded preview.", "info");
+        setStatus($("diet-tile-pkg-status"), "", "info");
+      });
+      $("diet-tile-preview-overlay")?.addEventListener("click", (e) => {
+        if (e.target === $("diet-tile-preview-overlay")) {
+          hideAiProductPreview();
+        }
       });
     }
 

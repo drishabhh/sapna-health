@@ -11,7 +11,7 @@
   <script>
     /* Soft-bust stale GitHub Pages HTML: if VERSION.txt is newer than this build, reload with ?v= */
     (function () {
-      var APP_V = "20261014puter1";
+      var APP_V = "20261014puter2";
       window.SAPNA_APP_V = APP_V;
       try {
         fetch("./VERSION.txt?t=" + Date.now(), { cache: "no-store" })
@@ -152,11 +152,11 @@
       return false;
     };
   </script>
-  <script src="./js/admin-auth.js?v=20261014puter1"></script>
+  <script src="./js/admin-auth.js?v=20261014puter2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/styles.css?v=20261014puter1" />
+  <link rel="stylesheet" href="./css/styles.css?v=20261014puter2" />
 </head>
 <body data-section="today">
   <div class="atmosphere" aria-hidden="true"></div>
@@ -289,36 +289,25 @@
       <div class="diet-profile-summary" id="diet-profile-summary" hidden></div>
       <div class="hf-diet-totals-row" id="diet-totals-row">
         <div class="diet-rings hf-diet-totals" id="diet-totals" aria-label="Calories eaten vs plan"></div>
-        <aside class="hf-product-tile ai-admin-only" id="diet-json-puter-tile" aria-label="Add packaged product with AI">
-          <p class="hf-product-kicker">Admin</p>
+        <aside class="hf-product-tile ai-admin-only" id="diet-json-puter-tile" aria-label="Add product">
           <h2 class="hf-product-title">Add product</h2>
-          <p class="hf-product-lede">JSON or label → Puter / Gemini → library</p>
-          <label class="field hf-product-json-field" for="diet-tile-pkg-json">Paste JSON or label
-            <textarea id="diet-tile-pkg-json" rows="3" autocomplete="off" spellcheck="false" placeholder='{"brand":"…","product":"…","serving_size":"100g","nutrition_facts":{"energy_kcal":241,"protein_g":13}}&#10;or: The Health Factory — Whole Wheat Bread'></textarea>
-          </label>
-          <div class="field-row hf-product-mini-row">
-            <label class="field">Brand
-              <input type="text" id="diet-tile-pkg-brand" autocomplete="organization" placeholder="optional" />
-            </label>
-            <label class="field">Product
-              <input type="text" id="diet-tile-pkg-product" autocomplete="off" placeholder="if not in paste" />
-            </label>
-          </div>
-          <div class="actions hf-product-actions">
-            <button type="button" class="btn-diet" id="diet-tile-pkg-parse">Parse JSON</button>
-            <button type="button" class="btn-diet" id="diet-tile-pkg-puter">Use Puter Grok now</button>
-            <button type="button" class="btn-diet-ghost" id="diet-tile-pkg-ai">AI (Gemini→Puter)</button>
-          </div>
-          <div class="hf-product-preview" id="diet-tile-pkg-preview" hidden>
-            <p class="hf-product-preview-title" id="diet-tile-pkg-preview-title"></p>
-            <p class="hint" id="diet-tile-pkg-preview-meta"></p>
-            <div class="actions">
-              <button type="button" class="btn-diet" id="diet-tile-pkg-save">Save to library</button>
-              <button type="button" class="btn-diet-ghost" id="diet-tile-pkg-discard">Discard</button>
-            </div>
-          </div>
-          <p class="status" id="diet-tile-pkg-status" hidden></p>
+          <textarea id="diet-tile-pkg-json" class="hf-product-paste" rows="4" autocomplete="off" spellcheck="false" placeholder="Paste JSON or product name…" aria-label="Paste JSON or product name"></textarea>
+          <button type="button" class="btn-diet hf-product-go" id="diet-tile-pkg-go">Add with Puter</button>
+          <button type="button" class="btn-diet-ghost hf-product-puter-retry" id="diet-tile-pkg-puter" hidden>Use Puter now</button>
+          <p class="status hf-product-status" id="diet-tile-pkg-status" hidden></p>
         </aside>
+      </div>
+
+      <!-- Preview after parse / AI — keeps the Add product card tiny -->
+      <div class="overlay hf-product-preview-overlay" id="diet-tile-preview-overlay" hidden>
+        <div class="sheet hf-product-preview-sheet" role="dialog" aria-modal="true" aria-labelledby="diet-tile-pkg-preview-title">
+          <h3 id="diet-tile-pkg-preview-title">Product</h3>
+          <p class="hint" id="diet-tile-pkg-preview-meta"></p>
+          <div class="actions">
+            <button type="button" class="btn-diet" id="diet-tile-pkg-save">Save to library</button>
+            <button type="button" class="btn-diet-ghost" id="diet-tile-pkg-discard">Close</button>
+          </div>
+        </div>
       </div>
       <div class="steps-entry steps-entry-diet" id="diet-steps-entry">
         <label class="steps-entry-label" for="diet-steps-input">Steps
@@ -1291,8 +1280,8 @@
   </div>
 
   <script src="https://js.puter.com/v2/"></script>
-  <script src="./js/workout-admin.js?v=20261014puter1"></script>
-  <script src="./js/diet-admin.js?v=20261014puter1"></script>
-  <script src="./js/app.js?v=20261014puter1"></script>
+  <script src="./js/workout-admin.js?v=20261014puter2"></script>
+  <script src="./js/diet-admin.js?v=20261014puter2"></script>
+  <script src="./js/app.js?v=20261014puter2"></script>
 </body>
 </html>

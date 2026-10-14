@@ -5412,78 +5412,84 @@ body.is-admin .hf-diet-totals-row .hf-diet-totals {
 body.is-admin .hf-product-tile.ai-admin-only {
   display: flex !important;
   flex-direction: column;
+  justify-content: space-between;
+  gap: 0.55rem;
   flex: 1 1 calc(50% - 0.4rem);
   min-width: min(100%, 168px);
   margin: 0;
-  padding: 0.95rem 1rem 1rem;
+  padding: 1.1rem 1.15rem 1.15rem;
   border: 1px solid var(--line);
   border-radius: 22px;
   background:
-    radial-gradient(90% 120% at 100% 0%, rgba(168, 214, 186, 0.28), transparent 55%),
-    linear-gradient(160deg, rgba(255, 252, 246, 0.96), rgba(236, 245, 236, 0.9));
+    linear-gradient(165deg, rgba(255, 252, 248, 0.98), rgba(232, 248, 236, 0.55));
+  box-shadow: 0 12px 32px rgba(40, 24, 16, 0.05);
   box-sizing: border-box;
-}
-.hf-product-kicker {
-  margin: 0 0 0.2rem;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--text-faint);
 }
 .hf-product-title {
   margin: 0;
   font-family: Syne, Figtree, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  line-height: 1.2;
+}
+.hf-product-paste {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 4.25rem;
+  max-height: 7rem;
+  margin: 0;
+  resize: none;
+  border-radius: 14px;
+  border: 1px solid rgba(40, 70, 55, 0.14);
+  padding: 0.55rem 0.65rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  background: rgba(255, 255, 255, 0.72);
+  box-sizing: border-box;
+}
+.hf-product-go {
+  width: 100%;
+  margin: 0;
+}
+.hf-product-puter-retry {
+  width: 100%;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.hf-product-status {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+.hf-product-preview-overlay {
+  z-index: 100040;
+}
+.hf-product-preview-overlay.is-open {
+  display: flex !important;
+}
+.hf-product-preview-sheet {
+  width: min(100%, 420px);
+  margin: auto 0 0;
+  padding: 1.15rem 1.2rem 1.35rem;
+  border-radius: 22px 22px 0 0;
+  background: #fffefb;
+  box-shadow: 0 -10px 40px rgba(30, 24, 16, 0.12);
+}
+.hf-product-preview-sheet h3 {
+  margin: 0 0 0.35rem;
+  font-family: Syne, Figtree, sans-serif;
   font-size: 1.15rem;
   font-weight: 750;
-  line-height: 1.2;
-  color: var(--text);
 }
-.hf-product-lede {
-  margin: 0.25rem 0 0.65rem;
-  font-size: 0.78rem;
-  color: rgba(40, 60, 50, 0.7);
-  line-height: 1.35;
+.hf-product-preview-sheet .hint {
+  margin: 0 0 0.85rem;
 }
-.hf-product-json-field {
-  margin: 0 0 0.5rem;
-}
-.hf-product-json-field textarea {
-  width: 100%;
-  min-height: 4.5rem;
-  resize: vertical;
-  font-size: 0.78rem;
-  line-height: 1.35;
-}
-.hf-product-mini-row {
-  gap: 0.45rem;
-  margin-bottom: 0.45rem;
-}
-.hf-product-actions {
+.hf-product-preview-sheet .actions {
+  gap: 0.5rem;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0.15rem 0 0;
-}
-.hf-product-actions .btn-diet,
-.hf-product-actions .btn-diet-ghost {
-  font-size: 0.78rem;
-  padding: 0.45rem 0.7rem;
-}
-.hf-product-preview {
-  margin-top: 0.65rem;
-  padding: 0.65rem 0.7rem;
-  border-radius: 14px;
-  border: 1px dashed rgba(40, 90, 60, 0.28);
-  background: rgba(255, 255, 255, 0.55);
-}
-.hf-product-preview-title {
-  margin: 0 0 0.2rem;
-  font-weight: 700;
-  font-size: 0.9rem;
-}
-#diet-tile-pkg-status {
-  margin: 0.45rem 0 0;
-  font-size: 0.78rem;
 }
 @media (max-width: 359px) {
   body.is-admin .hf-diet-totals-row .hf-diet-totals,
