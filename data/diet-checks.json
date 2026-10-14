@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-14T05:56:51.688Z",
+  "updatedAt": "2026-10-14T05:57:23.567Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -145,10 +145,11 @@
     "2026-10-14": {
       "done": {},
       "amounts": {
-        "extra-mv7p2bg6-vd3": 90
+        "extra-mv7p2bg6-vd3": 90,
+        "extra-mv7p7020-wrs": 450
       },
       "deletedIds": [],
-      "updatedAt": "2026-10-14T05:53:44.311Z",
+      "updatedAt": "2026-10-14T05:57:22.824Z",
       "extras": [
         {
           "id": "extra-mv7p2bg6-vd3",
@@ -166,6 +167,24 @@
           "carbs": 42,
           "fat": 3,
           "amountLabel": "3 servings"
+        },
+        {
+          "id": "extra-mv7p7020-wrs",
+          "foodId": "pkg-country-delight-hrx-natural-cow-milk-high-protei-288",
+          "meal": "breakfast",
+          "name": "Country Delight — HRX Natural Cow Milk (High Protein)",
+          "kcal": 288,
+          "protein": 25,
+          "servings": 1,
+          "servingGrams": 450,
+          "servingUnit": "ml",
+          "unit": "ml",
+          "grams": 450,
+          "amount": 450,
+          "carbs": 22.5,
+          "fat": 10.8,
+          "amountLabel": "450 ml",
+          "kind": "packaged"
         }
       ],
       "breakfast": [],
