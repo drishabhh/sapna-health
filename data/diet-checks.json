@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T06:12:48.309Z",
+  "updatedAt": "2026-10-15T06:13:02.639Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -279,10 +279,50 @@
     },
     "2026-10-15": {
       "done": {},
-      "amounts": {},
+      "amounts": {
+        "extra-mv956e31-kza": 450,
+        "extra-mv956zc7-ktl": 300
+      },
       "deletedIds": [],
-      "updatedAt": null,
-      "extras": [],
+      "updatedAt": "2026-10-15T06:13:01.927Z",
+      "extras": [
+        {
+          "id": "extra-mv956e31-kza",
+          "foodId": "pkg-custom-mix-high-protein-milk-oatmeal-bowl-with-s-916",
+          "meal": "breakfast",
+          "name": "Custom / Mix — High Protein Milk Oatmeal Bowl with Seeds",
+          "kcal": 916.1,
+          "protein": 58.8,
+          "servings": 1,
+          "servingGrams": 450,
+          "servingUnit": "ml",
+          "unit": "ml",
+          "grams": 450,
+          "amount": 450,
+          "carbs": 99.4,
+          "fat": 31.5,
+          "fiber": 13.9,
+          "amountLabel": "450 ml",
+          "kind": "packaged"
+        },
+        {
+          "id": "extra-mv956zc7-ktl",
+          "foodId": "gfood-thatte-idli-1-large-150g--180",
+          "meal": "lunch",
+          "name": "Thatte idli (1 large (150g))",
+          "kcal": 360,
+          "protein": 12,
+          "servings": 1,
+          "servingGrams": 300,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 300,
+          "amount": 300,
+          "carbs": 76,
+          "fat": 1,
+          "amountLabel": "2 servings"
+        }
+      ],
       "breakfast": [],
       "lunch": [],
       "dinner": [],
