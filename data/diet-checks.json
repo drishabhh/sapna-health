@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T06:13:02.639Z",
+  "updatedAt": "2026-10-15T06:13:35.207Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -281,10 +281,11 @@
       "done": {},
       "amounts": {
         "extra-mv956e31-kza": 450,
-        "extra-mv956zc7-ktl": 300
+        "extra-mv956zc7-ktl": 300,
+        "extra-mv957oax-p3e": 250
       },
       "deletedIds": [],
-      "updatedAt": "2026-10-15T06:13:01.927Z",
+      "updatedAt": "2026-10-15T06:13:34.281Z",
       "extras": [
         {
           "id": "extra-mv956e31-kza",
@@ -321,6 +322,25 @@
           "carbs": 76,
           "fat": 1,
           "amountLabel": "2 servings"
+        },
+        {
+          "id": "extra-mv957oax-p3e",
+          "foodId": "pkg-epigamia-turbo-25g-protein-milkshake-chocolate-139",
+          "meal": "snacks",
+          "name": "Epigamia Turbo — 25g Protein Milkshake Chocolate",
+          "kcal": 139,
+          "protein": 25,
+          "servings": 1,
+          "servingGrams": 250,
+          "servingUnit": "ml",
+          "unit": "ml",
+          "grams": 250,
+          "amount": 250,
+          "carbs": 9,
+          "fat": 0.3,
+          "sodiumMg": 115,
+          "amountLabel": "250 ml",
+          "kind": "packaged"
         }
       ],
       "breakfast": [],
