@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "updatedAt": "2026-10-13",
-  "unitNote": "Approx values per serving \u2014 scale by g or ml (servingUnit) or by servings from label facts",
+  "updatedAt": "2026-10-15",
+  "unitNote": "Approx values per serving — scale by g or ml (servingUnit) or by servings from label facts",
   "foods": [
     {
       "id": "pkg-thf-zero-maida-ww-bread",
-      "name": "The Health Factory \u2014 Zero Maida Simply Whole Wheat Bread",
+      "name": "The Health Factory — Zero Maida Simply Whole Wheat Bread",
       "brand": "The Health Factory",
       "product": "Zero Maida Simply Whole Wheat Bread",
       "servingSize": "100g",
@@ -506,11 +506,37 @@
     },
     {
       "id": "avocado-half",
-      "name": "Avocado (\u00bd)",
+      "name": "Avocado (½)",
       "kcal": 160,
       "protein": 2,
       "tags": [
         "fat"
+      ]
+    },
+    {
+      "id": "pkg-custom-mix-high-protein-milk-oatmeal-bowl-with-s-916",
+      "name": "Custom / Mix — High Protein Milk Oatmeal Bowl with Seeds",
+      "brand": "Custom / Mix",
+      "product": "High Protein Milk Oatmeal Bowl with Seeds",
+      "servingSize": "1 Bowl (approx. 450ml milk + 132g oats + 24g seeds)",
+      "servingGrams": 450,
+      "servingUnit": "ml",
+      "kcal": 916.1,
+      "protein": 58.8,
+      "carbs": 99.4,
+      "fiber": 13.9,
+      "sugars": null,
+      "addedSugars": null,
+      "fat": 31.5,
+      "saturatedFat": 9.3,
+      "transFat": 0,
+      "cholesterolMg": null,
+      "sodiumMg": null,
+      "kind": "packaged",
+      "tags": [
+        "packaged",
+        "brand",
+        "custom / mix"
       ]
     }
   ]
