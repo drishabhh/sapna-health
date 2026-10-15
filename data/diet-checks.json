@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T06:19:05.165Z",
+  "updatedAt": "2026-10-15T06:20:05.129Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -283,10 +283,11 @@
         "extra-mv956e31-kza": 450,
         "extra-mv956zc7-ktl": 300,
         "extra-mv957oax-p3e": 250,
-        "extra-mv95a274-7jw": 30
+        "extra-mv95a274-7jw": 30,
+        "extra-mv95g14b-0xm": 50
       },
       "deletedIds": [],
-      "updatedAt": "2026-10-15T06:19:03.889Z",
+      "updatedAt": "2026-10-15T06:20:04.139Z",
       "extras": [
         {
           "id": "extra-mv956e31-kza",
@@ -359,6 +360,21 @@
           "carbs": 28,
           "fat": 2,
           "amountLabel": "30 g"
+        },
+        {
+          "id": "extra-mv95g14b-0xm",
+          "foodId": "egg",
+          "meal": "dinner",
+          "name": "Egg (1 whole)",
+          "kcal": 78,
+          "protein": 6.3,
+          "servings": 1,
+          "servingGrams": 50,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 50,
+          "amount": 50,
+          "amountLabel": "50 g"
         }
       ],
       "breakfast": [],
