@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-15T06:15:26.438Z",
+  "updatedAt": "2026-10-15T06:19:05.165Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -283,10 +283,10 @@
         "extra-mv956e31-kza": 450,
         "extra-mv956zc7-ktl": 300,
         "extra-mv957oax-p3e": 250,
-        "extra-mv95a274-7jw": 60
+        "extra-mv95a274-7jw": 30
       },
       "deletedIds": [],
-      "updatedAt": "2026-10-15T06:15:25.600Z",
+      "updatedAt": "2026-10-15T06:19:03.889Z",
       "extras": [
         {
           "id": "extra-mv956e31-kza",
@@ -350,15 +350,15 @@
           "name": "The Healthy Factory Bread (1 slice (30g))",
           "kcal": 160,
           "protein": 8,
-          "servings": 1,
+          "servings": 0.5,
           "servingGrams": 60,
           "servingUnit": "g",
           "unit": "g",
-          "grams": 60,
-          "amount": 60,
+          "grams": 30,
+          "amount": 30,
           "carbs": 28,
           "fat": 2,
-          "amountLabel": "2 servings"
+          "amountLabel": "30 g"
         }
       ],
       "breakfast": [],
