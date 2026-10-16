@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-16T05:02:33.307Z",
+  "updatedAt": "2026-10-16T05:03:11.029Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -386,11 +386,12 @@
     "2026-10-16": {
       "done": {},
       "amounts": {
-        "extra-mvai3l5j-0sw": 100,
-        "extra-mvai46n3-ik0": 200
+        "extra-mvai3l5j-0sw": 100
       },
-      "deletedIds": [],
-      "updatedAt": "2026-10-16T05:02:32.607Z",
+      "deletedIds": [
+        "extra-mvai46n3-ik0"
+      ],
+      "updatedAt": "2026-10-16T05:03:09.958Z",
       "extras": [
         {
           "id": "extra-mvai3l5j-0sw",
@@ -406,21 +407,6 @@
           "grams": 100,
           "amount": 100,
           "amountLabel": "100 g"
-        },
-        {
-          "id": "extra-mvai46n3-ik0",
-          "foodId": "curd-cup",
-          "meal": "lunch",
-          "name": "Curd / dahi (1 cup)",
-          "kcal": 150,
-          "protein": 8,
-          "servings": 1,
-          "servingGrams": 200,
-          "servingUnit": "g",
-          "unit": "g",
-          "grams": 200,
-          "amount": 200,
-          "amountLabel": "200 g"
         }
       ],
       "breakfast": [],
