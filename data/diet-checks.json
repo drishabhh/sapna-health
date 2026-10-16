@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-16T05:01:49.943Z",
+  "updatedAt": "2026-10-16T05:02:05.673Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -385,10 +385,28 @@
     },
     "2026-10-16": {
       "done": {},
-      "amounts": {},
+      "amounts": {
+        "extra-mvai3l5j-0sw": 100
+      },
       "deletedIds": [],
-      "updatedAt": null,
-      "extras": [],
+      "updatedAt": "2026-10-16T05:02:04.759Z",
+      "extras": [
+        {
+          "id": "extra-mvai3l5j-0sw",
+          "foodId": "bread2",
+          "meal": "breakfast",
+          "name": "Bread (2 slices)",
+          "kcal": 160,
+          "protein": 6,
+          "servings": 1,
+          "servingGrams": 100,
+          "servingUnit": "g",
+          "unit": "g",
+          "grams": 100,
+          "amount": 100,
+          "amountLabel": "100 g"
+        }
+      ],
       "breakfast": [],
       "lunch": [],
       "dinner": [],
