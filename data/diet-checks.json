@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-16T11:23:39.464Z",
+  "updatedAt": "2026-10-17T09:40:03.833Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -385,13 +385,13 @@
     },
     "2026-10-16": {
       "done": {},
-      "amounts": {
-        "extra-mvai3l5j-0sw": 100
-      },
       "deletedIds": [
         "extra-mvai46n3-ik0"
       ],
       "updatedAt": "2026-10-16T05:03:09.958Z",
+      "amounts": {
+        "extra-mvai3l5j-0sw": 100
+      },
       "extras": [
         {
           "id": "extra-mvai3l5j-0sw",
@@ -409,6 +409,18 @@
           "amountLabel": "100 g"
         }
       ],
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "snacks": [],
+      "steps": 0
+    },
+    "2026-10-17": {
+      "done": {},
+      "amounts": {},
+      "deletedIds": [],
+      "updatedAt": null,
+      "extras": [],
       "breakfast": [],
       "lunch": [],
       "dinner": [],
