@@ -1,0 +1,60 @@
+name: Build Sapna Health APK
+
+on:
+  push:
+    branches: [android-app]
+    paths: ['app/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install, type-check and build web app
+        run: |
+          npm ci
+          npx tsc --noEmit
+          npm run build
+
+      - name: Sync into Android project
+        run: npx cap sync android
+
+      - name: Build release APK (unsigned — signed offline with Rishu's key)
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          ls -la app/build/outputs/apk/release/
+
+      - name: Publish build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-build-${{ github.run_number }}
+          name: Sapna Health build ${{ github.run_number }} (unsigned)
+          prerelease: true
+          body: "Unsigned release APK from ${{ github.sha }}. Install only the signed copy Rishu shares."
+          files: app/android/app/build/outputs/apk/release/app-release-unsigned.apk

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below: back up her logs (files/) and app prefs; skip caches. -->
+<full-backup-content>
+    <include domain="file" path="." />
+    <include domain="sharedpref" path="." />
+    <exclude domain="file" path="sapna-data.tmp.json" />
+</full-backup-content>
