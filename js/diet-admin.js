@@ -622,7 +622,7 @@ window.SapnaDietAdmin = (() => {
   async function publishPlan() {
     const token = getToken();
     if (!token) {
-      setStatus("Save a GitHub PAT first (repo scope).", "error");
+      setStatus("Save a GitHub token first.", "error");
       return;
     }
     if (!cart.length) {

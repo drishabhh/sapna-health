@@ -19,6 +19,13 @@
   const PROFILE_ASSET_V = "20261014onelink1";
   const DIET_TODAY_PATH = "data/diet-today.json";
   const DIET_CHECKS_PATH = "data/diet-checks.json";
+  /* Personal logs live in a PRIVATE repo; the public site repo only holds plans + media. */
+  const DATA_REPO = { owner: "drishabhh", name: "sapna-health-data", branch: "main" };
+  const INSIGHTS_PATH = "data/insights/latest.json";
+  const PRIVATE_PATHS = new Set([PERIODS_PATH, WEIGHTS_PATH, PROFILE_PATH, DIET_CHECKS_PATH]);
+  function repoFor(path) {
+    return PRIVATE_PATHS.has(path) || String(path).startsWith("data/insights/") ? DATA_REPO : REPO;
+  }
   /** All sapna_* / sapna-* localStorage keys this app may set (for Start fresh). */
   const LS_FRESH_PREFIXES = ["sapna_", "sapna-"];
 
@@ -28,6 +35,27 @@
     } catch {
       return false;
     }
+  }
+
+  /* Admin-only data (GIF library, food library, plan history) loads on demand —
+     never on Sapna's normal visits, and never blocking her own data. */
+  let adminBootPromise = null;
+  function bootAdminModules() {
+    if (!adminBootPromise) {
+      adminBootPromise = (async () => {
+        try {
+          if (window.SapnaPlanAdmin?.boot) await window.SapnaPlanAdmin.boot();
+        } catch (err) {
+          console.error("Plan admin failed to boot", err);
+        }
+        try {
+          if (window.SapnaDietAdmin?.boot) await window.SapnaDietAdmin.boot();
+        } catch (err) {
+          console.error("Diet admin failed to boot", err);
+        }
+      })();
+    }
+    return adminBootPromise;
   }
 
   function syncAdminUi() {
@@ -2782,7 +2810,7 @@ ${JSON.stringify(example, null, 2)}`;
 
   /* ───────── Coach UI (Path B — overnight file + on-demand) ───────── */
   const Coach = (() => {
-    const INSIGHTS_URL = "./data/insights/latest.json";
+
     let remote = null;
 
     function loadCached() {
@@ -2919,9 +2947,11 @@ ${JSON.stringify(example, null, 2)}`;
 
     async function loadOvernight() {
       try {
-        const res = await fetch(`${INSIGHTS_URL}?t=${Date.now()}`, { cache: "no-store" });
-        if (!res.ok) return null;
-        remote = await res.json();
+        const token = getSavedToken();
+        if (!token) return null;
+        const data = await githubGetJson(INSIGHTS_PATH, token);
+        if (!data) return null;
+        remote = data;
         return remote;
       } catch {
         return null;
@@ -5500,11 +5530,7 @@ ${JSON.stringify(example, null, 2)}`;
             data = null;
           }
         }
-        if (!data) {
-          const res = await fetch(`./${DIET_CHECKS_PATH}?t=${Date.now()}`, { cache: "no-store" });
-          if (!res.ok) throw new Error("No cloud checkmarks yet.");
-          data = await res.json();
-        }
+        if (!data) throw new Error(token ? "No cloud checkmarks yet." : "Connect your sync token to pull from the cloud.");
         const changed = mergeChecksCloud(data);
         render();
         if (typeof Today !== "undefined" && Today.render) Today.render();
@@ -6385,11 +6411,7 @@ ${JSON.stringify(example, null, 2)}`;
             data = null;
           }
         }
-        if (!data) {
-          const res = await fetch(`./${PROFILE_PATH}?t=${Date.now()}`, { cache: "no-store" });
-          if (!res.ok) return false;
-          data = await res.json();
-        }
+        if (!data) return false;
         return mergeBasicsFromCloud(data);
       } catch (_) {
         if (!quiet) {
@@ -6990,11 +7012,7 @@ ${JSON.stringify(example, null, 2)}`;
             data = null;
           }
         }
-        if (!data) {
-          const res = await fetch(`./${PERIODS_PATH}?t=${Date.now()}`, { cache: "no-store" });
-          if (!res.ok) return 0;
-          data = await res.json();
-        }
+        if (!data) return 0;
         const changed = mergeCloud(data);
         render();
         return changed;
@@ -7006,7 +7024,7 @@ ${JSON.stringify(example, null, 2)}`;
     async function publishPeriods(statusEl, tokenOverride) {
       const token = tokenOverride || getSavedToken() || $("admin-token")?.value.trim();
       if (!token) {
-        setStatus(statusEl, "Add a GitHub PAT (repo scope) — or save one in Admin.", "error");
+        setStatus(statusEl, "Connect your sync token first.", "error");
         return false;
       }
       if (tokenOverride) localStorage.setItem(LS.token, tokenOverride);
@@ -7532,7 +7550,7 @@ ${JSON.stringify(example, null, 2)}`;
     async function publishWeights(statusEl, tokenOverride) {
       const token = tokenOverride || getSavedToken() || $("log-token")?.value.trim() || $("admin-token")?.value.trim();
       if (!token) {
-        setStatus(statusEl, "Add a GitHub PAT (repo scope) — same as Periods / Admin.", "error");
+        setStatus(statusEl, "Connect your sync token first.", "error");
         return false;
       }
       if (tokenOverride || $("log-token")?.value.trim()) {
@@ -7585,12 +7603,14 @@ ${JSON.stringify(example, null, 2)}`;
           }
         }
         if (!data) {
-          const res = await fetch(`./${WEIGHTS_PATH}?t=${Date.now()}`, { cache: "no-store" });
-          if (!res.ok) {
-            if (!quiet) setStatus($("log-sync-status"), "No cloud logs yet — Sync now from a phone that has entries.", "info");
-            return 0;
+          if (!quiet) {
+            setStatus(
+              $("log-sync-status"),
+              token ? "No cloud logs yet — Sync now from a phone that has entries." : "Connect your sync token to pull from the cloud.",
+              "info"
+            );
           }
-          data = await res.json();
+          return 0;
         }
         const added = mergeCloud(data);
         /* Always refresh Workout cards + Today — quiet pull used to skip this, so
@@ -8011,7 +8031,8 @@ ${JSON.stringify(example, null, 2)}`;
   }
 
   async function githubGetJson(path, token) {
-    const api = `https://api.github.com/repos/${REPO.owner}/${REPO.name}/contents/${path}?ref=${REPO.branch}`;
+    const repo = repoFor(path);
+    const api = `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${path}?ref=${repo.branch}`;
     const headers = { Accept: "application/vnd.github+json" };
     if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(api, { headers, cache: "no-store" });
@@ -8030,7 +8051,8 @@ ${JSON.stringify(example, null, 2)}`;
   }
 
   async function githubPutFile(path, contentB64, message, token) {
-    const api = `https://api.github.com/repos/${REPO.owner}/${REPO.name}/contents/${path}`;
+    const repo = repoFor(path);
+    const api = `https://api.github.com/repos/${repo.owner}/${repo.name}/contents/${path}`;
     let sha;
     const getRes = await fetch(api, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
@@ -8046,7 +8068,7 @@ ${JSON.stringify(example, null, 2)}`;
         Accept: "application/vnd.github+json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message, content: contentB64, branch: REPO.branch, sha }),
+      body: JSON.stringify({ message, content: contentB64, branch: repo.branch, sha }),
     });
     if (!putRes.ok) {
       const err = await putRes.json().catch(() => ({}));
@@ -8083,20 +8105,23 @@ ${JSON.stringify(example, null, 2)}`;
       return { ok: false, message: "Token looks too short." };
     }
     try {
-      const res = await fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.name}`, {
+      const res = await fetch(`https://api.github.com/repos/${DATA_REPO.owner}/${DATA_REPO.name}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
         },
       });
       if (res.status === 401 || res.status === 403) {
-        return { ok: false, message: "GitHub rejected this token (check repo scope)." };
+        return { ok: false, message: `GitHub rejected this token — it needs Contents read/write on ${DATA_REPO.name}.` };
+      }
+      if (res.status === 404) {
+        return { ok: false, message: `This token can't see the private ${DATA_REPO.name} repo — give it access to that repo.` };
       }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         return { ok: false, message: err.message || `GitHub ${res.status}` };
       }
-      return { ok: true, message: "Token works for sapna-health." };
+      return { ok: true, message: `Token works for ${DATA_REPO.name}.` };
     } catch (err) {
       return { ok: false, message: err.message || "Could not reach GitHub." };
     }
@@ -8152,7 +8177,7 @@ ${JSON.stringify(example, null, 2)}`;
       }
       if (!token) {
         setKeyBadge("admin-token-badge", "error", "Missing");
-        setStatus($("admin-status"), "Paste a GitHub PAT first (repo scope).", "error");
+        setStatus($("admin-status"), "Paste a GitHub token first.", "error");
         return;
       }
       if (btn) btn.disabled = true;
@@ -8212,7 +8237,7 @@ ${JSON.stringify(example, null, 2)}`;
     $("admin-publish")?.addEventListener("click", async () => {
       const token = resolveAdminToken();
       if (!token) {
-        setStatus($("admin-status"), "Save a GitHub token first (repo scope).", "error");
+        setStatus($("admin-status"), "Save a GitHub token first.", "error");
         setKeyBadge("admin-token-badge", "warn", "Needed");
         return;
       }
@@ -8244,7 +8269,7 @@ ${JSON.stringify(example, null, 2)}`;
     $("admin-publish-periods")?.addEventListener("click", async () => {
       const token = resolveAdminToken();
       if (!token) {
-        setStatus($("admin-status"), "Save a GitHub token first (repo scope).", "error");
+        setStatus($("admin-status"), "Save a GitHub token first.", "error");
         setKeyBadge("admin-token-badge", "warn", "Needed");
         return;
       }
@@ -8257,7 +8282,7 @@ ${JSON.stringify(example, null, 2)}`;
     $("admin-publish-weights")?.addEventListener("click", async () => {
       const token = resolveAdminToken();
       if (!token) {
-        setStatus($("admin-status"), "Save a GitHub token first (repo scope).", "error");
+        setStatus($("admin-status"), "Save a GitHub token first.", "error");
         setKeyBadge("admin-token-badge", "warn", "Needed");
         return;
       }
@@ -8268,6 +8293,7 @@ ${JSON.stringify(example, null, 2)}`;
     });
 
     window.__sapnaOpenHealthAdmin = () => {
+      bootAdminModules();
       syncAdminUi();
       forceAdminOverlay($("admin-editor"));
       const t = Diet.getTargetsForAdmin();
@@ -8449,7 +8475,7 @@ ${JSON.stringify(example, null, 2)}`;
     function paintStatus() {
       const connected = hasToken();
       const last = lastSyncedLabel();
-      ["sync-connect-banner", "diet-sync-connect-banner"].forEach((id) => {
+      ["sync-connect-banner", "diet-sync-connect-banner", "period-sync-connect-banner", "logs-sync-connect-banner"].forEach((id) => {
         const el = $(id);
         if (!el) return;
         el.hidden = connected;
@@ -8576,7 +8602,7 @@ ${JSON.stringify(example, null, 2)}`;
           save();
         }
       });
-      ["sync-connect-open", "diet-sync-connect-open"].forEach((id) => {
+      ["sync-connect-open", "diet-sync-connect-open", "period-sync-connect-open", "logs-sync-connect-open"].forEach((id) => {
         $(id)?.addEventListener("click", () => {
           clearSnooze();
           open({ force: true });
@@ -8607,13 +8633,11 @@ ${JSON.stringify(example, null, 2)}`;
     wireAdmin();
     try {
       if (window.SapnaPlanAdmin?.wire) window.SapnaPlanAdmin.wire();
-      if (window.SapnaPlanAdmin?.boot) await window.SapnaPlanAdmin.boot();
     } catch (err) {
       console.error("Plan admin failed to wire", err);
     }
     try {
       if (window.SapnaDietAdmin?.wire) window.SapnaDietAdmin.wire();
-      if (window.SapnaDietAdmin?.boot) await window.SapnaDietAdmin.boot();
     } catch (err) {
       console.error("Diet admin failed to wire", err);
     }
@@ -8635,6 +8659,7 @@ ${JSON.stringify(example, null, 2)}`;
     } catch (err) {
       console.warn("CloudSync boot", err);
     }
+    if (isAdminUnlocked()) bootAdminModules();
     /* Re-apply per-exercise Last: lines after plan + cloud weights are both ready */
     if (Workout.refreshSummaries) Workout.refreshSummaries();
     else Workout.render();

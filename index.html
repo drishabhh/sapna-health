@@ -557,10 +557,10 @@
 
       <details class="periods-sync-card">
         <summary><strong>Sync across phones</strong> <span class="hint-inline">optional · GitHub</span></summary>
-        <p class="hint"><code>data/periods.json</code></p>
-        <label class="field">GitHub PAT (repo scope)
-          <input type="password" id="period-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
-        </label>
+        <p class="hint">Saved to a private repo — only phones with the sync token can read it.</p>
+        <div class="actions" id="period-sync-connect-banner">
+          <button type="button" class="btn-period-ghost" id="period-sync-connect-open">Connect sync token</button>
+        </div>
         <div class="actions">
           <button type="button" class="btn-period" id="period-sync">Sync dates</button>
           <button type="button" class="btn-period-ghost" id="period-export">Export</button>
@@ -584,9 +584,9 @@
       <div class="logs-sync-card" id="logs-sync-card">
         <h2>Sync</h2>
         <p class="hint">Phone first · Sync to share across devices.</p>
-        <label class="field">GitHub PAT (repo scope)
-          <input type="password" id="log-token" autocomplete="off" placeholder="ghp_… or use saved Admin token" />
-        </label>
+        <div class="actions" id="logs-sync-connect-banner">
+          <button type="button" class="btn-ghost" id="logs-sync-connect-open">Connect sync token</button>
+        </div>
         <div class="actions sticky-day-actions">
           <button type="button" class="btn-primary" id="log-sync">Sync now</button>
           <button type="button" class="btn-ghost" id="log-pull">Refresh from cloud</button>
@@ -839,11 +839,11 @@
     <div class="sheet token-setup-sheet" role="dialog" aria-modal="true" aria-labelledby="token-setup-title">
       <p class="brand token-setup-brand">Sapna Singh</p>
       <h2 id="token-setup-title">Connect / Sync token</h2>
-      <p class="hint">Paste your <strong>GitHub sync token</strong> (personal access token with <code>repo</code> scope) once. This phone then pulls the same meals, weights &amp; periods as your other phones — then keeps them in sync. Saved on this device only. <em>Not</em> a GPT or Gemini API key.</p>
+      <p class="hint">Paste your <strong>GitHub sync token</strong> once. This phone then pulls the same meals, weights &amp; periods as your other phones — then keeps them in sync. Saved on this device only. <em>Not</em> a GPT or Gemini API key.</p>
       <label class="field">GitHub sync token (PAT)
         <input type="password" id="token-setup-input" autocomplete="off" placeholder="ghp_… or github_pat_…" enterkeyhint="done" />
       </label>
-      <p class="hint token-setup-help">GitHub → Settings → Developer settings → Personal access tokens. Enable <code>repo</code>. Same token on every phone.</p>
+      <p class="hint token-setup-help">GitHub → Settings → Developer settings → <strong>Fine-grained tokens</strong> → Only select repositories: <code>sapna-health-data</code> → Contents: <strong>Read and write</strong>. Same token on every phone.</p>
       <div class="actions">
         <button type="button" class="btn-primary" id="token-setup-save">Save &amp; sync</button>
         <button type="button" class="btn-ghost" id="token-setup-later">Browse offline</button>
@@ -1067,7 +1067,7 @@
 
       <section class="admin-block">
         <div class="field-label-row">
-          <label class="field field-grow" for="admin-token">GitHub PAT (repo scope)</label>
+          <label class="field field-grow" for="admin-token">GitHub token (sapna-health + sapna-health-data)</label>
           <span class="key-badge" id="admin-token-badge" hidden></span>
         </div>
         <input type="password" id="admin-token" class="admin-key-input" autocomplete="off" placeholder="ghp_…" />

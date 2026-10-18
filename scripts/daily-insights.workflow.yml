@@ -1,12 +1,14 @@
 # Overnight Insights for Sapna — 04:00 Asia/Kolkata
 #
+# Install this in the PRIVATE data repo (sapna-health-data) as
+# .github/workflows/daily-insights.yml — personal logs and insights live there.
+#
 # Cron is UTC: 30 22 * * *  →  04:00 IST the next calendar morning
 # (IST = UTC+5:30; 22:30 UTC + 5h30 = 04:00 IST).
 #
-# Secret required (do NOT commit the key):
-#   GitHub → Settings → Secrets and variables → Actions → New repository secret
+# Secret required in sapna-health-data (do NOT commit the key):
+#   Settings → Secrets and variables → Actions → New repository secret
 #   Name: GEMINI_API_KEY
-#   Value: AI Studio / Gemini API key
 #
 # Manual test: Actions → Daily Insights (4am IST) → Run workflow
 
@@ -24,8 +26,14 @@ jobs:
   insights:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout private data repo
         uses: actions/checkout@v4
+
+      - name: Checkout public site repo (script + plans)
+        uses: actions/checkout@v4
+        with:
+          repository: drishabhh/sapna-health
+          path: site
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -35,7 +43,8 @@ jobs:
       - name: Generate overnight insights
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node scripts/daily-insights.mjs
+          DATA_DIR: ${{ github.workspace }}
+        run: node site/scripts/daily-insights.mjs
 
       - name: Commit insights JSON
         run: |

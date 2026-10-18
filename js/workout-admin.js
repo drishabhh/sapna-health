@@ -172,7 +172,17 @@ window.SapnaPlanAdmin = (() => {
     return res.json();
   }
 
-  async function loadGifLibrary() {
+  let gifLibraryLoad = null;
+  function loadGifLibrary() {
+    if (!gifLibraryLoad) {
+      gifLibraryLoad = fetchGifLibrary().then((ok) => {
+        if (!ok) gifLibraryLoad = null; /* allow a retry after a failed load */
+      });
+    }
+    return gifLibraryLoad;
+  }
+
+  async function fetchGifLibrary() {
     try {
       const res = await fetch(`${LIBRARY_PATH}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
@@ -189,8 +199,10 @@ window.SapnaPlanAdmin = (() => {
           dumbbellCount: data.dumbbellCount,
         };
       }
+      return true;
     } catch (err) {
       console.warn("GIF library load failed", err);
+      return false;
     }
   }
 
@@ -704,7 +716,7 @@ window.SapnaPlanAdmin = (() => {
   async function publishPlan() {
     const token = getToken();
     if (!token) {
-      setAdminStatus("Save a GitHub PAT first (repo scope).", "error");
+      setAdminStatus("Save a GitHub token first.", "error");
       return;
     }
     syncRxFromDom();
