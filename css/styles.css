@@ -199,14 +199,10 @@ body {
   cursor: pointer;
 }
 
-/* Soft credit above bottom nav */
+/* Soft credit at the end of the page — in normal flow so it never covers content */
 .site-credit {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 0.12rem);
-  z-index: 40; /* below Today cards so it never paints over streak copy */
-  margin: 0;
+  position: static;
+  margin: 1.5rem 0 0.25rem;
   padding: 0 0.75rem;
   text-align: center;
   font-size: 0.66rem;
@@ -219,10 +215,6 @@ body {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-/* Today’s long streak/calendar card sits under the fixed credit — hide it there */
-body[data-section="today"] .site-credit {
-  display: none;
 }
 
 /* —— Bottom nav —— */
@@ -2488,18 +2480,16 @@ body[data-section="logs"] .topbar-brand {
   gap: 0.85rem;
 }
 
+/* Three glance pills always fit side by side — nothing hidden off-screen */
 .dash-strip {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
   width: auto;
   max-width: 100%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
-  overscroll-behavior-x: contain;
-  padding: 0.1rem 0.1rem 0.5rem;
+  overflow: visible;
+  padding: 0.1rem 0 0.5rem;
   margin: 0;
   animation: fadeUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
   scrollbar-width: thin;
@@ -2523,14 +2513,15 @@ body[data-section="logs"] .topbar-brand {
   font: inherit;
   color: inherit;
   box-shadow: 0 8px 20px rgba(40, 24, 16, 0.05);
-  /* Two full pills + peek of third = clear scroll affordance */
-  flex: 0 0 42%;
   min-height: 84px;
-  min-width: 8.75rem;
-  max-width: none;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
-  scroll-snap-align: start;
   box-sizing: border-box;
+}
+
+@media (max-width: 639px) {
+  .dash-pill { padding: 0.75rem 0.7rem 0.7rem; }
 }
 
 .dash-pill em {
@@ -4331,7 +4322,7 @@ body.kb-open .diet-export-sheet {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.55rem 0.85rem;
-  margin: 0.55rem 1rem 0.15rem;
+  margin: 0.55rem 0 0.15rem;
   padding: 0.55rem 0.75rem;
   border-radius: 14px;
   background: linear-gradient(135deg, rgba(255, 250, 242, 0.92), rgba(236, 244, 238, 0.88));

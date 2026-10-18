@@ -13,7 +13,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(__dirname, "..");
+const SITE_ROOT = path.resolve(__dirname, "..");
+/* Personal logs (weights, periods) + insights output live in the PRIVATE data repo.
+   DATA_DIR points at its checkout; defaults to the site repo for local testing. */
+const ROOT = path.resolve(process.env.DATA_DIR || SITE_ROOT);
 const MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL || "gemini-3.8-flash",
   "gemini-3.1-flash-lite",
@@ -23,8 +26,8 @@ const MODEL_CANDIDATES = [
 
 const TZ = "Asia/Kolkata";
 
-function readJson(rel, fallback = null) {
-  const p = path.join(ROOT, rel);
+function readJson(rel, fallback = null, base = ROOT) {
+  const p = path.join(base, rel);
   if (!fs.existsSync(p)) return fallback;
   return JSON.parse(fs.readFileSync(p, "utf8"));
 }
@@ -153,8 +156,8 @@ function workoutPlanSummary(plan) {
 function buildSnapshot() {
   const weights = readJson("data/weights.json", { entries: [] });
   const periods = readJson("data/periods.json", { days: {} });
-  const todayPlan = readJson("data/today.json", null);
-  const dietDefaults = readJson("data/diet-defaults.json", { targets: { kcal: 1800, protein: 100 } });
+  const todayPlan = readJson("data/today.json", null, SITE_ROOT);
+  const dietDefaults = readJson("data/diet-defaults.json", { targets: { kcal: 1800, protein: 100 } }, SITE_ROOT);
   const targets = dietDefaults.targets || { kcal: 1800, protein: 100 };
   return {
     today: todayIST(),
