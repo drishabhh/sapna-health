@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0c0c10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sapna Admin">
+<meta name="robots" content="noindex">
+<title>Sapna Health Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0c0c10;--bg2:#121218;--card:rgba(255,255,255,.045);--card2:rgba(255,255,255,.08);--solid:#17171e;--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);--text:#f5f3ef;--muted:#a9a6b0;--faint:#7c7984;--coral:#ff7a59;--lime:#c6f432;--amber:#ffb224;--pink:#ff6fae;--cyan:#4fd1ff;--danger:#ff6b6b;--ok:#4ade80;--acc:var(--coral);--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--bg:#f4f2ee;--bg2:#ebe8e2;--card:#fff;--card2:#f0ede7;--solid:#fff;--line:rgba(20,18,24,.09);--line2:rgba(20,18,24,.18);--text:#141218;--muted:#5e5a66;--faint:#7d7985;color-scheme:light}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:980px;margin:0 auto;padding:calc(var(--st) + 18px) 16px calc(var(--sb) + 110px)}
+h1{font-family:'Bricolage Grotesque',Figtree,sans-serif;font-weight:800;letter-spacing:-.03em;font-size:clamp(32px,6vw,44px);line-height:1.02;margin:0}
+h2{font-family:'Bricolage Grotesque',Figtree,sans-serif;font-weight:700;font-size:21px;letter-spacing:-.02em;margin:0}
+.eyebrow{margin:0;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.small{font-size:13px}.faint{color:var(--faint)}
+.big{font-family:'Bricolage Grotesque',Figtree,sans-serif;font-weight:800;letter-spacing:-.03em;line-height:1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px}
+.stack{display:flex;flex-direction:column;gap:12px}.row{display:flex;align-items:center;gap:10px}.between{display:flex;align-items:center;justify-content:space-between;gap:10px}.wrapr{flex-wrap:wrap}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.g2{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.btn{min-height:46px;padding:0 18px;border-radius:14px;border:none;background:var(--acc);color:#0c0c10;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.btn.sm{min-height:38px;padding:0 12px;font-size:14px;border-radius:11px}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid color-mix(in srgb,var(--danger) 40%,transparent)}
+.btn:disabled{opacity:.45}
+.ib{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--card2);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.input,select.input,textarea.input{min-height:46px;border-radius:12px;border:1px solid var(--line2);background:var(--card);padding:0 12px;width:100%}
+textarea.input{padding:10px 12px;min-height:84px;resize:vertical}
+.input:focus{outline:none;border-color:var(--acc)}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;color:var(--muted)}
+.tabs{position:sticky;top:0;z-index:10;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;padding:calc(var(--st) + 8px) 0 8px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);margin:0 -16px 14px;padding-left:16px;padding-right:16px}
+.tabs button{min-height:42px;border:none;border-radius:12px;background:var(--card2);color:var(--muted);font-weight:700;font-size:14px}
+.tabs button[aria-pressed=true]{background:var(--acc);color:#0c0c10}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:38px;padding:0 14px;border-radius:99px;border:1px solid var(--line2);background:transparent;font-size:14px;font-weight:600}
+.chip[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#0c0c10}
+.ex{display:flex;flex-direction:column;border-radius:16px;overflow:hidden;background:var(--card);border:1px solid var(--line);text-align:left;padding:0}
+.ex img,.ex .ph{width:100%;height:120px;object-fit:cover;background:#fff;display:block}
+.ex .ph{background:var(--card2)}
+.ex .t{padding:8px 10px;font-size:13px;font-weight:600;line-height:1.25}
+.ex.on{border:2px solid var(--acc)}
+.move{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:16px;background:var(--card);border:1px solid var(--line)}
+.move img{width:52px;height:52px;border-radius:10px;object-fit:cover;background:#fff}
+.nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;grid-column:1/-1}
+.nums input,.nums select{min-height:40px;text-align:center;padding:0 4px}
+.bar{height:8px;border-radius:99px;background:var(--card2);overflow:hidden}.bar i{display:block;height:100%;background:var(--acc);border-radius:99px}
+table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:8px 6px}td{padding:9px 6px;border-top:1px solid var(--line)}
+.pub{position:fixed;left:12px;right:12px;bottom:calc(var(--sb) + 12px);z-index:20;max-width:956px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:12px 12px 12px 16px;border-radius:20px;background:color-mix(in srgb,var(--solid) 90%,transparent);border:1px solid var(--line2);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 18px 40px -16px rgba(0,0,0,.6)}
+.pub[hidden]{display:none}
+.toast{position:fixed;left:50%;top:calc(var(--st) + 14px);transform:translateX(-50%);z-index:60;background:var(--text);color:var(--bg);padding:12px 18px;border-radius:14px;font-weight:700;font-size:14px;max-width:calc(100% - 32px);text-align:center}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
+.sheet{width:100%;max-width:980px;max-height:90vh;overflow:auto;background:var(--bg2);border-radius:24px 24px 0 0;padding:16px 16px calc(var(--sb) + 22px);border-top:1px solid var(--line2)}
+.pill{display:inline-flex;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;background:color-mix(in srgb,var(--acc) 18%,transparent);color:var(--acc)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="pub" id="pub" hidden>
+  <div style="flex:1;min-width:0"><strong id="pubTitle">Unpublished changes</strong><div class="small muted" id="pubSub">Sapna's app picks them up next time it opens.</div></div>
+  <button class="btn" id="pubBtn" type="button">Publish</button>
+</div>
+<script type="module">
+/* Sapna Health admin — static page, runs entirely in Rishu's browser.
+   Publishes plans/foods/targets to content/content.json in the public repo.
+   Never touches Sapna's personal data; her reports are opened locally only. */
+const REPO = { owner: 'drishabhh', name: 'sapna-health', branch: 'main' };
+const CONTENT_PATH = 'content/content.json';
+const LIB_URL = '../data/gif-library.json';
+const SITE = 'https://drishabhh.github.io/sapna-health/';
+const LS_TOKEN = 'sapna_admin_gh_token';
+const LS_REPORT = 'sapna_admin_last_report';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'item';
+const gif = (g) => (!g ? '' : /^https:/.test(g) ? g : SITE + g.replace(/^\.?\//, ''));
+
+let S = { token: '', content: null, sha: null, dirty: false, tab: 'status', lib: null, report: null, editing: null, picker: null, libQ: '', libPart: 'all', libGroup: 'exercises', foodQ: '' };
+try { S.token = localStorage.getItem(LS_TOKEN) || ''; } catch {}
+try { S.report = JSON.parse(localStorage.getItem(LS_REPORT) || 'null'); } catch {}
+
+function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.role = 'status'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
+function b64(str) { return btoa(unescape(encodeURIComponent(str))); }
+function unb64(s) { return decodeURIComponent(escape(atob(s.replace(/\n/g, '')))); }
+async function gh(path, opts = {}) {
+  const res = await fetch(`https://api.github.com/repos/${REPO.owner}/${REPO.name}/${path}`, { ...opts, headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${S.token}`, ...(opts.body ? { 'Content-Type': 'application/json' } : {}) } });
+  if (res.status === 404) return null;
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.message || `GitHub ${res.status}`);
+  return j;
+}
+function markDirty() { S.dirty = true; renderPub(); }
+function renderPub() { const p = $('#pub'); p.hidden = !S.dirty || !S.content; }
+
+async function loadContent() {
+  const meta = await gh(`contents/${CONTENT_PATH}?ref=${REPO.branch}`);
+  if (meta && meta.content) { S.content = JSON.parse(unb64(meta.content)); S.sha = meta.sha; }
+  else {
+    // first run: start from the public copy (or an empty skeleton)
+    const r = await fetch(SITE + CONTENT_PATH + '?t=' + Date.now()).catch(() => null);
+    S.content = r && r.ok ? await r.json() : { version: 1, updatedAt: new Date(0).toISOString(), targets: { kcal: 1300, protein: 100, water: 8 }, plans: [], exercises: [], foods: [], message: '' };
+    S.sha = null;
+  }
+}
+async function publish() {
+  const btn = $('#pubBtn'); btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    const latest = await gh(`contents/${CONTENT_PATH}?ref=${REPO.branch}`);
+    const c = { ...S.content, version: (S.content.version || 0) + 1, updatedAt: new Date().toISOString() };
+    // drop exercises no plan uses any more, keep the file small
+    const used = new Set(c.plans.flatMap((p) => p.moves.map((m) => m.exId)));
+    c.exercises = c.exercises.filter((e) => used.has(e.id));
+    const body = { message: `Admin: publish plans & foods (${new Date().toISOString().slice(0, 10)})`, content: b64(JSON.stringify(c, null, 1) + '\n'), branch: REPO.branch };
+    if (latest?.sha) body.sha = latest.sha;
+    const r = await gh(`contents/${CONTENT_PATH}`, { method: 'PUT', body: JSON.stringify(body) });
+    S.content = c; S.sha = r.content.sha; S.dirty = false; renderPub();
+    toast('Published — live for Sapna in about a minute');
+  } catch (e) { toast('Publish failed: ' + e.message); }
+  btn.disabled = false; btn.textContent = 'Publish';
+}
+$('#pubBtn').onclick = publish;
+
+async function loadLib() {
+  if (S.lib) return S.lib;
+  const r = await fetch(LIB_URL).catch(() => null);
+  const j = r && r.ok ? await r.json() : { gifs: [] };
+  S.lib = j.gifs.map((g) => ({ id: g.id, name: g.name, group: g.group, part: g.bodyPart, equipment: g.equipment, gif: g.path, aliases: (g.aliases || []).join(' ') }));
+  return S.lib;
+}
+
+/* ---------------- Views ---------------- */
+function app(html) { $('#app').innerHTML = html; }
+
+function viewSetup(err = '') {
+  app(`<div class="stack" style="gap:18px;max-width:520px">
+    <p class="eyebrow">Sapna Health</p><h1>Admin</h1>
+    <p class="muted">Paste a GitHub token so this page can publish plans to Sapna's app. It's saved only in this browser.</p>
+    <div class="card stack small muted"><strong style="color:var(--text)">Make the token once (2 min)</strong>
+      <span>GitHub → Settings → Developer settings → <b>Fine-grained tokens</b> → Generate.</span>
+      <span>Repository access: <b>Only select repositories → sapna-health</b>.</span>
+      <span>Permissions → Repository → <b>Contents: Read and write</b>. Nothing else.</span></div>
+    <label class="f">GitHub token<input class="input" id="tok" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+    ${err ? `<p style="color:var(--danger)">${esc(err)}</p>` : ''}
+    <button class="btn" id="save" type="button">Connect</button></div>`);
+  $('#save').onclick = async () => {
+    S.token = $('#tok').value.trim();
+    try { const r = await gh(''); if (!r || !r.permissions?.push) throw new Error("This token can't write to sapna-health."); localStorage.setItem(LS_TOKEN, S.token); await boot(); }
+    catch (e) { viewSetup(e.message); }
+  };
+}
+
+function tabs() {
+  const t = [['status', 'Her week'], ['workouts', 'Workouts'], ['foods', 'Foods'], ['settings', 'Targets']];
+  return `<nav class="tabs" aria-label="Sections">${t.map(([k, l]) => `<button type="button" data-tab="${k}" aria-pressed="${S.tab === k}">${l}</button>`).join('')}</nav>`;
+}
+
+function render() {
+  const head = `<div class="between" style="margin-bottom:6px"><div><p class="eyebrow">Sapna Health · Admin</p><h1>${{ status: 'Her week', workouts: 'Workout plans', foods: 'Food library', settings: 'Targets & note' }[S.tab]}</h1></div></div>`;
+  const body = { status: vStatus, workouts: vWorkouts, foods: vFoods, settings: vSettings }[S.tab]();
+  app(tabs() + head + body);
+  document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { S.tab = b.dataset.tab; S.editing = null; render(); scrollTo(0, 0); }));
+  ({ status: wireStatus, workouts: wireWorkouts, foods: wireFoods, settings: wireSettings })[S.tab]();
+  renderPub();
+}
+
+/* --- Her week (opens the file she shares; stays in this browser) --- */
+function vStatus() {
+  const r = S.report;
+  const open = `<label class="btn ${r ? 'ghost' : ''}" style="cursor:pointer">Open her “sapna-week” file<input id="rep" type="file" accept="application/json,.json" class="sr"></label>`;
+  if (!r) return `<div class="stack" style="gap:16px"><p class="muted">When Sapna taps <b>Share my week</b> in her app and sends you the file on WhatsApp, open it here. It stays on this phone.</p>${open}</div>`;
+  const T = r.targets || S.content?.targets || { kcal: 1300, protein: 100, water: 8 };
+  const days = r.days || []; const logged = days.filter((d) => d.kcal > 0);
+  const avg = (k) => (logged.length ? Math.round(logged.reduce((s, d) => s + d[k], 0) / logged.length) : 0);
+  const onT = logged.filter((d) => Math.abs(d.kcal - T.kcal) <= T.kcal * 0.1).length;
+  const protHit = logged.filter((d) => d.protein >= T.protein * 0.9).length;
+  const max = Math.max(T.kcal * 1.25, ...days.map((d) => d.kcal));
+  const cyc = r.cycle ? `<div class="card" style="--acc:var(--pink)"><p class="eyebrow" style="color:var(--pink)">Cycle · shared by Sapna</p><p class="big" style="font-size:24px;margin-top:6px">${esc(r.cycle.phase)} · day ${esc(r.cycle.day)}</p><p class="small muted">${r.cycle.daysToNext >= 0 ? `Next period in about ${r.cycle.daysToNext} days` : `Period ${-r.cycle.daysToNext} days late`}</p></div>` : '';
+  const tips = [];
+  if (logged.length && protHit < logged.length / 2) tips.push(['Protein is the gap', `90%+ of goal on only ${protHit} of ${logged.length} days. Add paneer, eggs, chana or whey to her plan.`]);
+  if (logged.length < days.length - 1) tips.push(['Some days not logged', `${days.length - logged.length} of ${days.length} days have no food logged.`]);
+  const lifts = {}; (r.workouts || []).forEach((w) => w.sets.forEach((s) => { lifts[s.name] = Math.max(lifts[s.name] || 0, s.kg); }));
+  return `<div class="stack" style="gap:16px">
+    <div class="between wrapr"><p class="muted small">Sent ${esc(new Date(r.generatedAt).toLocaleString())}</p>${open}</div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <div class="card"><p class="eyebrow">Avg calories</p><p class="big" style="font-size:30px">${avg('kcal').toLocaleString('en-IN')}</p><p class="small muted">target ${T.kcal}</p></div>
+      <div class="card"><p class="eyebrow">Avg protein</p><p class="big" style="font-size:30px">${avg('protein')} g</p><p class="small muted">goal ${T.protein} g</p></div>
+      <div class="card"><p class="eyebrow">On target</p><p class="big" style="font-size:30px">${onT}/${logged.length}</p><p class="small muted">days ±10%</p></div>
+      <div class="card"><p class="eyebrow">Workouts</p><p class="big" style="font-size:30px">${(r.workouts || []).length}</p><p class="small muted">this week</p></div>
+    </div>
+    ${cyc}
+    <div class="card stack"><h2>Day by day</h2>
+      <div style="overflow-x:auto"><table><thead><tr><th>Day</th><th>kcal</th><th style="width:34%"></th><th>Protein</th><th>Water</th></tr></thead><tbody>
+      ${days.map((d) => `<tr><td>${new Date(d.date + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</td><td>${d.kcal || '—'}</td><td><div class="bar"><i style="width:${Math.min(100, (d.kcal / max) * 100)}%;background:${d.kcal > T.kcal * 1.1 ? 'var(--danger)' : 'var(--coral)'}"></i></div></td><td>${d.protein} g</td><td>${d.water}</td></tr>`).join('')}
+      </tbody></table></div></div>
+    ${tips.length ? `<div class="stack"><h2>Needs attention</h2>${tips.map(([t, b]) => `<div class="card"><strong>${esc(t)}</strong><p class="small muted">${esc(b)}</p></div>`).join('')}</div>` : ''}
+    ${Object.keys(lifts).length ? `<div class="card stack"><h2>Best lifts this week</h2>${Object.entries(lifts).filter(([, kg]) => kg > 0).map(([n, kg]) => `<div class="between"><span>${esc(n)}</span><strong>${kg} kg</strong></div>`).join('')}</div>` : ''}
+    ${(r.weighIns || []).length ? `<div class="card"><p class="eyebrow">Weight</p><p class="big" style="font-size:26px">${r.weighIns[r.weighIns.length - 1].kg} kg</p><p class="small muted">${r.weighIns.length} weigh-ins shared</p></div>` : ''}
+    <details class="card"><summary><strong>Meals she logged</strong></summary><div class="stack small" style="margin-top:10px">${days.map((d) => `<div><strong>${esc(d.date)}</strong> — ${['breakfast', 'lunch', 'snacks', 'dinner'].map((m) => `${m}: ${esc((d.meals?.[m] || []).join(', ') || '—')}`).join(' · ')}</div>`).join('')}</div></details>
+  </div>`;
+}
+function wireStatus() {
+  const inp = $('#rep'); if (!inp) return;
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try { const j = JSON.parse(await f.text()); if (j.type !== 'sapna-health-report') throw 0; S.report = j; try { localStorage.setItem(LS_REPORT, JSON.stringify(j)); } catch {} render(); }
+    catch { toast("That isn't one of Sapna's week files."); }
+  };
+}
+
+/* --- Workouts --- */
+function exOf(id) { return S.content.exercises.find((e) => e.id === id); }
+function vWorkouts() {
+  const c = S.content;
+  if (S.editing != null) {
+    const p = c.plans[S.editing]; if (!p) { S.editing = null; return vWorkouts(); }
+    return `<div class="stack" style="gap:14px">
+      <button class="btn ghost sm" type="button" id="back" style="align-self:flex-start">← All plans</button>
+      <label class="f">Plan name<input class="input" id="pt" value="${esc(p.title)}"></label>
+      <label class="f">Note for Sapna<textarea class="input" id="pn">${esc(p.note || '')}</textarea></label>
+      <div class="between"><h2>Moves (${p.moves.length})</h2><button class="btn sm" type="button" id="add">+ Add from library</button></div>
+      <div class="stack" style="gap:8px">${p.moves.map((m, i) => { const e = exOf(m.exId) || { name: m.exId, gif: '' }; return `<div class="move">
+        <img src="${esc(gif(e.gif))}" alt="" loading="lazy"><div style="min-width:0"><strong style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.name)}</strong><span class="small muted">${e.group === 'stretching' ? 'Stretching' : 'Exercise'}</span></div>
+        <div class="row" style="gap:4px"><button class="ib" type="button" data-up="${i}" aria-label="Move up">↑</button><button class="ib" type="button" data-down="${i}" aria-label="Move down">↓</button><button class="ib" type="button" data-del="${i}" aria-label="Remove ${esc(e.name)}">✕</button></div>
+        <div class="nums"><label class="f">Sets<input class="input" inputmode="numeric" data-f="sets" data-i="${i}" value="${m.sets}"></label><label class="f">Reps<input class="input" inputmode="numeric" data-f="reps" data-i="${i}" value="${m.reps}"></label><label class="f">Unit<select class="input" data-f="unit" data-i="${i}">${['reps', 'min', 'sec'].map((u) => `<option ${(m.unit || 'reps') === u ? 'selected' : ''}>${u}</option>`).join('')}</select></label><label class="f">Start kg<input class="input" inputmode="decimal" data-f="kg" data-i="${i}" value="${m.kg ?? ''}" placeholder="—"></label></div>
+      </div>`; }).join('') || '<p class="muted">No moves yet — add some from the library.</p>'}</div>
+      <button class="btn danger" type="button" id="delplan" style="align-self:flex-start">Delete this plan</button>
+    </div>${S.picker ? vPicker() : ''}`;
+  }
+  return `<div class="stack" style="gap:12px">
+    <p class="muted small">Sapna's app rotates through these in order on her gym days.</p>
+    ${c.plans.map((p, i) => `<button class="card between" type="button" data-edit="${i}" style="text-align:left"><span><strong style="font-size:17px">${esc(p.title)}</strong><span class="small muted" style="display:block">${p.moves.length} moves · ${p.moves.filter((m) => exOf(m.exId)?.group === 'stretching').length} stretches</span></span><span class="row" style="gap:4px">${p.moves.slice(0, 4).map((m) => `<img src="${esc(gif(exOf(m.exId)?.gif))}" alt="" loading="lazy" style="width:40px;height:40px;border-radius:9px;object-fit:cover;background:#fff">`).join('')}</span></button>`).join('')}
+    <button class="btn" type="button" id="newplan">+ New plan</button></div>`;
+}
+function vPicker() {
+  const lib = S.lib || [];
+  const q = S.libQ.trim().toLowerCase();
+  const parts = ['all', 'chest', 'back', 'shoulders', 'arms', 'legs', 'core', 'cardio'];
+  const own = S.content.exercises.map((e) => ({ ...e, own: true }));
+  const pool = [...own, ...lib.filter((g) => !own.some((o) => o.id === g.id))]
+    .filter((g) => g.group === S.libGroup && (S.libPart === 'all' || g.part === S.libPart) && (!q || (g.name + ' ' + (g.aliases || '')).toLowerCase().includes(q)))
+    .slice(0, 60);
+  return `<div class="modal" id="pk"><div class="sheet stack" role="dialog" aria-label="Exercise library">
+    <div class="between"><h2>Add a move</h2><button class="ib" type="button" id="pkClose" aria-label="Close">✕</button></div>
+    <div class="chips">${['exercises', 'stretching'].map((g) => `<button class="chip" type="button" data-g="${g}" aria-pressed="${S.libGroup === g}">${g === 'exercises' ? 'Exercises' : 'Stretching'}</button>`).join('')}</div>
+    <div class="chips">${parts.map((p) => `<button class="chip" type="button" data-p="${p}" aria-pressed="${S.libPart === p}">${p === 'all' ? 'All' : p[0].toUpperCase() + p.slice(1)}</button>`).join('')}</div>
+    <input class="input" id="libq" type="search" placeholder="Search ${lib.length.toLocaleString()} moves — e.g. squat, curl, plank" value="${esc(S.libQ)}">
+    <div class="grid">${pool.map((g) => `<button class="ex" type="button" data-pick="${esc(g.id)}"><img src="${esc(gif(g.gif))}" alt="" loading="lazy"><span class="t">${esc(g.name)}${g.equipment ? `<span class="small muted" style="display:block;font-weight:500">${esc(g.equipment)}</span>` : ''}</span></button>`).join('') || '<p class="muted">No matches.</p>'}</div>
+    <details class="card"><summary><strong>Create your own move</strong></summary><div class="stack" style="margin-top:10px">
+      <label class="f">Name<input class="input" id="cn" placeholder="e.g. Hip thrust machine"></label>
+      <div class="g2"><label class="f">Type<select class="input" id="cg"><option value="exercises">Exercise</option><option value="stretching">Stretching</option></select></label><label class="f">Body part<select class="input" id="cp">${parts.slice(1).map((p) => `<option>${p}</option>`).join('')}</select></label></div>
+      <label class="f">GIF link (https://…gif)<input class="input" id="cu" inputmode="url" placeholder="Paste a GIF URL"></label>
+      <label class="f">Coaching cue she'll see<input class="input" id="cc" placeholder="e.g. Squeeze at the top for a second"></label>
+      <button class="btn" type="button" id="cAdd">Add to plan</button></div></details>
+  </div></div>`;
+}
+function addExerciseToPlan(ex) {
+  const c = S.content; const p = c.plans[S.editing];
+  if (!c.exercises.some((e) => e.id === ex.id)) c.exercises.push({ id: ex.id, name: ex.name, group: ex.group, part: ex.part, equipment: ex.equipment, gif: ex.gif, cue: ex.cue || '' });
+  const st = ex.group === 'stretching';
+  p.moves.push({ exId: ex.id, sets: st ? 1 : 3, reps: st ? 10 : 12, unit: 'reps' });
+  markDirty(); toast(`${ex.name} added`);
+}
+function wireWorkouts() {
+  const c = S.content;
+  document.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => { S.editing = +b.dataset.edit; render(); scrollTo(0, 0); }));
+  const np = $('#newplan'); if (np) np.onclick = () => { c.plans.push({ id: 'plan-' + Date.now().toString(36), title: 'New plan', note: 'Rest 1–1.5 min between sets.', moves: [] }); S.editing = c.plans.length - 1; markDirty(); render(); };
+  if (S.editing == null) return;
+  const p = c.plans[S.editing];
+  $('#back').onclick = () => { S.editing = null; S.picker = null; render(); };
+  $('#pt').oninput = (e) => { p.title = e.target.value; markDirty(); };
+  $('#pn').oninput = (e) => { p.note = e.target.value; markDirty(); };
+  document.querySelectorAll('[data-f]').forEach((el) => (el.oninput = el.onchange = () => {
+    const m = p.moves[+el.dataset.i]; const f = el.dataset.f; const v = el.value.trim();
+    if (f === 'unit') m.unit = v; else if (f === 'kg') { if (v === '') delete m.kg; else m.kg = Number(v) || 0; } else m[f] = Math.max(1, parseInt(v) || 1);
+    markDirty();
+  }));
+  const mv = (i, d) => { const j = i + d; if (j < 0 || j >= p.moves.length) return; [p.moves[i], p.moves[j]] = [p.moves[j], p.moves[i]]; markDirty(); render(); };
+  document.querySelectorAll('[data-up]').forEach((b) => (b.onclick = () => mv(+b.dataset.up, -1)));
+  document.querySelectorAll('[data-down]').forEach((b) => (b.onclick = () => mv(+b.dataset.down, 1)));
+  document.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { p.moves.splice(+b.dataset.del, 1); markDirty(); render(); }));
+  $('#delplan').onclick = () => { if (confirm(`Delete “${p.title}”?`)) { c.plans.splice(S.editing, 1); S.editing = null; markDirty(); render(); } };
+  $('#add').onclick = async () => { S.picker = true; render(); await loadLib(); if (S.picker) render(); };
+  if (!S.picker) return;
+  $('#pkClose').onclick = () => { S.picker = null; render(); };
+  $('#pk').onclick = (e) => { if (e.target.id === 'pk') { S.picker = null; render(); } };
+  document.querySelectorAll('[data-g]').forEach((b) => (b.onclick = () => { S.libGroup = b.dataset.g; render(); }));
+  document.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { S.libPart = b.dataset.p; render(); }));
+  const q = $('#libq'); let t; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.libQ = q.value; render(); const n = $('#libq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+  document.querySelectorAll('[data-pick]').forEach((b) => (b.onclick = () => {
+    const id = b.dataset.pick; const ex = S.content.exercises.find((e) => e.id === id) || (S.lib || []).find((g) => g.id === id);
+    if (ex) { addExerciseToPlan(ex); S.picker = null; render(); }
+  }));
+  $('#cAdd').onclick = () => {
+    const name = $('#cn').value.trim(); const url = $('#cu').value.trim();
+    if (!name) return toast('Give the move a name');
+    if (url && !/^https:\/\/.+/i.test(url)) return toast('GIF link must start with https://');
+    addExerciseToPlan({ id: 'custom-' + slug(name) + '-' + Date.now().toString(36).slice(-4), name, group: $('#cg').value, part: $('#cp').value, gif: url, cue: $('#cc').value.trim() });
+    S.picker = null; render();
+  };
+}
+
+/* --- Foods --- */
+function vFoods() {
+  const q = S.foodQ.trim().toLowerCase();
+  const list = S.content.foods.map((f, i) => ({ f, i })).filter(({ f }) => !q || f.name.toLowerCase().includes(q));
+  return `<div class="stack" style="gap:12px">
+    <p class="muted small">Every food Sapna can search in her app. Calories and protein are per portion.</p>
+    <div class="row"><input class="input" id="fq" type="search" placeholder="Search ${S.content.foods.length} foods" value="${esc(S.foodQ)}"><button class="btn" type="button" id="fadd" style="flex:none">+ Food</button></div>
+    <div style="overflow-x:auto" class="card"><table><thead><tr><th>Food</th><th>Portion</th><th>kcal</th><th>Protein g</th><th></th></tr></thead><tbody>
+    ${list.map(({ f, i }) => `<tr><td><input class="input" data-fi="${i}" data-k="name" value="${esc(f.name)}" style="min-width:150px"></td><td><input class="input" data-fi="${i}" data-k="portion" value="${esc(f.portion)}" style="min-width:110px"></td><td><input class="input" inputmode="numeric" data-fi="${i}" data-k="kcal" value="${f.kcal}" style="width:76px"></td><td><input class="input" inputmode="decimal" data-fi="${i}" data-k="protein" value="${f.protein}" style="width:70px"></td><td><button class="ib" type="button" data-fdel="${i}" aria-label="Delete ${esc(f.name)}">✕</button></td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+function wireFoods() {
+  const F = S.content.foods;
+  const q = $('#fq'); let t; q.oninput = () => { clearTimeout(t); t = setTimeout(() => { S.foodQ = q.value; render(); const n = $('#fq'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 250); };
+  $('#fadd').onclick = () => { F.unshift({ id: 'food-' + Date.now().toString(36), name: 'New food', portion: '1 serving', kcal: 100, protein: 5 }); S.foodQ = ''; markDirty(); render(); const first = document.querySelector('[data-fi="0"][data-k="name"]'); first.focus(); first.select(); };
+  document.querySelectorAll('[data-fi]').forEach((el) => (el.oninput = () => {
+    const f = F[+el.dataset.fi]; const k = el.dataset.k;
+    f[k] = k === 'kcal' ? Math.round(Number(el.value) || 0) : k === 'protein' ? Number(el.value) || 0 : el.value;
+    markDirty();
+  }));
+  document.querySelectorAll('[data-fdel]').forEach((b) => (b.onclick = () => { const f = F[+b.dataset.fdel]; if (confirm(`Remove ${f.name}?`)) { F.splice(+b.dataset.fdel, 1); markDirty(); render(); } }));
+}
+
+/* --- Targets & note --- */
+function vSettings() {
+  const t = S.content.targets;
+  return `<div class="stack" style="gap:14px;max-width:560px">
+    <div class="card stack"><h2>Daily targets</h2><div class="g2">
+      <label class="f">Calories (kcal)<input class="input" id="tk" inputmode="numeric" value="${t.kcal}"></label>
+      <label class="f">Protein (g)<input class="input" id="tp" inputmode="numeric" value="${t.protein}"></label>
+      <label class="f">Water (glasses)<input class="input" id="tw" inputmode="numeric" value="${t.water ?? 8}"></label></div></div>
+    <div class="card stack"><h2>Note on her Today screen</h2><textarea class="input" id="msg" placeholder="e.g. Proud of you this week! Try paneer at dinner.">${esc(S.content.message || '')}</textarea><p class="small muted">Leave empty to hide it.</p></div>
+    <div class="card stack small muted"><strong style="color:var(--text)">Published</strong><span>Version ${S.content.version || 0} · ${S.content.updatedAt ? new Date(S.content.updatedAt).toLocaleString() : 'never'}</span>
+      <button class="btn ghost sm" type="button" id="logout" style="align-self:flex-start">Forget token on this device</button></div></div>`;
+}
+function wireSettings() {
+  const t = S.content.targets;
+  $('#tk').oninput = (e) => { t.kcal = Math.max(800, parseInt(e.target.value) || 0); markDirty(); };
+  $('#tp').oninput = (e) => { t.protein = Math.max(20, parseInt(e.target.value) || 0); markDirty(); };
+  $('#tw').oninput = (e) => { t.water = Math.max(1, parseInt(e.target.value) || 8); markDirty(); };
+  $('#msg').oninput = (e) => { S.content.message = e.target.value.slice(0, 220); markDirty(); };
+  $('#logout').onclick = () => { localStorage.removeItem(LS_TOKEN); S.token = ''; viewSetup(); };
+}
+
+window.addEventListener('beforeunload', (e) => { if (S.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+async function boot() {
+  if (!S.token) return viewSetup();
+  app('<p class="muted">Loading…</p>');
+  try { await loadContent(); render(); }
+  catch (e) { viewSetup(e.message); }
+}
+boot();
+</script>
+</body>
+</html>

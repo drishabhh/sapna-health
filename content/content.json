@@ -1,0 +1,704 @@
+{
+ "version": 1,
+ "updatedAt": "2026-10-18T12:00:00Z",
+ "targets": {
+  "kcal": 1300,
+  "protein": 100,
+  "water": 8
+ },
+ "plans": [
+  {
+   "id": "upper-a",
+   "title": "Upper body A",
+   "note": "Rest 1–1.5 min between sets. Sip warm water.",
+   "moves": [
+    {
+     "exId": "arm-circles",
+     "sets": 1,
+     "reps": 10,
+     "unit": "reps"
+    },
+    {
+     "exId": "torso-rotations",
+     "sets": 1,
+     "reps": 10,
+     "unit": "reps"
+    },
+    {
+     "exId": "spine-stretch",
+     "sets": 1,
+     "reps": 10,
+     "unit": "reps"
+    },
+    {
+     "exId": "chest-press",
+     "sets": 3,
+     "reps": 12,
+     "unit": "reps"
+    },
+    {
+     "exId": "lat-pulldown",
+     "sets": 3,
+     "reps": 12,
+     "unit": "reps"
+    },
+    {
+     "exId": "cable-row",
+     "sets": 3,
+     "reps": 12,
+     "unit": "reps"
+    },
+    {
+     "exId": "shoulder-press",
+     "sets": 3,
+     "reps": 10,
+     "unit": "reps"
+    }
+   ]
+  },
+  {
+   "id": "lower-a",
+   "title": "Lower body",
+   "note": "Go easy on the knees — slow and controlled beats heavy.",
+   "moves": [
+    {
+     "exId": "leg-swings",
+     "sets": 1,
+     "reps": 10,
+     "unit": "reps"
+    },
+    {
+     "exId": "bodyweight-squats",
+     "sets": 1,
+     "reps": 12,
+     "unit": "reps"
+    },
+    {
+     "exId": "baby-sit",
+     "sets": 1,
+     "reps": 10,
+     "unit": "reps"
+    },
+    {
+     "exId": "db-squats",
+     "sets": 3,
+     "reps": 12,
+     "unit": "reps"
+    },
+    {
+     "exId": "leg-curl",
+     "sets": 3,
+     "reps": 12,
+     "unit": "reps"
+    },
+    {
+     "exId": "cycle-walk",
+     "sets": 1,
+     "reps": 10,
+     "unit": "min"
+    }
+   ]
+  }
+ ],
+ "exercises": [
+  {
+   "name": "Arm circles",
+   "group": "stretching",
+   "part": "arms",
+   "gif": "media/arm-circles.gif",
+   "cue": "Small circles, then bigger. Shoulders relaxed.",
+   "id": "arm-circles"
+  },
+  {
+   "name": "Torso rotations",
+   "group": "stretching",
+   "part": "core",
+   "gif": "media/torso-rotations.gif",
+   "cue": "Hips stay still, turn from the waist.",
+   "id": "torso-rotations"
+  },
+  {
+   "name": "Leg swings",
+   "group": "stretching",
+   "part": "legs",
+   "gif": "media/leg-swings.gif",
+   "cue": "Hold a wall. Swing front to back, 10 each side.",
+   "id": "leg-swings"
+  },
+  {
+   "name": "Baby sit",
+   "group": "stretching",
+   "part": "back",
+   "gif": "media/custom-baby-sit-mv3vcrf6.gif",
+   "cue": "Sink low, chest up, breathe slowly.",
+   "id": "baby-sit"
+  },
+  {
+   "name": "Arm rotation",
+   "group": "stretching",
+   "part": "arms",
+   "gif": "media/custom-arm-rotation-mvc7o8qb.gif",
+   "cue": "Slow and controlled.",
+   "id": "arm-rotation"
+  },
+  {
+   "name": "Bodyweight squats",
+   "group": "stretching",
+   "part": "legs",
+   "gif": "media/bodyweight-squats.gif",
+   "cue": "Warm-up pace, knees track over toes.",
+   "id": "bodyweight-squats"
+  },
+  {
+   "name": "Chest press flat bench",
+   "group": "exercises",
+   "part": "chest",
+   "equipment": "machine",
+   "gif": "media/chest-press.gif",
+   "cue": "Elbows about 45°, slow on the way back.",
+   "id": "chest-press"
+  },
+  {
+   "name": "Lat pulldown",
+   "group": "exercises",
+   "part": "back",
+   "equipment": "cable",
+   "gif": "media/lat-pulldown.gif",
+   "cue": "Pull to upper chest, squeeze shoulder blades.",
+   "id": "lat-pulldown"
+  },
+  {
+   "name": "Seated cable row",
+   "group": "exercises",
+   "part": "back",
+   "equipment": "cable",
+   "gif": "media/cable-row.gif",
+   "cue": "Tall back, pull elbows past your ribs.",
+   "id": "cable-row"
+  },
+  {
+   "name": "Shoulder press",
+   "group": "exercises",
+   "part": "shoulders",
+   "equipment": "dumbbell",
+   "gif": "media/shoulder-press.gif",
+   "cue": "Core tight, press straight up.",
+   "id": "shoulder-press"
+  },
+  {
+   "name": "Dumbbell squats",
+   "group": "exercises",
+   "part": "legs",
+   "equipment": "dumbbell",
+   "gif": "media/db-squats.gif",
+   "cue": "Sit back like into a chair, chest up.",
+   "id": "db-squats"
+  },
+  {
+   "name": "Seated leg curl",
+   "group": "exercises",
+   "part": "legs",
+   "equipment": "machine",
+   "gif": "media/leg-curl.gif",
+   "cue": "Control the way back up.",
+   "id": "leg-curl"
+  },
+  {
+   "name": "Cycle / treadmill walk",
+   "group": "exercises",
+   "part": "cardio",
+   "equipment": "machine",
+   "gif": "media/cycle-walk.gif",
+   "cue": "Easy steady pace — you can still talk.",
+   "id": "cycle-walk"
+  },
+  {
+   "name": "Spine stretch",
+   "group": "stretching",
+   "part": "back",
+   "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/spine/spine-stretch.gif",
+   "cue": "Round down slowly, one vertebra at a time.",
+   "id": "spine-stretch"
+  }
+ ],
+ "foods": [
+  {
+   "id": "pkg-thf-zero-maida-ww-bread",
+   "name": "The Health Factory — Zero Maida Simply Whole Wheat Bread",
+   "portion": "100g",
+   "kcal": 241,
+   "protein": 13.4,
+   "carbs": 44.0,
+   "fat": 1.3,
+   "fiber": 6.3,
+   "tags": [
+    "packaged",
+    "bread",
+    "the health factory"
+   ]
+  },
+  {
+   "id": "roti",
+   "name": "Roti",
+   "portion": "1 medium",
+   "kcal": 120,
+   "protein": 3.5,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "rice-cup",
+   "name": "Cooked rice",
+   "portion": "1 cup",
+   "kcal": 200,
+   "protein": 4.0,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "dal-bowl",
+   "name": "Dal",
+   "portion": "1 bowl",
+   "kcal": 180,
+   "protein": 12.0,
+   "tags": [
+    "protein",
+    "indian"
+   ]
+  },
+  {
+   "id": "paneer-100",
+   "name": "Paneer",
+   "portion": "100 g",
+   "kcal": 265,
+   "protein": 18.0,
+   "tags": [
+    "protein",
+    "indian"
+   ]
+  },
+  {
+   "id": "chicken-100",
+   "name": "Chicken breast",
+   "portion": "100 g cooked",
+   "kcal": 165,
+   "protein": 31.0,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "egg",
+   "name": "Egg",
+   "portion": "1 whole",
+   "kcal": 78,
+   "protein": 6.3,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "egg-white",
+   "name": "Egg white",
+   "portion": "1",
+   "kcal": 17,
+   "protein": 3.6,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "curd-cup",
+   "name": "Curd / dahi",
+   "portion": "1 cup",
+   "kcal": 150,
+   "protein": 8.0,
+   "tags": [
+    "protein",
+    "indian"
+   ]
+  },
+  {
+   "id": "milk-cup",
+   "name": "Milk",
+   "portion": "1 cup",
+   "kcal": 150,
+   "protein": 8.0,
+   "tags": [
+    "protein",
+    "drink"
+   ]
+  },
+  {
+   "id": "greek-yogurt",
+   "name": "Greek yogurt",
+   "portion": "100 g",
+   "kcal": 97,
+   "protein": 9.0,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "whey",
+   "name": "Whey protein scoop",
+   "portion": "1 serving",
+   "kcal": 120,
+   "protein": 24.0,
+   "tags": [
+    "protein",
+    "supplement"
+   ]
+  },
+  {
+   "id": "oats",
+   "name": "Oats",
+   "portion": "40 g dry",
+   "kcal": 150,
+   "protein": 5.0,
+   "tags": [
+    "carb"
+   ]
+  },
+  {
+   "id": "banana",
+   "name": "Banana",
+   "portion": "1 medium",
+   "kcal": 105,
+   "protein": 1.3,
+   "tags": [
+    "fruit"
+   ]
+  },
+  {
+   "id": "apple",
+   "name": "Apple",
+   "portion": "1 medium",
+   "kcal": 95,
+   "protein": 0.5,
+   "tags": [
+    "fruit"
+   ]
+  },
+  {
+   "id": "almonds10",
+   "name": "Almonds",
+   "portion": "10 pcs",
+   "kcal": 70,
+   "protein": 2.5,
+   "tags": [
+    "snack"
+   ]
+  },
+  {
+   "id": "peanut-butter",
+   "name": "Peanut butter",
+   "portion": "1 tbsp",
+   "kcal": 95,
+   "protein": 4.0,
+   "tags": [
+    "snack"
+   ]
+  },
+  {
+   "id": "sabzi",
+   "name": "Mixed sabzi",
+   "portion": "1 bowl",
+   "kcal": 120,
+   "protein": 4.0,
+   "tags": [
+    "veg",
+    "indian"
+   ]
+  },
+  {
+   "id": "salad",
+   "name": "Salad bowl",
+   "portion": "1 serving",
+   "kcal": 80,
+   "protein": 3.0,
+   "tags": [
+    "veg"
+   ]
+  },
+  {
+   "id": "idli2",
+   "name": "Idli",
+   "portion": "2 pcs",
+   "kcal": 120,
+   "protein": 4.0,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "thatte-idli",
+   "name": "Thatte idli",
+   "portion": "1 large",
+   "kcal": 180,
+   "protein": 6.0,
+   "carbs": 38.0,
+   "fat": 0.5,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "dosa",
+   "name": "Dosa",
+   "portion": "1 plain",
+   "kcal": 160,
+   "protein": 4.0,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "poha",
+   "name": "Poha",
+   "portion": "1 plate",
+   "kcal": 250,
+   "protein": 6.0,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "upma",
+   "name": "Upma",
+   "portion": "1 plate",
+   "kcal": 220,
+   "protein": 6.0,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "paratha",
+   "name": "Paratha",
+   "portion": "1 plain",
+   "kcal": 210,
+   "protein": 5.0,
+   "tags": [
+    "carb",
+    "indian"
+   ]
+  },
+  {
+   "id": "khichdi",
+   "name": "Khichdi",
+   "portion": "1 bowl",
+   "kcal": 220,
+   "protein": 8.0,
+   "tags": [
+    "indian"
+   ]
+  },
+  {
+   "id": "fish-100",
+   "name": "Fish",
+   "portion": "100 g cooked",
+   "kcal": 140,
+   "protein": 25.0,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "tofu-100",
+   "name": "Tofu",
+   "portion": "100 g",
+   "kcal": 80,
+   "protein": 8.0,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "chana",
+   "name": "Chana / chickpeas",
+   "portion": "1 cup",
+   "kcal": 270,
+   "protein": 15.0,
+   "tags": [
+    "protein",
+    "indian"
+   ]
+  },
+  {
+   "id": "rajma",
+   "name": "Rajma",
+   "portion": "1 cup",
+   "kcal": 225,
+   "protein": 15.0,
+   "tags": [
+    "protein",
+    "indian"
+   ]
+  },
+  {
+   "id": "sprouts",
+   "name": "Sprouts salad",
+   "portion": "1 bowl",
+   "kcal": 100,
+   "protein": 7.0,
+   "tags": [
+    "protein",
+    "indian"
+   ]
+  },
+  {
+   "id": "cheese-slice",
+   "name": "Cheese slice",
+   "portion": "1 serving",
+   "kcal": 70,
+   "protein": 4.0,
+   "tags": [
+    "protein"
+   ]
+  },
+  {
+   "id": "bread2",
+   "name": "Bread",
+   "portion": "2 slices",
+   "kcal": 160,
+   "protein": 6.0,
+   "tags": [
+    "carb"
+   ]
+  },
+  {
+   "id": "potato",
+   "name": "Boiled potato",
+   "portion": "1 medium",
+   "kcal": 130,
+   "protein": 3.0,
+   "tags": [
+    "carb"
+   ]
+  },
+  {
+   "id": "ghee-tsp",
+   "name": "Ghee",
+   "portion": "1 tsp",
+   "kcal": 45,
+   "protein": 0.0,
+   "tags": [
+    "fat",
+    "indian"
+   ]
+  },
+  {
+   "id": "oil-tsp",
+   "name": "Cooking oil",
+   "portion": "1 tsp",
+   "kcal": 40,
+   "protein": 0.0,
+   "tags": [
+    "fat"
+   ]
+  },
+  {
+   "id": "coffee-milk",
+   "name": "Coffee with milk",
+   "portion": "180ml",
+   "kcal": 60,
+   "protein": 2.0,
+   "tags": [
+    "drink",
+    "coffee"
+   ]
+  },
+  {
+   "id": "cold-coffee",
+   "name": "Cold coffee",
+   "portion": "250ml",
+   "kcal": 120,
+   "protein": 4.0,
+   "carbs": 18.0,
+   "fat": 3.0,
+   "tags": [
+    "drink",
+    "coffee",
+    "cold"
+   ]
+  },
+  {
+   "id": "chai",
+   "name": "Chai with milk",
+   "portion": "1 cup",
+   "kcal": 90,
+   "protein": 3.0,
+   "tags": [
+    "drink",
+    "indian"
+   ]
+  },
+  {
+   "id": "coconut-water",
+   "name": "Coconut water",
+   "portion": "1 glass",
+   "kcal": 45,
+   "protein": 0.5,
+   "tags": [
+    "drink"
+   ]
+  },
+  {
+   "id": "protein-bar",
+   "name": "Protein bar",
+   "portion": "1 serving",
+   "kcal": 200,
+   "protein": 15.0,
+   "tags": [
+    "snack",
+    "supplement"
+   ]
+  },
+  {
+   "id": "hummus",
+   "name": "Hummus",
+   "portion": "2 tbsp",
+   "kcal": 70,
+   "protein": 2.0,
+   "tags": [
+    "snack"
+   ]
+  },
+  {
+   "id": "avocado-half",
+   "name": "Avocado",
+   "portion": "½",
+   "kcal": 160,
+   "protein": 2.0,
+   "tags": [
+    "fat"
+   ]
+  },
+  {
+   "id": "pkg-custom-mix-high-protein-milk-oatmeal-bowl-with-s-916",
+   "name": "High Protein Milk Oatmeal Bowl with Seeds",
+   "portion": "1 Bowl (approx. 450ml milk + 132g oats + 24g seeds)",
+   "kcal": 916,
+   "protein": 58.8,
+   "carbs": 99.4,
+   "fat": 31.5,
+   "fiber": 13.9,
+   "tags": [
+    "packaged",
+    "brand",
+    "custom / mix"
+   ]
+  }
+ ],
+ "message": ""
+}
