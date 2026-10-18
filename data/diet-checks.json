@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-17T09:40:03.833Z",
+  "updatedAt": "2026-10-18T10:42:50.372Z",
   "days": {
     "2026-10-11": {
       "done": {
@@ -416,6 +416,18 @@
       "steps": 0
     },
     "2026-10-17": {
+      "done": {},
+      "deletedIds": [],
+      "updatedAt": null,
+      "amounts": {},
+      "extras": [],
+      "breakfast": [],
+      "lunch": [],
+      "dinner": [],
+      "snacks": [],
+      "steps": 0
+    },
+    "2026-10-18": {
       "done": {},
       "amounts": {},
       "deletedIds": [],
